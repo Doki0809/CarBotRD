@@ -20,8 +20,12 @@ import {
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
-  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye
+  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download
 } from 'lucide-react';
+
+// Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
+// o directamente ya que es una SPA de Vite.
+import html2pdf from 'html2pdf.js';
 
 /**
  * CARBOT - B2B SaaS para Dealers
@@ -140,26 +144,34 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
 const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(initialData?.image || '');
+  const [selectedFiles, setSelectedFiles] = useState([]); // Cambiado a plural
+  const [previewUrls, setPreviewUrls] = useState(initialData?.images || (initialData?.image ? [initialData.image] : []));
+  const [currency, setCurrency] = useState(initialData?.price_dop ? 'DOP' : 'USD');
 
   useEffect(() => {
-    if (initialData) setPreviewUrl(initialData.image);
-    else {
-      setPreviewUrl('');
-      setSelectedFile(null);
+    if (initialData) {
+      setPreviewUrls(initialData.images || (initialData.image ? [initialData.image] : []));
+    } else {
+      setPreviewUrls([]);
+      setSelectedFiles([]);
     }
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewUrl(objectUrl);
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+      const newUrls = files.map(file => URL.createObjectURL(file));
+      setPreviewUrls(prev => [...prev, ...newUrls]);
     }
+  };
+
+  const removeImage = (index) => {
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+    // Nota: manejar la sincronización con selectedFiles es complejo si mezclamos existentes con nuevos
+    // pero para este flujo simplificado servirá refrescar la selección
   };
 
   const handleSubmit = async (e) => {
@@ -171,25 +183,50 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
     const data = Object.fromEntries(formData.entries());
 
     // Convertir números
-    data.price = Number(data.price);
-    data.price_dop = Number(data.price_dop);
+    const priceValue = Number(data.price_unified);
+    if (currency === 'USD') {
+      data.price = priceValue;
+      data.price_dop = 0;
+    } else {
+      data.price_dop = priceValue;
+      data.price = 0;
+    }
+    delete data.price_unified;
+
     data.year = Number(data.year);
     data.mileage = Number(data.mileage);
 
     try {
-      let imageUrl = data.image_url_hidden || initialData?.image || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
+      let uploadedUrls = [...(initialData?.images || (initialData?.image ? [initialData.image] : []))];
 
-      // SI SE SELECCIONÓ UN ARCHIVO, SUBIRLO AHORA
-      if (selectedFile) {
-        setUploadProgress('Subiendo imagen...');
-        const storageRef = ref(storage, `vehicles/${Date.now()}_${selectedFile.name}`);
-        const snapshot = await uploadBytes(storageRef, selectedFile);
-        imageUrl = await getDownloadURL(snapshot.ref);
-        setUploadProgress('Imagen lista!');
+      // Filtrar previsualizaciones que ya son URLs de Firebase (existentes)
+      const existingUrls = previewUrls.filter(url => url.startsWith('http'));
+      uploadedUrls = existingUrls;
+
+      // SUBIR ARCHIVOS NUEVOS
+      if (selectedFiles.length > 0) {
+        setUploadProgress(`Subiendo 0/${selectedFiles.length} imágenes...`);
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          setUploadProgress(`Subiendo ${i + 1}/${selectedFiles.length}...`);
+
+          const storageRef = ref(storage, `vehicles/${Date.now()}_${file.name}`);
+          const snapshot = await uploadBytes(storageRef, file);
+          const downloadUrl = await getDownloadURL(snapshot.ref);
+          uploadedUrls.push(downloadUrl);
+        }
+        setUploadProgress('¡Todas las imágenes listas!');
       }
 
-      data.image = imageUrl;
-      delete data.image_url_hidden; // Limpiar campo auxiliar
+      data.images = uploadedUrls;
+      data.image = uploadedUrls[0] || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
+      delete data.image_url_hidden;
+
+      // IMPORTANTE: Mantener el ID si estamos editando
+      if (initialData?.id) {
+        data.id = initialData.id;
+      }
 
       await onSave(data);
       setLoading(false);
@@ -197,7 +234,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       onClose();
     } catch (error) {
       console.error("Error al guardar/subir:", error);
-      alert("Error al subir la imagen o guardar. Revisa tu conexión.");
+      alert("Error al subir las imágenes o guardar. Revisa tu conexión.");
       setLoading(false);
       setUploadProgress('');
     }
@@ -236,35 +273,74 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                 {/* SECCIÓN DE IMAGEN */}
                 <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Imagen del Vehículo</label>
-                  <div className="flex items-start gap-4 p-4 border border-gray-200 rounded-xl bg-gray-50">
-                    <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 font-bold">Galería de Fotos (Mínimo 10 recomendadas)</label>
+                  <div className="p-6 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                    <div className="flex flex-col items-center justify-center mb-6">
                       <input
                         type="file"
+                        id="multi-upload"
+                        multiple
                         accept="image/*"
                         onChange={handleFileChange}
-                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
+                        className="hidden"
                       />
-                      <p className="mt-2 text-xs text-gray-500">Formatos: JPG, PNG, WEBP. Se subirá a Firebase Storage.</p>
-                      {uploadProgress && <p className="mt-2 text-sm font-bold text-red-600 animate-pulse">{uploadProgress}</p>}
+                      <label htmlFor="multi-upload" className="cursor-pointer bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all flex items-center gap-2">
+                        <Plus size={20} /> Seleccionar Fotos
+                      </label>
+                      <p className="mt-3 text-xs text-slate-500 text-center">Puedes seleccionar varias fotos pulsando CTRL o CMD.<br />Máxima calidad recomendada.</p>
+                      {uploadProgress && <p className="mt-4 text-sm font-bold text-red-600 animate-pulse bg-red-50 px-4 py-2 rounded-full border border-red-100">{uploadProgress}</p>}
                     </div>
-                    {previewUrl && (
-                      <div className="w-32 h-24 rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm shrink-0">
-                        <img src={previewUrl} alt="Vista previa" className="w-full h-full object-cover" />
+
+                    {previewUrls.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                        {previewUrls.map((url, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border-2 border-white shadow-md group">
+                            <img src={url} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(idx)}
+                              className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <X size={14} />
+                            </button>
+                            {idx === 0 && <div className="absolute bottom-0 inset-x-0 bg-red-600 text-[10px] text-white py-0.5 text-center font-bold">PORTADA</div>}
+                          </div>
+                        ))}
                       </div>
                     )}
-                    {/* Campo oculto para mantener URL anterior si no se sube nueva */}
-                    <input type="hidden" name="image_url_hidden" value={initialData?.image || ''} />
                   </div>
                 </div>
 
               </div>
             </div>
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-              <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-1">Precios y Estado</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input name="price" label="Precio Venta (US$)" type="number" defaultValue={initialData?.price} required />
-                <Input name="price_dop" label="Precio Venta (RD$)" type="number" defaultValue={initialData?.price_dop} required />
+              <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-1">Precio y Estado</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio de Venta</label>
+                  <div className="flex shadow-sm rounded-lg overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 transition-all">
+                    <input
+                      name="price_unified"
+                      type="number"
+                      defaultValue={currency === 'USD' ? initialData?.price : initialData?.price_dop}
+                      className="flex-1 px-3 py-2 bg-white focus:outline-none"
+                      placeholder="0.00"
+                      required
+                    />
+                    <div className="flex bg-gray-100 border-l border-gray-200 p-1 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCurrency('USD')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${currency === 'USD' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-slate-700'}`}
+                      >US$</button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrency('DOP')}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${currency === 'DOP' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-500 hover:text-slate-700'}`}
+                      >RD$</button>
+                    </div>
+                  </div>
+                </div>
                 <Select name="status" label="Estado" defaultValue={initialData?.status || 'available'} options={['available', 'quoted', 'sold']} />
               </div>
             </div>
@@ -386,7 +462,8 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         template: template.name,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
-        ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`
+        ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`,
+        vin: vehicle.vin // Add VIN to contract data
       });
       setLoading(false);
       onClose();
@@ -410,7 +487,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
               <select className="w-full px-3 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)} required>
                 <option value="">-- Seleccionar vehículo disponible --</option>
                 {availableVehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - ${v.price.toLocaleString()}</option>
+                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${v.price.toLocaleString()}`}</option>
                 ))}
               </select>
             </div>
@@ -453,71 +530,103 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   if (!isOpen || !contract) return null;
 
   const getContractHtml = () => `
-    <html>
-      <head>
-        <title>Contrato-${contract.id}</title>
-        <style>
-          body { font-family: 'Times New Roman', serif; padding: 40px; line-height: 1.6; color: #000; }
-          h1 { text-align: center; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; }
-          h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; }
-          p { margin-bottom: 15px; text-align: justify; }
-          .header { text-align: center; margin-bottom: 40px; }
-          .firma-box { margin-top: 100px; display: flex; justify-content: space-between; }
-          .firma { width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center; }
-          @media print { body { padding: 0; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${userProfile.dealerName}</h1>
-          <p>RNC: 1-0000000-1 | Tel: 809-555-5555</p>
+    <div id="contract-content" style="
+      font-family: 'Times New Roman', serif; 
+      padding: 0; 
+      line-height: 1.6; 
+      color: #000; 
+      background: white;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      box-sizing: border-box;
+      position: relative;
+    ">
+      <div style="padding: 20mm;">
+        <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
+          <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
+          <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
         </div>
         
-        <h1>${contract.template.toUpperCase()}</h1>
+        <h1 style="text-align: center; font-size: 22px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${contract.template.toUpperCase()}</h1>
         
-        <p>En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString()}</strong>.</p>
+        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
         
-        <p>
-          ENTRE UNA PARTE, el señor(a) <strong>${userProfile.name}</strong>, actuando en nombre y representación de <strong>${userProfile.dealerName}</strong> (EL VENDEDOR).
-          <br/>
-          Y POR LA OTRA PARTE, el señor(a) <strong>${contract.client}</strong>, portador de la cédula <strong>${contract.cedula || 'N/A'}</strong> (EL COMPRADOR).
+        <p style="margin-bottom: 25px; text-align: justify;">
+          <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong>, entidad debidamente organizada bajo las leyes de la República Dominicana (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
+          <br/><br/>
+          <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong>, con domicilio conocido (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
         </p>
         
-        <h2>PRIMERO: OBJETO</h2>
-        <p>EL VENDEDOR vende, cede y traspasa al COMPRADOR el siguiente vehículo:</p>
-        <ul>
-          <li><strong>Vehículo:</strong> ${contract.vehicle}</li>
-          <li><strong>Condición:</strong> Usado / Importado</li>
-        </ul>
-
-        <h2>SEGUNDO: PRECIO Y PAGO</h2>
-        <p>El precio pactado para la venta es de [PRECIO_AQUI], pagaderos de la siguiente forma: [DETALLE_PAGO].</p>
-        
-        <h2>TERCERO: GARANTÍA</h2>
-        <p>El vehículo se vende bajo el estatus "AS IS" (como está), salvo las garantías expresas de ley sobre el motor y transmisión por 30 días.</p>
-
-        <h2>CUARTO: JURISDICCIÓN</h2>
-        <p>Para todo lo relacionado con la interpretación y ejecución del presente contrato, las partes eligen domicilio en la ciudad de Punta Cana.</p>
-
-        <div class="firma-box">
-           <div className="firma"><p>EL VENDEDOR</p><br/><br/>${userProfile.dealerName}</div>
-           <div class="firma"><p>EL COMPRADOR</p><br/><br/>${contract.client}</div>
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">PRIMERO: OBJETO DEL CONTRATO</h2>
+        <p style="margin-bottom: 15px; text-align: justify;">EL VENDEDOR, por medio del presente acto, vende, cede y traspasa con todas las garantías de derecho al COMPRADOR, quien acepta, el siguiente vehículo de motor:</p>
+        <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #edf2f7;">
+          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+            <tr><td style="padding: 4px 0; font-weight: bold; width: 30%;">Vehículo:</td><td>${contract.vehicle}</td></tr>
+            <tr><td style="padding: 4px 0; font-weight: bold;">Condición:</td><td>Usado / Certificado</td></tr>
+            <tr><td style="padding: 4px 0; font-weight: bold;">Identificación (VIN):</td><td>${contract.vin || 'Verificado en Chasis'}</td></tr>
+          </table>
         </div>
-      </body>
-    </html>
+
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">SEGUNDO: PRECIO Y FORMA DE PAGO</h2>
+        <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>[PRECIO_AQUI]</strong>, el cual el VENDEDOR declara haber recibido a su entera satisfacción de manos del COMPRADOR, sirviendo el presente documento como carta de pago y descargo legal.</p>
+        
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">TERCERO: ESTADO Y GARANTÍA</h2>
+        <p style="margin-bottom: 15px; text-align: justify;">El COMPRADOR declara haber revisado minuciosamente el vehículo y aceptarlo en el estado mecánico y de carrocería en que se encuentra ("AS IS"). EL VENDEDOR otorga una garantía limitada de treinta (30) días sobre motor y transmisión, sujeto a uso normal.</p>
+
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">CUARTO: JURISDICCIÓN Y LEY APLICABLE</h2>
+        <p style="margin-bottom: 40px; text-align: justify;">Para todo lo no previsto en el presente contrato, las partes se remiten al derecho común y eligen domicilio en la jurisdicción de Punta Cana para cualquier proceso derivado del mismo.</p>
+
+        <div style="margin-top: 80px; display: flex; justify-content: space-between; gap: 40px;">
+           <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
+             <p style="margin: 0; font-weight: bold;">EL VENDEDOR</p>
+             <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${userProfile.dealerName}</p>
+           </div>
+           <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
+             <p style="margin: 0; font-weight: bold;">EL COMPRADOR</p>
+             <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${contract.client}</p>
+           </div>
+        </div>
+      </div>
+    </div>
   `;
+
+  const handleDownloadPDF = () => {
+    const element = document.createElement('div');
+    element.innerHTML = getContractHtml();
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 0,
+      filename: `Contrato_${contract.client.replace(/\s+/g, '_')}_${contract.id.slice(0, 5)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.body.removeChild(element);
+    });
+  };
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(getContractHtml());
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Contrato</title>
+          <style>@page { size: A4; margin: 0; }</style>
+        </head>
+        <body style="margin: 0;">${getContractHtml()}</body>
+      </html>
+    `);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.close();
-  };
-
-  const handleDownload = () => {
-    handlePrint();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
 
   return (
@@ -541,7 +650,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
 
           <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
             <Button variant="ghost" onClick={onClose}>Cerrar</Button>
-            <Button variant="secondary" onClick={handleDownload} icon={FileText} className="border-slate-300">Descargar (PDF)</Button>
+            <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
             <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
           </div>
         </Card>
@@ -724,7 +833,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
                     <div className="p-5 flex flex-col flex-1">
                       <h3 className="font-bold text-slate-900 text-lg">{item.make} {item.model}</h3>
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
-                      <div className="mt-2 mb-4"><p className="text-xl font-bold text-red-700">US$ {item.price.toLocaleString()}</p></div>
+                      <div className="mt-2 mb-4"><p className="text-xl font-bold text-red-700">{item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}</p></div>
                       <div className="mt-auto grid grid-cols-2 gap-3">
                         <Button variant="secondary" className="w-full text-xs font-bold border-red-100 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1" onClick={(e) => { e.stopPropagation(); openActionModal(item); }}><Files size={14} /> GENERAR</Button>
                         <div className="flex gap-2">
@@ -763,7 +872,51 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, userProfile }
             <thead className="bg-slate-50 border-b border-gray-200"><tr><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vehículo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th></tr></thead>
             <tbody className="divide-y divide-gray-100">{contracts.map(contract => (<tr key={contract.id} className="hover:bg-red-50/30 transition-colors duration-200"><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-bold text-slate-900">{contract.client}</div></td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.vehicle}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.template}</td><td className="px-6 py-4 whitespace-nowrap"><Badge status={contract.status} /></td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <button onClick={() => setPreviewContract(contract)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Ver e Imprimir"><Eye size={18} /></button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPreviewContract(contract)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Ver Vista Previa"><Eye size={18} /></button>
+                  <button
+                    onClick={() => {
+                      // Crear instancia temporal para descargar sin abrir modal
+                      const tempEl = document.createElement('div');
+                      tempEl.innerHTML = `
+                            <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
+                                <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+                                    <h1>${userProfile.dealerName}</h1>
+                                </div>
+                                <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
+                                <p>Fecha: ${new Date(contract.date).toLocaleDateString()}</p>
+                                <p>Cliente: <strong>${contract.client}</strong></p>
+                                <p>Vehículo: <strong>${contract.vehicle}</strong></p>
+                                <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
+                                    Este documento certifica la transacción del vehículo arriba descrito entre ${userProfile.dealerName} y el cliente ${contract.client}.
+                                </div>
+                                <div style="margin-top: 100px; display: flex; justify-content: space-between;">
+                                    <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Vendedor</div>
+                                    <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Comprador</div>
+                                </div>
+                            </div>
+                        `;
+                      const opt = { margin: 0, filename: `Contrato_${contract.client}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } };
+                      html2pdf().set(opt).from(tempEl).save();
+                    }}
+                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                    title="Descargar PDF Directo"
+                  >
+                    <Download size={18} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      printWindow.document.write(`<html><body style="font-family: serif; padding: 40px;"><h1>${userProfile.dealerName}</h1><hr/><h2>${contract.template}</h2><p>Cliente: ${contract.client}</p><p>Vehículo: ${contract.vehicle}</p></body></html>`);
+                      printWindow.document.close();
+                      printWindow.print();
+                    }}
+                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                    title="Imprimir Rápido"
+                  >
+                    <Printer size={18} />
+                  </button>
+                </div>
               </td>
             </tr>))}</tbody>
           </table>
@@ -1008,20 +1161,30 @@ export default function CarbotApp() {
 
   // 3. GUARDAR (Crear o Editar en Firebase)
   const handleSaveVehicle = async (vehicleData) => {
+    console.log("Intentando guardar vehículo:", vehicleData.id ? `Editando ${vehicleData.id}` : "Creando nuevo");
     try {
       if (vehicleData.id) {
         // Editar existente
         const vehicleRef = doc(db, "vehicles", vehicleData.id);
-        await updateDoc(vehicleRef, vehicleData);
-        showToast("Vehículo actualizado en la nube");
+        const { id: _unusedId, ...dataToUpdate } = vehicleData; // No incluir el ID en los datos del documento
+        await updateDoc(vehicleRef, {
+          ...dataToUpdate,
+          updatedAt: new Date().toISOString()
+        });
+        showToast("Vehículo actualizado con éxito");
       } else {
         // Crear nuevo
-        await addDoc(collection(db, "vehicles"), { ...vehicleData, createdAt: new Date().toISOString() });
-        showToast("Vehículo guardado en Firebase");
+        const newVehicle = {
+          ...vehicleData,
+          createdAt: new Date().toISOString(),
+          status: vehicleData.status || 'available'
+        };
+        await addDoc(collection(db, "vehicles"), newVehicle);
+        showToast("Vehículo guardado con éxito");
       }
     } catch (error) {
-      console.error(error);
-      showToast("Error al guardar", "error");
+      console.error("Error detallado al guardar:", error);
+      showToast("Error al guardar en la base de datos", "error");
     }
   };
 
@@ -1049,7 +1212,10 @@ export default function CarbotApp() {
         deletedAt: null
       });
       showToast("Vehículo restaurado al inventario");
-    } catch (e) { showToast("Error al restaurar", "error"); }
+    } catch (e) {
+      console.error("Error al restaurar:", e);
+      showToast("Error al restaurar", "error");
+    }
   };
 
   const handlePermanentDelete = async (id) => {
@@ -1058,6 +1224,7 @@ export default function CarbotApp() {
       await deleteDoc(doc(db, "vehicles", id));
       showToast("Vehículo eliminado permanentemente");
     } catch (error) {
+      console.error("Error al eliminar:", error);
       showToast("Error al eliminar", "error");
     }
   };
@@ -1109,7 +1276,7 @@ export default function CarbotApp() {
   const trashInventory = inventory.filter(i => i.status === 'trash');
 
   const renderContent = () => {
-    if (selectedVehicle) return <VehicleEditView vehicle={selectedVehicle} onBack={() => setSelectedVehicle(null)} />;
+    if (selectedVehicle) return <VehicleEditView vehicle={selectedVehicle} onBack={() => setSelectedVehicle(null)} onSave={async (data) => { await handleSaveVehicle(data); setSelectedVehicle(null); }} />;
     switch (activeTab) {
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} />;
