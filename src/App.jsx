@@ -1116,59 +1116,71 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
   );
 };
 
-const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContract, userProfile, searchTerm }) => {
+const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onDeleteQuote, userProfile, searchTerm }) => {
+  const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
-  const [previewContract, setPreviewContract] = useState(null);
   const [editingContract, setEditingContract] = useState(null);
   const [sortConfig, setSortConfig] = useState('date_desc');
 
-  const groupedContracts = useMemo(() => {
+  const filteredData = useMemo(() => {
+    const dataToFilter = activeView === 'contracts' ? contracts : quotes;
+
     // 1. Filtrar por búsqueda
-    const filtered = contracts.filter(c =>
-      (c?.client || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c?.vehicle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c?.template || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = dataToFilter.filter(item => {
+      const search = searchTerm.toLowerCase();
+      if (activeView === 'contracts') {
+        return (item?.client || '').toLowerCase().includes(search) ||
+          (item?.vehicle || '').toLowerCase().includes(search) ||
+          (item?.template || '').toLowerCase().includes(search);
+      } else {
+        return (item?.name || '').toLowerCase().includes(search) ||
+          (item?.lastname || '').toLowerCase().includes(search) ||
+          (item?.vehicle || '').toLowerCase().includes(search) ||
+          (item?.phone || '').toLowerCase().includes(search);
+      }
+    });
 
     // 2. Ordenar
     filtered.sort((a, b) => {
-      const da = new Date(a.date || a.createdAt || 0);
-      const db = new Date(b.date || b.createdAt || 0);
+      const da = new Date(a.createdAt || 0);
+      const db = new Date(b.createdAt || 0);
       switch (sortConfig) {
         case 'date_desc': return db - da;
         case 'date_asc': return da - db;
-        case 'client_asc': return a.client.localeCompare(b.client);
-        case 'vehicle_asc': return a.vehicle.localeCompare(b.vehicle);
+        case 'client_asc': {
+          const nameA = activeView === 'contracts' ? a.client : `${a.name} ${a.lastname}`;
+          const nameB = activeView === 'contracts' ? b.client : `${b.name} ${b.lastname}`;
+          return nameA.localeCompare(nameB);
+        }
+        case 'vehicle_asc': return (a.vehicle || '').localeCompare(b.vehicle || '');
         default: return 0;
       }
     });
 
-    // 3. Agrupar (Solo si es por fecha, si no, un solo grupo "RESULTADOS")
+    // 3. Agrupar por mes
     const groups = {};
-    filtered.forEach(c => {
+    filtered.forEach(item => {
       let groupKey = "RESULTADOS DE BÚSQUEDA";
       if (sortConfig.startsWith('date')) {
-        const rawDate = c.date || c.createdAt;
-        const d = rawDate ? new Date(rawDate) : new Date();
+        const d = new Date(item.createdAt);
         const validDate = isNaN(d.getTime()) ? new Date() : d;
         groupKey = validDate.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
       }
 
       if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(c);
+      groups[groupKey].push(item);
     });
     return groups;
-  }, [contracts, searchTerm, sortConfig]);
+  }, [contracts, quotes, activeView, searchTerm, sortConfig]);
 
-  const handleDelete = (id) => {
-    if (window.confirm("¿ESTÁS SEGURO? Esta acción no se puede deshacer y el contrato se eliminará para siempre.")) {
-      onDeleteContract(id);
+  const handleDeleteItem = (id) => {
+    const confirmMsg = activeView === 'contracts'
+      ? "¿ESTÁS SEGURO? Esta acción eliminará el contrato permanentemente."
+      : "¿Seguro que deseas eliminar esta cotización?";
+    if (window.confirm(confirmMsg)) {
+      if (activeView === 'contracts') onDeleteContract(id);
+      else onDeleteQuote(id);
     }
-  };
-
-  const handleEdit = (contract) => {
-    setEditingContract(contract);
-    setIsGenerateModalOpen(true);
   };
 
   const downloadPDF = (contract) => {
@@ -1183,88 +1195,109 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContr
           <p>Cliente: <strong>${contract.client}</strong></p>
           <p>Vehículo: <strong>${contract.vehicle}</strong></p>
           <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
-              Este documento certifica la transacción del vehículo arriba descrito entre ${userProfile.dealerName} y el cliente ${contract.client}.
-          </div>
-          <div style="margin-top: 100px; display: flex; justify-content: space-between;">
-              <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Vendedor</div>
-              <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Comprador</div>
+              Certificamos la transacción del vehículo descrito arriba.
           </div>
       </div>
     `;
-    const opt = { margin: 0, filename: `Contrato_${contract.client}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } };
-    html2pdf().set(opt).from(tempEl).save();
+    html2pdf().set({ filename: `Contrato_${contract.client}.pdf` }).from(tempEl).save();
   };
 
-  const printQuick = (contract) => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<html><body style="font-family: serif; padding: 40px;"><h1>${userProfile.dealerName}</h1><hr/><h2>${contract.template}</h2><p>Cliente: ${contract.client}</p><p>Vehículo: ${contract.vehicle}</p></body></html>`);
-    printWindow.document.close();
-    printWindow.print();
-  };
+  const totalItems = Object.values(filteredData).flat().length;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Contratos (GHL)</h1>
-          <p className="text-slate-500 text-sm mt-1">Historial organizado • {(groupedContracts ? Object.values(groupedContracts).flat().length : 0)} documentos</p>
+          <h1 className="text-2xl font-black text-slate-900">Documentos del Negocio</h1>
+          <p className="text-slate-500 text-sm mt-1">Historial organizado • {totalItems} registros</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <select
-            value={sortConfig}
-            onChange={(e) => setSortConfig(e.target.value)}
-            className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 cursor-pointer shadow-sm"
+
+        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-full md:w-auto">
+          <button
+            onClick={() => setActiveView('contracts')}
+            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'contracts' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
-            <option value="date_desc">Nuevos Primero</option>
-            <option value="date_asc">Antiguos Primero</option>
-            <option value="client_asc">Cliente (A-Z)</option>
-            <option value="vehicle_asc">Vehículo</option>
-          </select>
-          <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="shadow-lg shadow-red-600/20">
-            Generar Contrato
-          </Button>
+            Contratos
+          </button>
+          <button
+            onClick={() => setActiveView('quotes')}
+            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'quotes' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Cotizaciones
+          </button>
         </div>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <span className="text-xs font-bold text-slate-400 uppercase">Ordenar:</span>
+          <select
+            value={sortConfig}
+            onChange={(e) => setSortConfig(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border-none rounded-lg text-sm font-bold focus:ring-2 focus:ring-red-500/20 cursor-pointer"
+          >
+            <option value="date_desc">Recientes</option>
+            <option value="date_asc">Antiguos</option>
+            <option value="client_asc">Nombre</option>
+            <option value="vehicle_asc">Vehículo</option>
+          </select>
+        </div>
+        {activeView === 'contracts' && (
+          <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
+            Nuevo Contrato
+          </Button>
+        )}
+      </div>
+
       <div className="space-y-12">
-        {Object.keys(groupedContracts).map(monthYear => (
-          <div key={monthYear} className="space-y-6">
+        {Object.keys(filteredData).map(groupName => (
+          <div key={groupName} className="space-y-6">
             <div className="flex items-center gap-4">
-              <h2 className="text-sm font-black text-slate-400 tracking-[0.2em] whitespace-nowrap">{monthYear}</h2>
-              <div className="h-px w-full bg-slate-100"></div>
+              <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
+              <div className="h-px flex-1 bg-slate-100"></div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {groupedContracts[monthYear].map(contract => (
-                <Card key={contract.id} noPadding className="group hover:-translate-y-1 transition-all">
-                  <div className="p-6 border-b border-slate-50">
+              {filteredData[groupName].map(item => (
+                <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
+                  <div className="p-6">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="p-2 bg-red-50 text-red-600 rounded-xl">
-                        <FileText size={20} />
+                      <div className={`p-2 rounded-xl ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                        {activeView === 'contracts' ? <FileText size={20} /> : <Send size={20} />}
                       </div>
-                      <Badge status={contract.status} />
-                    </div>
-                    <h3 className="text-lg font-black text-slate-900 leading-tight mb-1">{contract.client}</h3>
-                    <p className="text-xs font-bold text-slate-400 mb-4">{contract.vehicle}</p>
-                    <div className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={12} className="text-slate-400" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          {new Date(contract.date || contract.createdAt).toLocaleDateString()}
-                        </span>
+                      <div className="flex gap-2">
+                        {activeView === 'contracts' && (
+                          <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Download size={18} /></button>
+                        )}
+                        <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
                       </div>
-                      <span className="text-[10px] font-black text-red-600/70">{contract.template}</span>
                     </div>
-                  </div>
-                  <div className="p-4 bg-slate-50/50 flex items-center justify-between">
-                    <div className="flex gap-1">
-                      <button onClick={() => setPreviewContract(contract)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-all shadow-sm shadow-transparent hover:shadow-slate-200/50" title="Vista Previa"><Eye size={16} /></button>
-                      <button onClick={() => downloadPDF(contract)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all shadow-sm shadow-transparent hover:shadow-slate-200/50" title="Descargar"><Download size={16} /></button>
-                      <button onClick={() => printQuick(contract)} className="p-2 text-slate-400 hover:text-green-600 hover:bg-white rounded-lg transition-all shadow-sm shadow-transparent hover:shadow-slate-200/50" title="Imprimir"><Printer size={16} /></button>
-                    </div>
-                    <div className="flex gap-1 border-l border-slate-200 pl-2">
-                      <button onClick={() => handleEdit(contract)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-lg transition-all shadow-sm shadow-transparent hover:shadow-slate-200/50" title="Editar"><Edit size={16} /></button>
-                      <button onClick={() => handleDelete(contract.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-all shadow-sm shadow-transparent hover:shadow-slate-200/50" title="Eliminar"><Trash2 size={16} /></button>
+
+                    <h3 className="text-lg font-black text-slate-900 mb-1">
+                      {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
+                    </h3>
+                    <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
+                      <Car size={12} /> {item.vehicle}
+                    </p>
+
+                    {activeView === 'quotes' && (
+                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
+                          <span className="text-slate-700 font-bold">{item.phone}</span>
+                        </div>
+                        {item.bank && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400 font-bold uppercase">Banco:</span>
+                            <span className="text-slate-700 font-bold">{item.bank}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                      <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}</div>
+                      {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
                     </div>
                   </div>
                 </Card>
@@ -1272,23 +1305,20 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContr
             </div>
           </div>
         ))}
+        {totalItems === 0 && (
+          <div className="py-20 text-center"><div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><Files size={32} /></div><p className="font-bold text-slate-400">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registrados</p></div>
+        )}
       </div>
 
-      {Object.keys(groupedContracts || {}).length === 0 && (
-        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-          <FileText size={48} className="mx-auto text-slate-200 mb-4" />
-          <p className="text-slate-400 font-bold">No hay contratos generados</p>
-        </div>
+      {isGenerateModalOpen && (
+        <GenerateContractModal
+          isOpen={isGenerateModalOpen}
+          onClose={() => setIsGenerateModalOpen(false)}
+          inventory={inventory}
+          onSave={onGenerateContract}
+          initialData={editingContract}
+        />
       )}
-
-      <GenerateContractModal
-        isOpen={isGenerateModalOpen}
-        onClose={() => { setIsGenerateModalOpen(false); setEditingContract(null); }}
-        inventory={inventory}
-        onGenerate={onGenerateContract}
-        initialVehicle={editingContract ? { ...editingContract, contractId: editingContract.id } : null}
-      />
-      <ContractPreviewModal isOpen={!!previewContract} onClose={() => setPreviewContract(null)} contract={previewContract} userProfile={userProfile} />
     </div>
   );
 };
@@ -1455,6 +1485,7 @@ export default function CarbotApp() {
   // 1. ESTADO DE DATOS (Vacío al inicio, se llena desde Firebase)
   const [inventory, setInventory] = useState([]);
   const [contracts, setContracts] = useState([]);
+  const [quotes, setQuotes] = useState([]);
 
   const [userProfile, setUserProfile] = useState(null);
 
@@ -1571,7 +1602,14 @@ export default function CarbotApp() {
       // Ordenar por fecha de creación descendente
       setContracts(contractsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     });
-    return () => unsubscribeContracts();
+    const unsubscribeQuotes = onSnapshot(collection(db, "quotes"), (snapshot) => {
+      const quotesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setQuotes(quotesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    });
+    return () => { unsubscribeContracts(); unsubscribeQuotes(); };
   }, []);
 
   if (initializing) {
@@ -1671,6 +1709,29 @@ export default function CarbotApp() {
   };
 
   // Funciones locales (Contratos, etc.)
+  const handleQuoteSent = async (quoteData) => {
+    try {
+      // 1. Guardar en la colección de cotizaciones
+      const newQuote = {
+        ...quoteData,
+        vehicleId: selectedVehicle?.id,
+        vehicle: `${selectedVehicle?.make} ${selectedVehicle?.model}`,
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(collection(db, "quotes"), newQuote);
+
+      // 2. Actualizar estado del vehículo
+      if (selectedVehicle?.id) {
+        const vehicleRef = doc(db, "vehicles", selectedVehicle.id);
+        await updateDoc(vehicleRef, { status: 'quoted', updatedAt: new Date().toISOString() });
+      }
+      showToast("Cotización guardada y enviada");
+    } catch (error) {
+      console.error("Error al guardar cotización:", error);
+      showToast("Error al procesar la cotización", "error");
+    }
+  };
+
   const handleGenerateContract = async (contractData) => {
     try {
       const { id, ...data } = contractData;
@@ -1710,6 +1771,16 @@ export default function CarbotApp() {
     }
   };
 
+  const handleDeleteQuote = async (id) => {
+    try {
+      await deleteDoc(doc(db, "quotes", id));
+      showToast("Cotización eliminada");
+    } catch (error) {
+      console.error("Error al eliminar cotización:", error);
+      showToast("Error al eliminar", "error");
+    }
+  };
+
   const handleVehicleSelect = (vehicle) => {
     setSelectedVehicle(vehicle);
   };
@@ -1743,7 +1814,7 @@ export default function CarbotApp() {
     switch (activeTab) {
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
