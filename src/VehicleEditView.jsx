@@ -185,13 +185,22 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">FECHA VENTA</p>
-                        <p className="text-sm font-black">{contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PRECIO VEHÍCULO</p>
+                        <p className="text-sm font-black">
+                          {formData.price_dop > 0 ? `RD$ ${formData.price_dop.toLocaleString()}` : `US$ ${formData.price.toLocaleString()}`}
+                        </p>
                       </div>
                       <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">MONTO FINAL</p>
-                        <p className="text-sm font-black text-right">{contract?.price ? `$${contract.price.toLocaleString()}` : 'N/A'}</p>
+                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">MONTO VENTA</p>
+                        <p className="text-sm font-black text-right">
+                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${contract.price.toLocaleString()}` : `US$ ${contract.price.toLocaleString()}`) : 'N/A'}
+                        </p>
                       </div>
+                    </div>
+
+                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                      <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">FECHA VENTA</p>
+                      <p className="text-sm font-black">{contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
 

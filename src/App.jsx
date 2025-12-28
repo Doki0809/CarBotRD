@@ -43,17 +43,25 @@ const CONTRACT_TEMPLATES = [
 ];
 
 // --- UI KIT ---
-export const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, ...props }) => {
+const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, ...props }) => {
   const variants = {
     primary: 'bg-red-600 text-white hover:bg-red-700 shadow-md hover:shadow-lg',
     secondary: 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm',
     ghost: 'bg-transparent text-slate-500 hover:bg-slate-100',
     danger: 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100',
   };
+
+  // Basic check for manual color overrides
+  const hasManualBg = className.includes('bg-');
+  const hasManualText = className.includes('text-');
+
+  const baseClasses = `px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 active:scale-95`;
+  const variantClasses = variants[variant] || variants.primary;
+
   return (
     <button
       onClick={onClick}
-      className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 ${variants[variant] || variants.primary} ${className}`}
+      className={`${baseClasses} ${!hasManualBg && !hasManualText ? variantClasses : ''} ${className}`}
       {...props}
     >
       {Icon && <Icon size={18} />}
@@ -481,11 +489,12 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         cedula: clientCedula,
         vehicle: `${vehicle.make} ${vehicle.model}`,
         vehicleId: vehicle.id,
+        price: vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price,
         template: template.name,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
         ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`,
-        vin: vehicle.vin // Add VIN to contract data
+        vin: vehicle.vin
       });
       setLoading(false);
       onClose();
@@ -770,7 +779,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
           </div>
           <div className="flex gap-3">
             <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => onNavigate('contracts')}>Ver Reporte</Button>
-            <Button className="bg-white text-red-600 hover:bg-red-50 shadow-xl" onClick={() => onNavigate('inventory')} icon={Plus}>Agregar Item</Button>
+            <Button className="bg-white !text-red-600 hover:bg-red-50 shadow-xl" onClick={() => onNavigate('inventory')} icon={Plus}>Agregar Vehículo</Button>
           </div>
         </div>
         {/* Subtle background decoration */}
@@ -973,7 +982,12 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
                     <div className="p-5 flex flex-col flex-1">
                       <h3 className="font-bold text-slate-900 text-lg">{item.make} {item.model}</h3>
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
-                      <div className="mt-2 mb-4"><p className="text-xl font-bold text-red-700">{item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}</p></div>
+                      <div className="mt-2 mb-4">
+                        <p className="text-xl font-bold text-red-700">
+                          {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase">Precio de Venta</span>}
+                          {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
+                        </p>
+                      </div>
                       <div className="mt-auto grid grid-cols-2 gap-3">
                         <Button variant="secondary" className="w-full text-xs font-bold border-red-100 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1" onClick={(e) => { e.stopPropagation(); openActionModal(item); }}><Files size={14} /> GENERAR</Button>
                         <div className="flex gap-2">
