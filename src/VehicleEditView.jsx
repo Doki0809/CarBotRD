@@ -106,8 +106,8 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
 
         {/* LEFT PANEL: GALLERY & VISUALS */}
-        <div className="xl:col-span-8 space-y-8">
-          <div className="relative bg-white rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-8 border-white h-[650px]">
+        <div className="xl:col-span-8 space-y-4 md:space-y-8">
+          <div className="relative bg-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white h-[400px] md:h-[650px]">
             <div className="w-full h-full relative group cursor-zoom-in" onClick={() => setIsLightboxOpen(true)}>
               <img
                 src={formData.images[activePhotoIndex]}
@@ -121,9 +121,9 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
               </div>
 
               {/* NAV CONTROLS */}
-              <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronLeft size={30} /></button>
-                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronRight size={30} /></button>
+              <div className="absolute inset-x-4 md:inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 md:p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronLeft size={24} className="md:w-[30px] md:h-[30px]" /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 md:p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronRight size={24} className="md:w-[30px] md:h-[30px]" /></button>
               </div>
 
 
@@ -131,7 +131,7 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
           </div>
 
           {/* THUMBNAILS GRID */}
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl shadow-slate-200/40 border border-slate-100">
+          <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-xl shadow-slate-200/40 border border-slate-100">
             <div className="flex items-center justify-between mb-6 px-2">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                 <Files size={16} className="text-red-500" />
@@ -157,15 +157,15 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
         </div>
 
         {/* RIGHT PANEL: INFO & CONTROLS */}
-        <div className="xl:col-span-4 space-y-8">
-          <div className="bg-white p-8 rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-8">
+        <div className="xl:col-span-4 space-y-4 md:space-y-8">
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-6 md:gap-8">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-red-600 font-black text-2xl tracking-tighter">{formData.year}</span>
                 <span className="w-2 h-2 rounded-full bg-slate-200"></span>
                 <span className="text-slate-400 font-bold text-lg uppercase">{formData.color}</span>
               </div>
-              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight leading-none">
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 uppercase tracking-tight leading-none">
                 {formData.make} <br />
                 <span className="text-red-700">{formData.model}</span>
               </h2>
@@ -218,7 +218,7 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                  className="w-full py-5 md:py-6 bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] font-black text-base md:text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
                 >
                   {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
                 </button>

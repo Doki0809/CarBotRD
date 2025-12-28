@@ -900,62 +900,135 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, userProfile }
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [previewContract, setPreviewContract] = useState(null);
 
+  const downloadPDF = (contract) => {
+    const tempEl = document.createElement('div');
+    tempEl.innerHTML = `
+      <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+              <h1>${userProfile.dealerName}</h1>
+          </div>
+          <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
+          <p>Fecha: ${new Date(contract.date).toLocaleDateString()}</p>
+          <p>Cliente: <strong>${contract.client}</strong></p>
+          <p>Vehículo: <strong>${contract.vehicle}</strong></p>
+          <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
+              Este documento certifica la transacción del vehículo arriba descrito entre ${userProfile.dealerName} y el cliente ${contract.client}.
+          </div>
+          <div style="margin-top: 100px; display: flex; justify-content: space-between;">
+              <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Vendedor</div>
+              <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Comprador</div>
+          </div>
+      </div>
+    `;
+    const opt = { margin: 0, filename: `Contrato_${contract.client}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } };
+    html2pdf().set(opt).from(tempEl).save();
+  };
+
+  const printQuick = (contract) => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<html><body style="font-family: serif; padding: 40px;"><h1>${userProfile.dealerName}</h1><hr/><h2>${contract.template}</h2><p>Cliente: ${contract.client}</p><p>Vehículo: ${contract.vehicle}</p></body></html>`);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center"><div><h1 className="text-3xl font-bold text-slate-900">Contratos (GHL)</h1><p className="text-slate-500 text-sm mt-1">Historial de documentos generados</p></div><Button icon={FilePlus} onClick={() => setIsGenerateModalOpen(true)} className="shadow-lg shadow-red-600/20">Generar Contrato</Button></div>
-      <Card noPadding className="overflow-hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Contratos (GHL)</h1>
+          <p className="text-slate-500 text-sm mt-1">Historial de documentos generados</p>
+        </div>
+        <Button icon={FilePlus} onClick={() => setIsGenerateModalOpen(true)} className="w-full sm:w-auto shadow-lg shadow-red-600/20">
+          Generar Contrato
+        </Button>
+      </div>
+
+      {/* VISTA MÓVIL: TARJETAS */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {contracts.map(contract => (
+          <Card key={contract.id} className="border-l-4 border-l-red-600">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <div className="text-sm font-black text-slate-900 uppercase">{contract.client}</div>
+                <div className="text-xs text-slate-500 mt-1">{contract.vehicle}</div>
+              </div>
+              <Badge status={contract.status} />
+            </div>
+            <div className="text-xs font-bold text-red-600/70 mb-4">{contract.template}</div>
+            <div className="flex items-center gap-2 pt-4 border-t border-slate-50">
+              <button
+                onClick={() => setPreviewContract(contract)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-all border border-slate-100"
+              >
+                <Eye size={16} /> Ver
+              </button>
+              <button
+                onClick={() => downloadPDF(contract)}
+                className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all border border-blue-100"
+                title="Descargar"
+              >
+                <Download size={18} />
+              </button>
+              <button
+                onClick={() => printQuick(contract)}
+                className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-all border border-green-100"
+                title="Imprimir"
+              >
+                <Printer size={18} />
+              </button>
+            </div>
+          </Card>
+        ))}
+        {contracts.length === 0 && (
+          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+            <FileText size={48} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-slate-400 font-bold">No hay contratos generados</p>
+          </div>
+        )}
+      </div>
+
+      {/* VISTA DESKTOP: TABLA */}
+      <Card noPadding className="hidden md:block overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-gray-200"><tr><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vehículo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{contracts.map(contract => (<tr key={contract.id} className="hover:bg-red-50/30 transition-colors duration-200"><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-bold text-slate-900">{contract.client}</div></td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.vehicle}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.template}</td><td className="px-6 py-4 whitespace-nowrap"><Badge status={contract.status} /></td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setPreviewContract(contract)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Ver Vista Previa"><Eye size={18} /></button>
-                  <button
-                    onClick={() => {
-                      // Crear instancia temporal para descargar sin abrir modal
-                      const tempEl = document.createElement('div');
-                      tempEl.innerHTML = `
-                            <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
-                                <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
-                                    <h1>${userProfile.dealerName}</h1>
-                                </div>
-                                <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
-                                <p>Fecha: ${new Date(contract.date).toLocaleDateString()}</p>
-                                <p>Cliente: <strong>${contract.client}</strong></p>
-                                <p>Vehículo: <strong>${contract.vehicle}</strong></p>
-                                <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
-                                    Este documento certifica la transacción del vehículo arriba descrito entre ${userProfile.dealerName} y el cliente ${contract.client}.
-                                </div>
-                                <div style="margin-top: 100px; display: flex; justify-content: space-between;">
-                                    <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Vendedor</div>
-                                    <div style="border-top: 1px solid #000; width: 40%; text-align: center; padding-top: 10px;">Comprador</div>
-                                </div>
-                            </div>
-                        `;
-                      const opt = { margin: 0, filename: `Contrato_${contract.client}.pdf`, jsPDF: { unit: 'mm', format: 'a4' } };
-                      html2pdf().set(opt).from(tempEl).save();
-                    }}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                    title="Descargar PDF Directo"
-                  >
-                    <Download size={18} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      const printWindow = window.open('', '_blank');
-                      printWindow.document.write(`<html><body style="font-family: serif; padding: 40px;"><h1>${userProfile.dealerName}</h1><hr/><h2>${contract.template}</h2><p>Cliente: ${contract.client}</p><p>Vehículo: ${contract.vehicle}</p></body></html>`);
-                      printWindow.document.close();
-                      printWindow.print();
-                    }}
-                    className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                    title="Imprimir Rápido"
-                  >
-                    <Printer size={18} />
-                  </button>
-                </div>
-              </td>
-            </tr>))}</tbody>
+            <thead className="bg-slate-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vehículo</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {contracts.map(contract => (
+                <tr key={contract.id} className="hover:bg-red-50/30 transition-colors duration-200">
+                  <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-bold text-slate-900">{contract.client}</div></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.vehicle}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.template}</td>
+                  <td className="px-6 py-4 whitespace-nowrap"><Badge status={contract.status} /></td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPreviewContract(contract)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Ver Vista Previa"><Eye size={18} /></button>
+                      <button
+                        onClick={() => downloadPDF(contract)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        title="Descargar PDF Directo"
+                      >
+                        <Download size={18} />
+                      </button>
+                      <button
+                        onClick={() => printQuick(contract)}
+                        className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                        title="Imprimir Rápido"
+                      >
+                        <Printer size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       </Card>
@@ -1304,6 +1377,7 @@ export default function CarbotApp() {
   };
 
   const handleNavigate = (tab, filter = 'all') => {
+    setSelectedVehicle(null);
     setActiveTab(tab);
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
