@@ -163,16 +163,19 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
 const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState([]); // Cambiado a plural
-  const [previewUrls, setPreviewUrls] = useState(initialData?.images || (initialData?.image ? [initialData.image] : []));
+  const [photos, setPhotos] = useState([]); // { url, file, isExisting }
   const [currency, setCurrency] = useState(initialData?.price_dop ? 'DOP' : 'USD');
 
   useEffect(() => {
-    if (initialData) {
-      setPreviewUrls(initialData.images || (initialData.image ? [initialData.image] : []));
-    } else {
-      setPreviewUrls([]);
-      setSelectedFiles([]);
+    if (initialData && isOpen) {
+      const existing = (initialData.images || (initialData.image ? [initialData.image] : [])).map(url => ({
+        url,
+        file: null,
+        isExisting: true
+      }));
+      setPhotos(existing);
+    } else if (!initialData && isOpen) {
+      setPhotos([]);
     }
   }, [initialData, isOpen]);
 
@@ -180,7 +183,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
-    const totalCurrent = previewUrls.length;
+    const totalCurrent = photos.length;
 
     if (totalCurrent + files.length > 10) {
       alert(`Límite excedido. El inventario permite un máximo de 10 fotos. Actualmente tienes ${totalCurrent} y estás intentando agregar ${files.length}.`);
@@ -188,29 +191,29 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
     }
 
     if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
-      const newUrls = files.map(file => URL.createObjectURL(file));
-      setPreviewUrls(prev => [...prev, ...newUrls]);
+      const newItems = files.map(file => ({
+        url: URL.createObjectURL(file),
+        file: file,
+        isExisting: false
+      }));
+      setPhotos(prev => [...prev, ...newItems]);
     }
   };
 
   const removeImage = (index) => {
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
-    // Nota: manejar la sincronización con selectedFiles es complejo si mezclamos existentes con nuevos
-    // pero para este flujo simplificado servirá refrescar la selección
+    setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (previewUrls.length === 0) {
+    if (photos.length === 0) {
       alert("Debes subir al menos 1 foto del vehículo.");
       return;
     }
 
     setLoading(true);
 
-    // Capturar datos del formulario
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
@@ -229,38 +232,39 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
     data.mileage = Number(data.mileage);
 
     try {
-      let uploadedUrls = [...(initialData?.images || (initialData?.image ? [initialData.image] : []))];
+      let uploadedUrls = [];
+      const filesToUpload = photos.filter(p => !p.isExisting && p.file);
+      const existingUrls = photos.filter(p => p.isExisting).map(p => p.url);
 
-      // Filtrar previsualizaciones que ya son URLs de Firebase (existentes)
-      const existingUrls = previewUrls.filter(url => url.startsWith('http'));
-      uploadedUrls = existingUrls;
+      uploadedUrls = [...existingUrls];
 
       // SUBIR ARCHIVOS NUEVOS
-      if (selectedFiles.length > 0) {
-        setUploadProgress(`Subiendo 0/${selectedFiles.length} imágenes...`);
+      if (filesToUpload.length > 0) {
+        setUploadProgress(`Preparando ${filesToUpload.length} imágenes...`);
 
-        for (let i = 0; i < selectedFiles.length; i++) {
-          const file = selectedFiles[i];
-          setUploadProgress(`Subiendo ${i + 1}/${selectedFiles.length}...`);
+        for (let i = 0; i < filesToUpload.length; i++) {
+          const item = filesToUpload[i];
+          setUploadProgress(`Subiendo foto ${i + 1} de ${filesToUpload.length}...`);
 
-          const storageRef = ref(storage, `vehicles/${Date.now()}_${file.name}`);
-          const snapshot = await uploadBytes(storageRef, file);
-          const downloadUrl = await getDownloadURL(snapshot.ref);
-          uploadedUrls.push(downloadUrl);
+          try {
+            const storageRef = ref(storage, `vehicles/${Date.now()}_${item.file.name}`);
+            const snapshot = await uploadBytes(storageRef, item.file);
+            const downloadUrl = await getDownloadURL(snapshot.ref);
+            uploadedUrls.push(downloadUrl);
+          } catch (err) {
+            console.error(`Error al subir la imagen ${i + 1}:`, err);
+            // Podríamos continuar o fallar aquí
+          }
         }
-        setUploadProgress('¡Todas las imágenes listas!');
+        setUploadProgress('¡Carga completada!');
       }
 
       data.images = uploadedUrls;
       data.image = uploadedUrls[0] || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
       delete data.image_url_hidden;
 
-      // IMPORTANTE: Mantener el ID si estamos editando
       if (initialData?.id) {
         data.id = initialData.id;
-        console.log("Editando vehículo, ID detectado:", data.id);
-      } else {
-        console.log("Nuevo vehículo, sin ID previo.");
       }
 
       await onSave(data);
@@ -268,8 +272,8 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       setUploadProgress('');
       onClose();
     } catch (error) {
-      console.error("Error al guardar/subir:", error);
-      alert("Error al subir las imágenes o guardar. Revisa tu conexión.");
+      console.error("Error crítico al guardar:", error);
+      alert("Error al procesar el guardado. Revisa tu conexión.");
       setLoading(false);
       setUploadProgress('');
     }
@@ -326,11 +330,11 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
                       {uploadProgress && <p className="mt-4 text-sm font-bold text-red-600 animate-pulse bg-red-50 px-4 py-2 rounded-full border border-red-100">{uploadProgress}</p>}
                     </div>
 
-                    {previewUrls.length > 0 && (
+                    {photos.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                        {previewUrls.map((url, idx) => (
+                        {photos.map((item, idx) => (
                           <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border-2 border-white shadow-md group">
-                            <img src={url} className="w-full h-full object-cover" />
+                            <img src={item.url} className="w-full h-full object-cover" />
                             <button
                               type="button"
                               onClick={() => removeImage(idx)}
@@ -1097,9 +1101,9 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContr
   const groupedContracts = useMemo(() => {
     // 1. Filtrar por búsqueda
     const filtered = contracts.filter(c =>
-      c.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.template.toLowerCase().includes(searchTerm.toLowerCase())
+      (c?.client || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c?.vehicle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c?.template || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // 2. Ordenar
@@ -1177,7 +1181,7 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContr
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Contratos (GHL)</h1>
-          <p className="text-slate-500 text-sm mt-1">Historial organizado • {Object.values(groupedContracts).flat().length} documentos</p>
+          <p className="text-slate-500 text-sm mt-1">Historial organizado • {(groupedContracts ? Object.values(groupedContracts).flat().length : 0)} documentos</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <select
@@ -1244,13 +1248,11 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContr
         ))}
       </div>
 
-      {groupedContracts.length === 0 && ( /* Objeto, no array, pero el user preferiría ver si está vacío */
-        Object.keys(groupedContracts).length === 0 && (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
-            <FileText size={48} className="mx-auto text-slate-200 mb-4" />
-            <p className="text-slate-400 font-bold">No hay contratos generados</p>
-          </div>
-        )
+      {Object.keys(groupedContracts || {}).length === 0 && (
+        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+          <FileText size={48} className="mx-auto text-slate-200 mb-4" />
+          <p className="text-slate-400 font-bold">No hay contratos generados</p>
+        </div>
       )}
 
       <GenerateContractModal
