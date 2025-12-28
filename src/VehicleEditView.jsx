@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Calendar, Fuel, Settings, Save, DollarSign,
   IdCard, Maximize, ChevronLeft, ChevronRight,
-  X, Info, Share2, Heart, Files
+  X, Info, Share2, Heart, Files, CheckCircle
 } from 'lucide-react';
 
-export default function VehicleEditView({ vehicle, onBack, onSave }) {
+export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
   const [loading, setLoading] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.price_dop > 0 ? 'DOP' : 'USD');
@@ -159,6 +159,32 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
         {/* RIGHT PANEL: INFO & CONTROLS */}
         <div className="xl:col-span-4 space-y-4 md:space-y-8">
           <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-6 md:gap-8">
+
+            {/* SOLD CONTEXT SECTION */}
+            {vehicle.status === 'sold' && (
+              <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 animate-in zoom-in-95 duration-500">
+                <h3 className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <CheckCircle size={16} /> Vehículo Vendido
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-black text-emerald-600/60 uppercase">Cliente</p>
+                    <p className="text-lg font-black text-slate-900">{contract?.client || 'N/A'}</p>
+                  </div>
+                  <div className="flex justify-between border-t border-emerald-100 pt-3">
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-600/60 uppercase">Fecha</p>
+                      <p className="text-sm font-bold text-slate-700">{contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-600/60 uppercase text-right">Monto</p>
+                      <p className="text-sm font-black text-slate-900 text-right">{contract?.price ? `$${contract.price.toLocaleString()}` : 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-red-600 font-black text-2xl tracking-tighter">{formData.year}</span>

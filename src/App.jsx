@@ -744,9 +744,9 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const stats = [
-    { label: 'TOTAL PRODUCTOS', value: inventory.length.toLocaleString(), icon: Car, color: 'text-blue-600', bg: 'bg-blue-50', badge: '+12 nuevos', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'all') },
-    { label: 'STOCK BAJO', value: inventory.filter(i => i.status === 'pending').length, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', badge: 'Requiere atención', badgeColor: 'bg-red-100 text-red-700', action: () => onNavigate('inventory', 'available') },
-    { label: 'VALOR TOTAL', value: `$${(inventory.reduce((acc, current) => acc + (current.price || 0), 0) / 1000).toFixed(1)}k`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', badge: '+5.4% mes', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'sold') },
+    { label: 'TOTAL INVENTARIO', value: inventory.length.toLocaleString(), icon: Car, color: 'text-blue-600', bg: 'bg-blue-50', badge: '+12 nuevos', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'all') },
+    { label: 'TOTAL VENDIDOS', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', badge: 'En crecimiento', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'sold') },
+    { label: 'VALOR TOTAL', value: `$${(inventory.reduce((acc, current) => acc + (current.price || 0), 0) / 1000).toFixed(1)}k`, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50', badge: '+5.4% mes', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'sold') },
   ];
 
   const recentContracts = contracts.slice(0, 3);
@@ -754,22 +754,24 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Dashboard Header / Greeting */}
-      <Card className="relative overflow-hidden border-none bg-gradient-to-r from-red-50 to-white">
+      <Card className="relative overflow-hidden border-none bg-red-600 text-white shadow-xl shadow-red-600/20">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+            <h1 className="text-3xl font-black flex items-center gap-3">
               Gestión de Inventario 📦
             </h1>
-            <p className="text-slate-600 mt-2 text-lg">
-              Bienvenido, <span className="font-bold text-slate-900">{userProfile?.name?.split(' ')[0] || 'Usuario'}</span>.
+            <p className="text-red-50 mt-2 text-lg">
+              Bienvenido, <span className="font-bold">{userProfile?.name?.split(' ')[0] || 'Usuario'}</span>.
               Listo para vender y gestionar tu inventario hoy.
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => onNavigate('contracts')}>Ver Reporte</Button>
-            <Button onClick={() => onNavigate('inventory')} icon={Plus}>Agregar Item</Button>
+            <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => onNavigate('contracts')}>Ver Reporte</Button>
+            <Button className="bg-white text-red-600 hover:bg-red-50 shadow-xl" onClick={() => onNavigate('inventory')} icon={Plus}>Agregar Item</Button>
           </div>
         </div>
+        {/* Subtle background decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
       </Card>
 
       {/* Quick Stats Grid */}
@@ -807,8 +809,9 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
               <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                 <tr>
                   <th className="pb-4">Producto</th>
-                  <th className="pb-4">Stock</th>
-                  <th className="pb-4">Estado</th>
+                  <th className="pb-4">Cliente</th>
+                  <th className="pb-4">Fecha</th>
+                  <th className="pb-4 text-right">Monto</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -821,13 +824,14 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                         </div>
                         <div>
                           <p className="text-sm font-black text-slate-900">{contract.vehicle}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{contract.client}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{contract.template}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-5 text-sm font-black text-slate-900">1</td>
-                    <td className="py-5">
-                      <Badge status={contract.status} />
+                    <td className="py-5 text-sm font-bold text-slate-700">{contract.client}</td>
+                    <td className="py-5 text-sm text-slate-500 font-medium">{new Date(contract.createdAt).toLocaleDateString()}</td>
+                    <td className="py-5 text-sm font-black text-slate-900 text-right">
+                      {contract.price ? `$${contract.price.toLocaleString()}` : 'Ver Detalle'}
                     </td>
                   </tr>
                 )) : (
@@ -1135,10 +1139,6 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, userProfile }
 };
 
 // --- LAYOUT ---
-const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
-  <button onClick={onClick} className={`w-full flex items-center px-4 py-3.5 mb-1.5 rounded-xl transition-all duration-300 group ${active ? 'bg-red-700 text-white shadow-lg shadow-red-900/50 translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1'}`}><Icon size={22} className={`mr-3 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`} /><span className="font-medium text-sm tracking-wide">{label}</span></button>
-);
-
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -1151,17 +1151,21 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-6 py-3">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-8">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-600/20">
-              <span className="text-xl font-black italic">C</span>
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+          {/* Left: Logo & Brand */}
+          <div className="flex-1 flex items-center">
+            <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-600/20">
+                <span className="text-xl font-black italic">C</span>
+              </div>
+              <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">
+                Carbot <span className="text-red-600 ml-1">Inventario</span>
+              </span>
             </div>
-            <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">Carbot<span className="text-red-600">Inventario</span></span>
           </div>
 
-          {/* Main Nav Items */}
-          <nav className="hidden lg:flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
+          {/* Center: Main Nav Items */}
+          <nav className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
             {menuItems.map(item => (
               <button
                 key={item.id}
@@ -1177,25 +1181,28 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
             ))}
           </nav>
 
-          {/* Right Side: Search, Notifications, User */}
-          <div className="flex items-center gap-4 flex-1 justify-end">
+          {/* Right Side: Search, Trash, User */}
+          <div className="flex-1 flex items-center gap-4 justify-end">
             {/* Search Bar */}
-            <div className="relative max-w-xs w-full hidden md:block">
+            <div className="relative max-w-[200px] w-full hidden xl:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
                 type="text"
-                placeholder="Buscar producto..."
+                placeholder="Buscar..."
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold"
               />
             </div>
 
-            {/* Notifications */}
-            <button className="relative p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-600 rounded-full border-2 border-white"></span>
+            {/* Trash instead of Bell */}
+            <button
+              onClick={() => setActiveTab('trash')}
+              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+              title="Ir a Basurero"
+            >
+              <Trash2 size={20} />
             </button>
 
-            {/* User Profile Dropdown / Info */}
+            {/* User Profile Info */}
             <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-black text-slate-900 leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
@@ -1548,7 +1555,17 @@ export default function CarbotApp() {
   const trashInventory = inventory.filter(i => i.status === 'trash');
 
   const renderContent = () => {
-    if (selectedVehicle) return <VehicleEditView vehicle={selectedVehicle} onBack={() => setSelectedVehicle(null)} onSave={async (data) => { await handleSaveVehicle(data); setSelectedVehicle(null); }} />;
+    if (selectedVehicle) {
+      const associatedContract = contracts.find(c => c.vehicleId === selectedVehicle.id);
+      return (
+        <VehicleEditView
+          vehicle={selectedVehicle}
+          contract={associatedContract}
+          onBack={() => setSelectedVehicle(null)}
+          onSave={async (data) => { await handleSaveVehicle(data); setSelectedVehicle(null); }}
+        />
+      );
+    }
     switch (activeTab) {
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} />;
