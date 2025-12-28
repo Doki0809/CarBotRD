@@ -91,19 +91,19 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
   return (
     <div className='animate-in fade-in duration-700 p-4 md:p-8 max-w-[1600px] mx-auto'>
       {/* HEADER ACTIONS */}
-      <div className="flex justify-between items-center mb-10">
-        <button onClick={onBack} className='flex items-center text-slate-400 hover:text-red-600 font-bold transition-all group px-4 py-2 hover:bg-red-50 rounded-xl' disabled={loading}>
-          <ArrowLeft size={18} className='mr-2 group-hover:-translate-x-1 transition-transform' />
-          <span className="text-sm uppercase tracking-wider">Gestión de Inventario</span>
+      <div className="flex justify-between items-center mb-6 sm:mb-10">
+        <button onClick={onBack} className='flex items-center text-slate-400 hover:text-red-600 font-bold transition-all group px-2 sm:px-4 py-2 hover:bg-red-50 rounded-xl' disabled={loading}>
+          <ArrowLeft size={16} className='mr-1 sm:mr-2 group-hover:-translate-x-1 transition-transform' />
+          <span className="text-[10px] sm:text-sm uppercase tracking-wider">Volver</span>
         </button>
 
         <button
           onClick={onBack}
           disabled={loading}
-          className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-all shadow-xl shadow-slate-200/40"
+          className="p-2 sm:p-3 bg-white border border-slate-200 rounded-xl sm:rounded-2xl text-slate-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-all shadow-lg"
           title="Cerrar"
         >
-          <X size={24} />
+          <X size={20} className="sm:w-6 sm:h-6" />
         </button>
       </div>
 
@@ -125,9 +125,9 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
               </div>
 
               {/* NAV CONTROLS */}
-              <div className="absolute inset-x-4 md:inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 md:p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronLeft size={24} className="md:w-[30px] md:h-[30px]" /></button>
-                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 md:p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronRight size={24} className="md:w-[30px] md:h-[30px]" /></button>
+              <div className="absolute inset-x-2 sm:inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-2 sm:p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-slate-100"><ChevronLeft size={20} className="sm:w-[30px] sm:h-[30px]" /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-2 sm:p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-slate-100"><ChevronRight size={20} className="sm:w-[30px] sm:h-[30px]" /></button>
               </div>
 
 
@@ -166,50 +166,39 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
 
             {/* SOLD CONTEXT SECTION - REDESIGNED */}
             {isSold && (
-              <div className="relative overflow-hidden p-8 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-[2rem] text-white shadow-xl shadow-emerald-200 transition-all border border-emerald-400/20">
+              <div className="relative overflow-hidden p-6 sm:p-8 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-2xl sm:rounded-[2rem] text-white shadow-xl shadow-emerald-200 transition-all border border-emerald-400/20">
                 <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-base font-black uppercase tracking-widest flex items-center gap-2">
-                      <CheckCircle size={20} /> VENTA COMPLETADA
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <h3 className="text-sm sm:text-base font-black uppercase tracking-widest flex items-center gap-2">
+                      <CheckCircle size={18} className="sm:w-5 sm:h-5" /> VENTA Completada
                     </h3>
-                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                      <Lock size={16} />
+                    <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg sm:rounded-xl backdrop-blur-sm">
+                      <Lock size={14} className="sm:w-4 sm:h-4" />
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                      <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
-                      <p className="text-xl font-black">{contract?.client || 'N/A'}</p>
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
+                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
+                      <p className="text-lg sm:text-xl font-black">{contract?.client || 'N/A'}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PRECIO VEHÍCULO</p>
-                        <p className="text-sm font-black">
-                          {formData.price_dop > 0 ? `RD$ ${formData.price_dop.toLocaleString()}` : `US$ ${formData.price.toLocaleString()}`}
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PRECIO</p>
+                        <p className="text-xs sm:text-sm font-black whitespace-nowrap">
+                          {formData.price_dop > 0 ? `RD$ ${(formData.price_dop / 1000).toFixed(0)}k` : `US$ ${(formData.price / 1000).toFixed(0)}k`}
                         </p>
                       </div>
-                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">MONTO VENTA</p>
-                        <p className="text-sm font-black text-right">
-                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${contract.price.toLocaleString()}` : `US$ ${contract.price.toLocaleString()}`) : 'N/A'}
+                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">VENTA</p>
+                        <p className="text-xs sm:text-sm font-black text-right whitespace-nowrap">
+                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${(contract.price / 1000).toFixed(0)}k` : `US$ ${(contract.price / 1000).toFixed(0)}k`) : 'N/A'}
                         </p>
                       </div>
-                    </div>
-
-                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                      <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">FECHA VENTA</p>
-                      <p className="text-sm font-black">{contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString() : 'N/A'}</p>
                     </div>
                   </div>
-
-                  <p className="mt-6 text-[10px] font-bold text-emerald-100/70 text-center flex items-center justify-center gap-2">
-                    <Info size={12} /> Los detalles de unidades vendidas están protegidos y no pueden editarse.
-                  </p>
                 </div>
-                {/* Decorative circle */}
-                <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/5 rounded-full"></div>
               </div>
             )}
 
@@ -287,38 +276,37 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
         </div>
       </form>
 
-      {/* LIGHTBOX MODAL */}
       {isLightboxOpen && (
         <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden">
-          <div className="flex justify-between items-center p-8 z-50">
+          <div className="flex justify-between items-center p-4 sm:p-8 z-50">
             <div className="text-white">
-              <h4 className="text-xl font-black uppercase tracking-tighter text-red-600">{formData.make} {formData.model}</h4>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
+              <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-red-600 line-clamp-1">{formData.make} {formData.model}</h4>
+              <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
             </div>
             <button
               onClick={() => setIsLightboxOpen(false)}
-              className="p-4 rounded-full bg-white/10 text-red-600 hover:bg-white transition-all hover:rotate-90 shadow-xl border border-white/10"
+              className="p-3 sm:p-4 rounded-full bg-white/10 text-red-600 hover:bg-white transition-all shadow-xl"
             >
-              <X size={32} />
+              <X size={24} className="sm:w-[32px] sm:h-[32px]" />
             </button>
           </div>
 
-          <div className="flex-1 flex items-center justify-center relative px-10">
-            <button onClick={prevPhoto} className="absolute left-10 p-6 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all"><ChevronLeft size={48} /></button>
+          <div className="flex-1 flex items-center justify-center relative px-4 sm:px-10">
+            <button onClick={prevPhoto} className="absolute left-2 sm:left-10 p-3 sm:p-6 rounded-full bg-white/5 text-white z-10"><ChevronLeft size={24} className="sm:w-[48px] sm:h-[48px]" /></button>
             <img
               src={formData.images[activePhotoIndex]}
-              className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg"
+              className="max-w-full max-h-[70vh] sm:max-h-[85vh] object-contain shadow-2xl rounded-lg"
               alt="Lightbox View"
             />
-            <button onClick={nextPhoto} className="absolute right-10 p-6 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all"><ChevronRight size={48} /></button>
+            <button onClick={nextPhoto} className="absolute right-2 sm:right-10 p-3 sm:p-6 rounded-full bg-white/5 text-white z-10"><ChevronRight size={24} className="sm:w-[48px] sm:h-[48px]" /></button>
           </div>
 
-          <div className="p-10 flex justify-center gap-3 overflow-x-auto pb-12 custom-scrollbar">
+          <div className="p-4 sm:p-10 flex justify-start sm:justify-center gap-2 sm:gap-3 overflow-x-auto pb-8 custom-scrollbar">
             {formData.images.map((img, idx) => (
               <div
                 key={idx}
                 onClick={() => setActivePhotoIndex(idx)}
-                className={`min-w-[100px] h-[100px] rounded-xl overflow-hidden cursor-pointer transition-all border-4 ${activePhotoIndex === idx ? 'border-red-600 scale-110 shadow-2xl' : 'border-transparent opacity-30'}`}
+                className={`min-w-[70px] sm:min-w-[100px] h-[70px] sm:h-[100px] rounded-lg sm:rounded-xl overflow-hidden cursor-pointer transition-all border-2 sm:border-4 ${activePhotoIndex === idx ? 'border-red-600 scale-105' : 'border-transparent opacity-30'}`}
               >
                 <img src={img} className="w-full h-full object-cover" />
               </div>

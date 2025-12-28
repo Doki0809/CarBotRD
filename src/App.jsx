@@ -137,9 +137,9 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
-        <Card>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full h-full sm:h-auto sm:max-w-sm animate-in zoom-in-95 duration-200">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800">Seleccionar Acción</h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
@@ -443,9 +443,9 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-md animate-in zoom-in-95 duration-200">
-        <Card>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full h-full sm:h-auto sm:max-w-md animate-in zoom-in-95 duration-200">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
@@ -509,9 +509,9 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-lg animate-in zoom-in-95 duration-200">
-        <Card>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full h-full sm:h-auto sm:max-w-lg animate-in zoom-in-95 duration-200">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-blue-50 rounded-lg mr-3"><Send size={20} className="text-blue-600" /></div>
@@ -616,9 +616,9 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-2xl animate-in zoom-in-95 duration-200">
-        <Card className="max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full h-full sm:h-auto sm:max-w-2xl animate-in zoom-in-95 duration-200">
+        <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><FilePlus size={20} className="text-red-600" /></div>
@@ -843,7 +843,7 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
           <Trash2 size={48} className="mb-4 text-slate-300" /><p className="text-lg font-medium">La papelera está vacía.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {trash.map(item => (
             <div key={item.id} className="relative group opacity-80 hover:opacity-100 transition-opacity">
               <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30">
@@ -901,20 +901,20 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       </Card>
 
       {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         {stats.map((stat, idx) => (
-          <Card key={idx} className="group cursor-pointer hover:shadow-xl transition-all active:scale-[0.98]" onClick={stat.action}>
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                <stat.icon size={24} />
+          <Card key={idx} className={`group cursor-pointer hover:shadow-xl transition-all active:scale-[0.98] ${idx === 2 ? 'col-span-2 md:col-span-1' : ''}`} onClick={stat.action}>
+            <div className="flex justify-between items-start mb-2 sm:mb-4">
+              <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${stat.bg} ${stat.color}`}>
+                <stat.icon size={20} className="sm:w-[24px] sm:h-[24px]" />
               </div>
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${stat.badgeColor}`}>
+              <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-wider ${stat.badgeColor}`}>
                 {stat.badge}
               </span>
             </div>
             <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-              <p className="text-3xl font-black text-slate-900">{stat.value}</p>
+              <p className="text-[9px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">{stat.label}</p>
+              <p className="text-xl sm:text-3xl font-black text-slate-900">{stat.value}</p>
             </div>
           </Card>
         ))}
@@ -923,50 +923,87 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       {/* Bottom Section: Recent Contracts & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card className="lg:col-span-2">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+          <div className="overflow-hidden">
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2 mb-6 sm:mb-8">
               <History size={20} className="text-red-600" /> Contratos Recientes
             </h3>
-            <button onClick={() => onNavigate('contracts')} className="text-xs font-black text-red-600 uppercase hover:underline">Ver todo</button>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
-                <tr>
-                  <th className="pb-4">Producto</th>
-                  <th className="pb-4">Cliente</th>
-                  <th className="pb-4">Fecha</th>
-                  <th className="pb-4 text-right">Monto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {recentContracts.length > 0 ? recentContracts.map(contract => (
-                  <tr key={contract.id} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="py-5">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
-                          <Car size={20} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900">{contract.vehicle}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{contract.template}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-5 text-sm font-bold text-slate-700">{contract.client}</td>
-                    <td className="py-5 text-sm text-slate-500 font-medium">{new Date(contract.createdAt).toLocaleDateString()}</td>
-                    <td className="py-5 text-sm font-black text-slate-900 text-right">
-                      {contract.price ? `$${contract.price.toLocaleString()}` : 'Ver Detalle'}
-                    </td>
-                  </tr>
-                )) : (
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                   <tr>
-                    <td colSpan="3" className="py-10 text-center text-slate-400 font-bold">Sin movimientos recientes</td>
+                    <th className="pb-4">Producto</th>
+                    <th className="pb-4">Cliente</th>
+                    <th className="pb-4">Fecha</th>
+                    <th className="pb-4 text-right">Monto</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {recentContracts.length > 0 ? recentContracts.map(contract => (
+                    <tr key={contract.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="py-5">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
+                            <Car size={20} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 leading-tight">{contract.vehicle}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">{contract.template}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-5">
+                        <p className="text-sm font-bold text-slate-700">{contract.client}</p>
+                      </td>
+                      <td className="py-5">
+                        <p className="text-xs font-bold text-slate-400 uppercase">{new Date(contract.createdAt).toLocaleDateString()}</p>
+                      </td>
+                      <td className="py-5 text-right font-black text-slate-900">
+                        {contract.price > 0 ? `RD$ ${contract.price.toLocaleString()}` : 'N/A'}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan="4" className="py-10 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No hay contratos recientes</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="sm:hidden space-y-4">
+              {recentContracts.length > 0 ? recentContracts.map(contract => (
+                <div key={contract.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-red-600 shadow-sm border border-slate-100">
+                      <Car size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm leading-tight">{contract.vehicle}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{contract.template}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-end border-t border-white pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</p>
+                      <p className="text-sm font-bold text-slate-800">{contract.client}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-red-700">
+                        {contract.price > 0 ? `RD$ ${contract.price.toLocaleString()}` : 'N/A'}
+                      </p>
+                      <p className="text-[9px] font-bold text-slate-400">{new Date(contract.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="py-10 text-center text-slate-300 font-bold uppercase tracking-widest text-[10px]">No hay contratos recientes</div>
+              )}
+            </div>
+
+            <button onClick={() => onNavigate('contracts')} className="w-full mt-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 sm:hidden">
+              Ver todos los contratos
+            </button>
           </div>
         </Card>
 
@@ -1092,15 +1129,15 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-6">
-        <div><h1 className="text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{userProfile?.dealerName}</span></h1><p className="text-slate-500 text-sm mt-1">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
-        <Button onClick={handleCreate} icon={Plus} className="shadow-lg shadow-red-600/20">Agregar Vehículo</Button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4 sm:pb-6">
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{userProfile?.dealerName}</span></h1><p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
+        <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">Agregar Vehículo</Button>
       </div>
 
-      <div className="flex space-x-1 bg-slate-100/80 p-1 rounded-xl w-full sm:w-fit backdrop-blur-sm">
-        <button onClick={() => setActiveTab('available')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${activeTab === 'available' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>Disponibles</button>
-        <button onClick={() => setActiveTab('sold')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${activeTab === 'sold' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>Vendidos</button>
-        <button onClick={() => setActiveTab('all')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 ${activeTab === 'all' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
+      <div className="flex space-x-1 bg-slate-100/80 p-1 rounded-xl w-full sm:w-fit backdrop-blur-sm overflow-x-auto no-scrollbar">
+        <button onClick={() => setActiveTab('available')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'available' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Disponibles</button>
+        <button onClick={() => setActiveTab('sold')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'sold' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Vendidos</button>
+        <button onClick={() => setActiveTab('all')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -1131,11 +1168,15 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
         </div>
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-6 sm:space-y-10 mt-4">
         {sortedBrands.map(brand => (
           <div key={brand}>
-            <div className="flex items-center mb-4"><h2 className="text-xl font-bold text-slate-800 mr-3">{brand}</h2><div className="h-px flex-1 bg-gray-200"></div><span className="text-xs font-medium text-gray-500 ml-3 bg-gray-100 px-2 py-1 rounded-full">{groupedInventory[brand].length}</span></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="flex items-center mb-3 sm:mb-4">
+              <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
+              <div className="h-px flex-1 bg-gray-100"></div>
+              <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {groupedInventory[brand].map(item => (
                 <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
                   <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
@@ -1152,11 +1193,11 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
                           {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
                         </p>
                       </div>
-                      <div className="mt-auto grid grid-cols-2 gap-3">
-                        <Button variant="secondary" className="w-full text-xs font-bold border-red-100 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1" onClick={(e) => { e.stopPropagation(); openActionModal(item); }}><Files size={14} /> GENERAR</Button>
-                        <div className="flex gap-2">
-                          <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-lg text-gray-500 hover:text-red-600 transition-all"><Edit size={16} /></button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-lg text-gray-500 hover:text-red-600 transition-all"><Trash2 size={16} /></button>
+                      <div className="mt-auto grid grid-cols-2 gap-2 sm:gap-3">
+                        <Button variant="secondary" className="w-full text-[10px] sm:text-xs font-black border-red-50 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 py-2 sm:py-2.5" onClick={(e) => { e.stopPropagation(); openActionModal(item); }}><Files size={12} className="sm:w-[14px] sm:h-[14px]" /> GENERAR</Button>
+                        <div className="flex gap-1.5 sm:gap-2">
+                          <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl text-slate-400 hover:text-red-600 transition-all"><Edit size={14} className="sm:w-[16px] sm:h-[16px]" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl text-slate-400 hover:text-red-600 transition-all"><Trash2 size={14} className="sm:w-[16px] sm:h-[16px]" /></button>
                         </div>
                       </div>
                     </div>
@@ -1391,7 +1432,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               <div className="h-px flex-1 bg-slate-100"></div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredData[groupName].map(item => (
                 <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
                   <div className="p-6">
@@ -1480,22 +1521,22 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-20 sm:pb-0">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-6 py-3">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-4 sm:px-6 py-2 sm:py-3">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <AppLogo size={65} className="" />
-              <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">
+              <AppLogo size={50} className="sm:h-[65px]" />
+              <span className="text-lg font-black text-slate-900 tracking-tight hidden lg:block">
                 <span className="text-red-600">Inventario</span>
               </span>
             </div>
           </div>
 
-          {/* Center: Main Nav Items */}
-          <nav className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
+          {/* Center: Main Nav Items (Hidden on Mobile) */}
+          <nav className="hidden sm:flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
             {menuItems.map(item => (
               <button
                 key={item.id}
@@ -1512,8 +1553,8 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
           </nav>
 
           {/* Right Side: Search, Trash, User */}
-          <div className="flex-1 flex items-center gap-4 justify-end">
-            {/* Search Bar */}
+          <div className="flex-1 flex items-center gap-2 sm:gap-4 justify-end">
+            {/* Search Bar (Hidden on Mobile) */}
             <div className="relative max-w-[200px] w-full hidden xl:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
@@ -1525,26 +1566,26 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
               />
             </div>
 
-            {/* Trash instead of Bell */}
+            {/* Trash Icon (Visible on all sizes, but adjusted for mobile) */}
             <button
               onClick={() => setActiveTab('trash')}
               className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
               title="Ir a Basurero"
             >
-              <Trash2 size={20} />
+              <Trash2 size={18} className="sm:w-[20px] sm:h-[20px]" />
             </button>
 
             {/* User Profile Info */}
-            <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
+            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-black text-slate-900 leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
                 <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">{userProfile?.dealerName || 'Almacén'}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 font-black border-2 border-white shadow-sm ring-1 ring-red-100">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100">
                 {userProfile?.name?.charAt(0) || 'J'}
               </div>
-              <button onClick={onLogout} className="p-2 text-slate-300 hover:text-red-600 transition-colors">
-                <LogOut size={18} />
+              <button onClick={onLogout} className="p-1 sm:p-2 text-slate-300 hover:text-red-600 transition-colors">
+                <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
               </button>
             </div>
           </div>
@@ -1552,9 +1593,27 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
         {children}
       </main>
+
+      {/* Bottom Navigation (Mobile Only) */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90">
+        {menuItems.map(item => {
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-red-600 scale-110' : 'text-slate-400'}`}
+            >
+              <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
+              {isActive && <div className="w-1 h-1 bg-red-600 rounded-full mt-0.5"></div>}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -1580,8 +1639,8 @@ const LoginScreen = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-2xl border border-gray-100">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-0 sm:p-4">
+      <div className="w-full h-full sm:h-auto sm:max-w-md p-6 sm:p-8 bg-white rounded-none sm:rounded-2xl shadow-2xl border border-gray-100 flex flex-col justify-center">
         <div className="text-center mb-10 flex flex-col items-center">
           <AppLogo size={120} className="mb-6" />
           <p className="text-slate-500 font-medium">Sistema Inteligente para Dealers</p>
