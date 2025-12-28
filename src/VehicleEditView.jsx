@@ -107,11 +107,11 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
 
         {/* LEFT PANEL: GALLERY & VISUALS */}
         <div className="xl:col-span-8 space-y-8">
-          <div className="relative bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-8 border-white h-[650px]">
+          <div className="relative bg-white rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-8 border-white h-[650px]">
             <div className="w-full h-full relative group cursor-zoom-in" onClick={() => setIsLightboxOpen(true)}>
               <img
                 src={formData.images[activePhotoIndex]}
-                className='w-full h-full object-contain p-4'
+                className='w-full h-full object-contain'
                 alt="Vista principal"
               />
               <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -122,19 +122,11 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
 
               {/* NAV CONTROLS */}
               <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-4 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-sm transition-all pointer-events-auto"><ChevronLeft size={30} /></button>
-                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-4 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-sm transition-all pointer-events-auto"><ChevronRight size={30} /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronLeft size={30} /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-4 rounded-full bg-white/80 hover:bg-white text-slate-900 backdrop-blur-sm transition-all pointer-events-auto shadow-2xl border border-slate-100"><ChevronRight size={30} /></button>
               </div>
 
-              {/* INFO OVERLAY */}
-              <div className="absolute bottom-10 left-10 text-white pointer-events-none">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="bg-red-600 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">{formData.year}</span>
-                  <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest">{formData.transmission}</span>
-                </div>
-                <h1 className="text-5xl font-black mb-1 drop-shadow-lg uppercase tracking-tight">{formData.make} {formData.model}</h1>
-                <p className="text-slate-300 font-medium text-lg drop-shadow-md">{formData.edition || 'Edición Especial'}</p>
-              </div>
+
             </div>
           </div>
 
