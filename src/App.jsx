@@ -1202,6 +1202,74 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     html2pdf().set({ filename: `Contrato_${contract.client}.pdf` }).from(tempEl).save();
   };
 
+  const downloadQuotePDF = (quote) => {
+    const tempEl = document.createElement('div');
+    tempEl.innerHTML = `
+      <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+              <div>
+                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+                <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+              </div>
+              <div style="text-align: right;">
+                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
+                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
+              </div>
+          </div>
+
+          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+                </tr>
+              </table>
+          </div>
+
+          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+              <div style="margin-top: 15px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px;">
+                  <div style="padding: 10px; background: #fff1f2; border-radius: 8px; text-align: center;">
+                      <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+                      <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+                  </div>
+              </div>
+          </div>
+
+          ${quote.bank ? `
+          <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold;">INSTITUCIÓN:</td>
+                  <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
+                </tr>
+              </table>
+          </div>
+          ` : ''}
+
+          <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br/>
+            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+          </div>
+      </div>
+    `;
+    const opt = {
+      margin: 10,
+      filename: `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(tempEl).save();
+  };
+
   const totalItems = Object.values(filteredData).flat().length;
 
   return (
@@ -1266,10 +1334,12 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                         {activeView === 'contracts' ? <FileText size={20} /> : <Send size={20} />}
                       </div>
                       <div className="flex gap-2">
-                        {activeView === 'contracts' && (
-                          <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Download size={18} /></button>
+                        {activeView === 'contracts' ? (
+                          <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Descargar PDF"><Download size={18} /></button>
+                        ) : (
+                          <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Descargar Ficha"><Download size={18} /></button>
                         )}
-                        <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
+                        <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 size={18} /></button>
                       </div>
                     </div>
 
