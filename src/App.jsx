@@ -245,12 +245,18 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
           setUploadProgress(`Subiendo foto ${i + 1} de ${filesToUpload.length}...`);
 
           try {
-            // Sanitizar nombre de archivo para evitar caracteres problemáticos
-            const cleanName = item.file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-            const storageRef = ref(storage, `vehicles/${Date.now()}_${cleanName}`);
+            // Sanitizar nombre de archivo: solo letras, números y puntos
+            const cleanName = (item.file.name || 'image.jpg').replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase();
+            const storagePath = `vehicles/${Date.now()}_${cleanName}`;
+            const storageRef = ref(storage, storagePath);
 
-            // Subida con await directo
-            const snapshot = await uploadBytes(storageRef, item.file);
+            // Timeout de 30 segundos por imagen
+            const uploadTask = uploadBytes(storageRef, item.file);
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('TIMEOUT')), 30000)
+            );
+
+            const snapshot = await Promise.race([uploadTask, timeoutPromise]);
             const downloadUrl = await getDownloadURL(snapshot.ref);
 
             if (downloadUrl) {
@@ -258,13 +264,14 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
             }
           } catch (err) {
             console.error(`Error al subir la imagen ${i + 1}:`, err);
-            // Si una falla, informamos pero intentamos seguir con las demás
-            setUploadProgress(`Error en foto ${i + 1}, continuando...`);
-            await new Promise(r => setTimeout(r, 1000));
+            const errorMsg = err.message === 'TIMEOUT' ? 'Tiempo de espera excedido' : 'Error de conexión';
+            setUploadProgress(`⚠️ Error en foto ${i + 1}: ${errorMsg}. Continuando...`);
+            // Esperar un momento para que el usuario vea el error
+            await new Promise(r => setTimeout(r, 2000));
           }
         }
         setUploadProgress('¡Carga finalizada!');
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 800));
       }
 
       data.images = uploadedUrls;
@@ -970,13 +977,19 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
 
   const groupedInventory = useMemo(() => {
     const groups = {};
+    const isBrandSort = sortConfig === 'brand_asc';
+
     filteredInventory.forEach(item => {
-      if (!groups[item.make]) groups[item.make] = [];
-      groups[item.make].push(item);
+      const groupKey = isBrandSort ? item.make : "RESULTADOS";
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(item);
     });
     return groups;
-  }, [filteredInventory]);
-  const sortedBrands = Object.keys(groupedInventory).sort();
+  }, [filteredInventory, sortConfig]);
+
+  const sortedBrands = sortConfig === 'brand_asc'
+    ? Object.keys(groupedInventory).sort()
+    : Object.keys(groupedInventory);
 
   const handleCreate = () => { setCurrentVehicle(null); setIsModalOpen(true); };
 
