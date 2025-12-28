@@ -1171,9 +1171,9 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <AppLogo size={40} className="rounded-xl shadow-lg shadow-red-600/20" />
+              <AppLogo size={50} className="rounded-xl shadow-lg shadow-red-600/20" />
               <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">
-                Carbot <span className="text-red-600 ml-1">Inventario</span>
+                <span className="text-red-600">Inventario</span>
               </span>
             </div>
           </div>
@@ -1264,9 +1264,9 @@ const LoginScreen = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-2xl border border-gray-100">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-slate-900">Carbot</h1>
-          <p className="text-slate-500 mt-2">Sistema Inteligente para Dealers</p>
+        <div className="text-center mb-10 flex flex-col items-center">
+          <AppLogo size={80} className="mb-4" />
+          <p className="text-slate-500 font-medium">Sistema Inteligente para Dealers</p>
         </div>
 
         {error && (
