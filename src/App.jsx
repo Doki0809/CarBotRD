@@ -1,6 +1,7 @@
 import VehicleEditView from './VehicleEditView.jsx';
 import React, { useState, useEffect, useMemo } from 'react';
-import { db, auth, googleProvider } from './firebaseConfig';
+import { db, auth, googleProvider, storage } from './firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   signInWithPopup,
   signOut,
@@ -151,10 +152,32 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
 const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   if (!isOpen) return null;
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(initialData?.image || '');
+
+  useEffect(() => {
+    if (initialData) setPreviewUrl(initialData.image);
+    else {
+      setPreviewUrl('');
+      setSelectedFile(null);
+    }
+  }, [initialData, isOpen]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); // Bloquear botón mientras guarda
+    setLoading(true);
+
+    // Capturar datos del formulario
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
@@ -163,11 +186,32 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
     data.price_dop = Number(data.price_dop);
     data.year = Number(data.year);
     data.mileage = Number(data.mileage);
-    // Imagen por defecto
-    data.image = data.image || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
 
-    await onSave(data); // Esperar a que Firebase responda
-    setLoading(false);
+    try {
+      let imageUrl = data.image_url_hidden || initialData?.image || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
+
+      // SI SE SELECCIONÓ UN ARCHIVO, SUBIRLO AHORA
+      if (selectedFile) {
+        setUploadProgress('Subiendo imagen...');
+        const storageRef = ref(storage, `vehicles/${Date.now()}_${selectedFile.name}`);
+        const snapshot = await uploadBytes(storageRef, selectedFile);
+        imageUrl = await getDownloadURL(snapshot.ref);
+        setUploadProgress('Imagen lista!');
+      }
+
+      data.image = imageUrl;
+      delete data.image_url_hidden; // Limpiar campo auxiliar
+
+      await onSave(data);
+      setLoading(false);
+      setUploadProgress('');
+      onClose();
+    } catch (error) {
+      console.error("Error al guardar/subir:", error);
+      alert("Error al subir la imagen o guardar. Revisa tu conexión.");
+      setLoading(false);
+      setUploadProgress('');
+    }
   };
 
   return (
@@ -194,13 +238,37 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
               </div>
             </div>
             <div>
-              <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-100 pb-1">Especificaciones</h4>
+              <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-100 pb-1">Especificaciones e Imagen</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Select name="transmission" label="Transmisión" defaultValue={initialData?.transmission || 'Automática'} options={['Automática', 'Manual', 'CVT']} />
                 <Select name="traction" label="Tracción" defaultValue={initialData?.traction || 'FWD'} options={['FWD', 'RWD', 'AWD', '4x4']} />
                 <Select name="fuel" label="Combustible" defaultValue={initialData?.fuel || 'Gasolina'} options={['Gasolina', 'Diesel', 'Híbrido']} />
                 <Input name="vin" label="VIN / Chasis" defaultValue={initialData?.vin} className="md:col-span-3 font-mono" required />
-                <Input name="image" label="URL Imagen" defaultValue={initialData?.image} className="md:col-span-3" placeholder="https://..." />
+
+                {/* SECCIÓN DE IMAGEN */}
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Imagen del Vehículo</label>
+                  <div className="flex items-start gap-4 p-4 border border-gray-200 rounded-xl bg-gray-50">
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">Formatos: JPG, PNG, WEBP. Se subirá a Firebase Storage.</p>
+                      {uploadProgress && <p className="mt-2 text-sm font-bold text-red-600 animate-pulse">{uploadProgress}</p>}
+                    </div>
+                    {previewUrl && (
+                      <div className="w-32 h-24 rounded-lg overflow-hidden border border-gray-300 bg-white shadow-sm shrink-0">
+                        <img src={previewUrl} alt="Vista previa" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    {/* Campo oculto para mantener URL anterior si no se sube nueva */}
+                    <input type="hidden" name="image_url_hidden" value={initialData?.image || ''} />
+                  </div>
+                </div>
+
               </div>
             </div>
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -214,7 +282,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
               <Button type="submit" disabled={loading}>
-                {loading ? <><Loader2 className="animate-spin mr-2" /> Guardando...</> : 'Guardar Vehículo'}
+                {loading ? <><Loader2 className="animate-spin mr-2" /> {uploadProgress || 'Guardando...'}</> : 'Guardar Vehículo'}
               </Button>
             </div>
           </form>
@@ -457,7 +525,6 @@ const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
   };
 
   const handleDownload = () => {
-    // Simulamos descarga abriendo print dialog (PDF)
     handlePrint();
   };
 
@@ -467,15 +534,17 @@ const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
         <Card className="flex flex-col h-full bg-slate-50">
           <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <FileText size={20} className="text-red-600" /> Contrato: ${contract.client}
+              <FileText size={20} className="text-red-600" /> Contrato: {contract.client}
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 p-8 overflow-y-auto bg-white shadow-inner mx-4 mb-4 border border-gray-200 rounded-lg">
-            <div className="max-w-3xl mx-auto font-serif text-black leading-relaxed space-y-6" dangerouslySetInnerHTML={{
-              __html: getContractHtml().replace('<html>', '').replace('</html>', '').replace('<body>', '').replace('</body>', '').replace('<head>', '').replace('</head>', '')
-            }} />
+          <div className="flex-1 bg-gray-100/50 backdrop-blur-sm p-4 overflow-hidden border border-gray-200 rounded-lg mx-4 mb-4">
+            <iframe
+              srcDoc={getContractHtml()}
+              className="w-full h-full rounded bg-white shadow-sm"
+              title="Vista Previa del Contrato"
+            />
           </div>
 
           <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
@@ -745,26 +814,7 @@ const LoginScreen = ({ onLogin }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. Lógica para entrar con Google
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError('');
 
-    try {
-      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-      await signInWithPopup(auth, googleProvider);
-      onLogin();
-    } catch (err) {
-      console.error("Error de Google:", err);
-      let msg = `Error: ${err.message}`;
-      if (err.code === 'auth/popup-closed-by-user') msg = "Proceso cancelado por el usuario.";
-      if (err.code === 'auth/operation-not-allowed') msg = "Habilita Google Auth en Firebase Console -> Authentication -> Sign-in methods.";
-      if (err.code === 'auth/unauthorized-domain') msg = "Dominio no autorizado. Agrega este dominio en Firebase Console.";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // 2. Lógica para correo/contraseña (Simulada por ahora)
   const handleSubmit = (e) => {
@@ -788,26 +838,7 @@ const LoginScreen = ({ onLogin }) => {
         )}
 
         <div className="space-y-6">
-          {/* BOTÓN DE GOOGLE REAL */}
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full py-3 bg-white border border-gray-300 text-slate-700 font-bold rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 shadow-sm"
-          >
-            {loading ? 'Conectando...' : (
-              <>
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="G" />
-                Acceder con Google
-              </>
-            )}
-          </button>
 
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-gray-200"></div>
-            <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">O INGRESA CON CORREO</span>
-            <div className="flex-grow border-t border-gray-200"></div>
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input label="Correo" placeholder="usuario@dealer.com" type="email" required />
@@ -827,7 +858,6 @@ const LoginScreen = ({ onLogin }) => {
               />
               <span className="text-sm text-gray-600 font-medium">Recordarme</span>
             </label>
-            <a href="#" className="text-sm text-red-600 hover:text-red-800 font-semibold">¿Ayuda?</a>
           </div>
 
         </div>
@@ -857,14 +887,32 @@ export default function CarbotApp() {
   const showToast = (message, type = 'success') => setToast({ message, type });
 
   // 1.b AUTH STATE LISTENER
+  const [initializing, setInitializing] = useState(true);
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setIsLoggedIn(!!user);
+      setInitializing(false);
     });
     return () => unsubscribeAuth();
   }, []);
 
-  // 2. CONEXIÓN A FIREBASE (Escuchar cambios en tiempo real)
+  // ... (keep existing firebase connection useEffect)
+
+  // ... (rest of functions)
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center animate-pulse">
+          <AppLogo className="w-16 h-16 mb-4" size={64} />
+          <p className="text-slate-400 font-medium">Cargando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
   useEffect(() => {
     // Escuchar TODO el inventario, incluyendo trash
     const unsubscribe = onSnapshot(collection(db, "vehicles"), (snapshot) => {
@@ -979,6 +1027,8 @@ export default function CarbotApp() {
   };
 
   if (!isLoggedIn) return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
+
+
 
   // Filtros Globale
   const activeInventory = inventory.filter(i => i.status !== 'trash');
