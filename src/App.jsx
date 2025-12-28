@@ -43,25 +43,27 @@ const CONTRACT_TEMPLATES = [
 
 // --- UI KIT ---
 export const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, ...props }) => {
-  const baseStyle = "inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-all duration-300 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
-    primary: "bg-red-700 hover:bg-red-800 hover:shadow-lg text-white focus:ring-red-500 shadow-md",
-    secondary: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-red-200 hover:text-red-700 focus:ring-gray-200 shadow-sm",
-    danger: "bg-red-50 text-red-600 hover:bg-red-100 focus:ring-red-500",
-    ghost: "bg-transparent text-gray-600 hover:bg-gray-100 hover:text-red-700",
-    success: "bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-emerald-500"
+    primary: 'bg-red-600 text-white hover:bg-red-700 shadow-md hover:shadow-lg',
+    secondary: 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm',
+    ghost: 'bg-transparent text-slate-500 hover:bg-slate-100',
+    danger: 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100',
   };
   return (
-    <button className={`${baseStyle} ${variants[variant]} ${className}`} onClick={onClick} {...props}>
-      {Icon && <Icon size={18} className="mr-2" />}
+    <button
+      onClick={onClick}
+      className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 ${variants[variant] || variants.primary} ${className}`}
+      {...props}
+    >
+      {Icon && <Icon size={18} />}
       {children}
     </button>
   );
 };
 
 const Card = ({ children, className = '', noPadding = false }) => (
-  <div className={`bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden ${className}`}>
-    <div className={noPadding ? '' : 'p-5'}>{children}</div>
+  <div className={`bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
+    <div className={noPadding ? '' : 'p-6'}>{children}</div>
   </div>
 );
 
@@ -741,32 +743,125 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const stats = [
-    { label: 'Inventario Total', value: inventory.length, icon: Car, color: 'text-red-600', bg: 'bg-red-50', action: () => onNavigate('inventory', 'all') },
-    { label: 'Cotizados', value: inventory.filter(i => i.status === 'quoted').length, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50', action: () => onNavigate('inventory', 'available') }, // Asumimos que cotizados están en disponibles por ahora, o podríamos filtrar solo cotizados
-    { label: 'Vendidos', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', action: () => onNavigate('inventory', 'sold') },
+    { label: 'TOTAL PRODUCTOS', value: inventory.length.toLocaleString(), icon: Car, color: 'text-blue-600', bg: 'bg-blue-50', badge: '+12 nuevos', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'all') },
+    { label: 'STOCK BAJO', value: inventory.filter(i => i.status === 'pending').length, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', badge: 'Requiere atención', badgeColor: 'bg-red-100 text-red-700', action: () => onNavigate('inventory', 'available') },
+    { label: 'VALOR TOTAL', value: `$${(inventory.reduce((acc, current) => acc + (current.price || 0), 0) / 1000).toFixed(1)}k`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', badge: '+5.4% mes', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'sold') },
   ];
+
+  const recentContracts = contracts.slice(0, 3);
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div><h1 className="text-3xl font-bold text-slate-900">Dashboard</h1><p className="text-slate-500 text-sm mt-1">Datos en tiempo real de <span className="font-semibold text-red-700">Firebase</span></p></div>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Dashboard Header / Greeting */}
+      <Card className="relative overflow-hidden border-none bg-gradient-to-r from-red-50 to-white">
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+              Gestión de Inventario 📦
+            </h1>
+            <p className="text-slate-600 mt-2 text-lg">
+              Bienvenido, <span className="font-bold text-slate-900">{userProfile?.name?.split(' ')[0] || 'Usuario'}</span>.
+              Listo para vender y gestionar tu inventario hoy.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => onNavigate('contracts')}>Ver Reporte</Button>
+            <Button onClick={() => onNavigate('inventory')} icon={Plus}>Agregar Item</Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, idx) => (
-          <Card key={idx} className="flex items-center group cursor-pointer border-t-4 border-t-transparent hover:border-t-red-600 hover:shadow-lg active:scale-95 transition-all">
-            <div className={`p-4 rounded-xl ${stat.bg} mr-5 transition-transform group-hover:scale-110 duration-300`} onClick={stat.action}><stat.icon className={stat.color} size={28} /></div>
-            <div onClick={stat.action} className="flex-1">
-              <p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p>
-              <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+          <Card key={idx} className="group cursor-pointer hover:shadow-xl transition-all active:scale-[0.98]" onClick={stat.action}>
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
+                <stat.icon size={24} />
+              </div>
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${stat.badgeColor}`}>
+                {stat.badge}
+              </span>
+            </div>
+            <div>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+              <p className="text-3xl font-black text-slate-900">{stat.value}</p>
             </div>
           </Card>
         ))}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-slate-800 text-lg">Últimos Contratos</h3><span className="text-xs text-red-600 font-bold uppercase cursor-pointer hover:underline" onClick={() => onNavigate('contracts')}>Ver todos</span></div>
-          <div className="space-y-4">{contracts.slice(0, 3).map(contract => (<div key={contract.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="flex items-center"><div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm mr-4">{contract.client.charAt(0)}</div><div><p className="text-sm font-bold text-slate-900">{contract.client}</p><p className="text-xs text-slate-500">{contract.vehicle}</p></div></div><Badge status={contract.status} /></div>))}</div>
+
+      {/* Bottom Section: Recent Contracts & Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="lg:col-span-2">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <History size={20} className="text-red-600" /> Movimientos Recientes
+            </h3>
+            <button onClick={() => onNavigate('contracts')} className="text-xs font-black text-red-600 uppercase hover:underline">Ver todo</button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                <tr>
+                  <th className="pb-4">Producto</th>
+                  <th className="pb-4">Stock</th>
+                  <th className="pb-4">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {recentContracts.length > 0 ? recentContracts.map(contract => (
+                  <tr key={contract.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
+                          <Car size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900">{contract.vehicle}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{contract.client}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-5 text-sm font-black text-slate-900">1</td>
+                    <td className="py-5">
+                      <Badge status={contract.status} />
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="3" className="py-10 text-center text-slate-400 font-bold">Sin movimientos recientes</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
+
         <Card>
-          <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-slate-800 text-lg">Actividad Reciente</h3></div>
-          <div className="relative border-l-2 border-slate-100 ml-3 space-y-8 py-2"><div className="ml-6 relative"><div className="absolute w-4 h-4 bg-red-600 rounded-full -left-[33px] top-0.5 border-[3px] border-white shadow-sm"></div><p className="text-sm text-slate-900 font-bold">Base de datos conectada</p><p className="text-xs text-slate-500 mt-1">Ahora mismo • Firebase</p></div></div>
+          <div className="mb-8">
+            <h3 className="text-xl font-black text-slate-900">Actividad</h3>
+          </div>
+          <div className="space-y-6">
+            <div className="flex gap-4">
+              <div className="relative">
+                <div className="w-3 h-3 bg-red-600 rounded-full mt-1.5 ring-4 ring-red-100"></div>
+                <div className="absolute top-6 bottom-0 left-[5px] w-0.5 bg-slate-100"></div>
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-900">Base de datos conectada</p>
+                <p className="text-xs text-slate-500 mt-1">Sincronizado con Firebase</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="w-3 h-3 bg-slate-200 rounded-full mt-1.5"></div>
+              <div>
+                <p className="text-sm font-bold text-slate-400">Próximos reportes</p>
+                <p className="text-xs text-slate-400 mt-1">Programado para mañana</p>
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
     </div>
@@ -1044,21 +1139,83 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
 );
 
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const menuItems = [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'inventory', label: 'Inventario', icon: Car }, { id: 'contracts', label: 'Contratos', icon: FileText }, { id: 'trash', label: 'Papelera', icon: Trash2 }];
+  const menuItems = [
+    { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
+    { id: 'inventory', label: 'Inventario', icon: Box },
+    { id: 'contracts', label: 'Movimientos', icon: Repeat },
+    { id: 'trash', label: 'Reportes', icon: FileText },
+    { id: 'settings', label: 'Ajustes', icon: Settings },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-red-200 selection:text-red-900">
-      <aside className="hidden md:flex flex-col w-72 bg-slate-900 border-r border-slate-800 fixed h-full z-20 shadow-2xl">
-        <div className="p-8 flex items-center space-x-3"><AppLogo className="w-12 h-12" size={32} invert /><span className="text-2xl font-bold text-white tracking-tight">Carbot</span></div>
-        <nav className="flex-1 px-6 mt-4"><div className="mb-6 px-2 text-xs font-bold text-slate-500 uppercase tracking-widest">Navegación</div>{menuItems.map(item => (<SidebarItem key={item.id} icon={item.icon} label={item.label} active={activeTab === item.id} onClick={() => setActiveTab(item.id)} />))}</nav>
-        <div className="p-6 border-t border-slate-800 bg-slate-900/50"><div className="flex items-center gap-3 px-2 mb-6 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50"><div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-slate-200 shadow-inner border border-slate-600"><User size={20} /></div><div className="overflow-hidden"><p className="text-sm font-bold text-white truncate">{userProfile?.name || 'Usuario'}</p></div></div><button onClick={onLogout} className="w-full flex items-center justify-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl text-sm font-medium transition-all duration-300 group"><LogOut size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Cerrar Sesión</button></div>
-      </aside>
-      <div className="flex-1 md:ml-72 flex flex-col min-h-screen">
-        <header className="md:hidden bg-white/80 backdrop-blur-md border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 z-30"><div className="flex items-center space-x-2"><AppLogo className="w-10 h-10" size={24} /><span className="font-bold text-slate-900 text-lg">Carbot</span></div><button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition-colors">{mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button></header>
-        {mobileMenuOpen && (<div className="md:hidden fixed inset-0 z-20 bg-slate-900 pt-24 px-6 animate-in slide-in-from-top-10 fade-in duration-300"><nav className="space-y-3">{menuItems.map(item => (<SidebarItem key={item.id} icon={item.icon} label={item.label} active={activeTab === item.id} onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }} />))}<div className="border-t border-slate-800 my-6 pt-6"><button onClick={onLogout} className="flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 w-full px-4 py-4 rounded-xl transition-all"><LogOut size={20} className="mr-3" /> Cerrar Sesión</button></div></nav></div>)}
-        <main className="flex-1 p-4 md:p-10 overflow-y-auto w-full max-w-[1600px] mx-auto">{children}</main>
-      </div>
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900">
+      {/* Top Navigation Bar */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-6 py-3">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-8">
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-600/20">
+              <span className="text-xl font-black italic">C</span>
+            </div>
+            <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">Carbot<span className="text-red-600">Inventario</span></span>
+          </div>
+
+          {/* Main Nav Items */}
+          <nav className="hidden lg:flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
+            {menuItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 ${activeTab === item.id
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                  }`}
+              >
+                <item.icon size={18} />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Right Side: Search, Notifications, User */}
+          <div className="flex items-center gap-4 flex-1 justify-end">
+            {/* Search Bar */}
+            <div className="relative max-w-xs w-full hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Buscar producto..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold"
+              />
+            </div>
+
+            {/* Notifications */}
+            <button className="relative p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all">
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-600 rounded-full border-2 border-white"></span>
+            </button>
+
+            {/* User Profile Dropdown / Info */}
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-black text-slate-900 leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
+                <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">{userProfile?.dealerName || 'Almacén'}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 font-black border-2 border-white shadow-sm ring-1 ring-red-100">
+                {userProfile?.name?.charAt(0) || 'J'}
+              </div>
+              <button onClick={onLogout} className="p-2 text-slate-300 hover:text-red-600 transition-colors">
+                <LogOut size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
+        {children}
+      </main>
     </div>
   );
 };
