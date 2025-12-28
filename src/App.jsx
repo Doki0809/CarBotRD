@@ -21,7 +21,7 @@ import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
-  Box, AlertTriangle, TrendingUp, History, Bell
+  Box, AlertTriangle, TrendingUp, History, Bell, Calendar
 } from 'lucide-react';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -1124,8 +1124,10 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, onDeleteContr
     filtered.forEach(c => {
       let groupKey = "RESULTADOS DE BÚSQUEDA";
       if (sortConfig.startsWith('date')) {
-        const d = new Date(c.date || c.createdAt);
-        groupKey = d.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
+        const rawDate = c.date || c.createdAt;
+        const d = rawDate ? new Date(rawDate) : new Date();
+        const validDate = isNaN(d.getTime()) ? new Date() : d;
+        groupKey = validDate.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
       }
 
       if (!groups[groupKey]) groups[groupKey] = [];
