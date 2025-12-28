@@ -1171,7 +1171,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <AppLogo size={50} className="rounded-xl shadow-lg shadow-red-600/20" />
+              <AppLogo size={65} className="" />
               <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">
                 <span className="text-red-600">Inventario</span>
               </span>
@@ -1265,7 +1265,7 @@ const LoginScreen = ({ onLogin }) => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-2xl border border-gray-100">
         <div className="text-center mb-10 flex flex-col items-center">
-          <AppLogo size={80} className="mb-4" />
+          <AppLogo size={120} className="mb-6" />
           <p className="text-slate-500 font-medium">Sistema Inteligente para Dealers</p>
         </div>
 
