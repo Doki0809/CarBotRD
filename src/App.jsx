@@ -62,11 +62,14 @@ export const Button = ({ children, variant = 'primary', className = '', icon: Ic
   );
 };
 
-const Card = ({ children, className = '', noPadding = false }) => (
-  <div className={`bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
-    <div className={noPadding ? '' : 'p-6'}>{children}</div>
-  </div>
-);
+const Card = ({ children, className = '', noPadding = false }) => {
+  const hasBg = className.includes('bg-');
+  return (
+    <div className={`${hasBg ? '' : 'bg-white'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
+      <div className={noPadding ? '' : 'p-6'}>{children}</div>
+    </div>
+  );
+};
 
 const Badge = ({ status }) => {
   const styles = {
@@ -1144,7 +1147,6 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventario', icon: Box },
     { id: 'contracts', label: 'Contratos', icon: FileText },
-    { id: 'trash', label: 'Basurero', icon: Trash2 },
   ];
 
   return (

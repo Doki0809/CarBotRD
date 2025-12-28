@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Calendar, Fuel, Settings, Save, DollarSign,
   IdCard, Maximize, ChevronLeft, ChevronRight,
-  X, Info, Share2, Heart, Files, CheckCircle
+  X, Info, Share2, Heart, Files, CheckCircle, Lock
 } from 'lucide-react';
 
 export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
@@ -10,6 +10,8 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.price_dop > 0 ? 'DOP' : 'USD');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  const isSold = vehicle?.status === 'sold';
 
   const [formData, setFormData] = useState({
     ...vehicle,
@@ -34,18 +36,20 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
   if (!vehicle) return null;
 
   const handlePriceChange = (e) => {
+    if (isSold) return;
     const { value } = e.target;
     setFormData(prev => ({ ...prev, price_unified: value }));
   };
 
   const handleChange = (e) => {
+    if (isSold) return;
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || isSold) return;
     setLoading(true);
     try {
       const priceVal = Number(formData.price_unified);
@@ -78,8 +82,8 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
         name={name}
         value={value}
         onChange={onChange}
-        disabled={disabled}
-        className={`w-full p-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all text-slate-700 font-semibold shadow-sm ${className}`}
+        disabled={disabled || isSold}
+        className={`w-full p-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all text-slate-700 font-semibold shadow-sm ${isSold ? 'opacity-70 cursor-not-allowed' : ''} ${className}`}
       />
     </div>
   );
@@ -97,7 +101,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
           onClick={onBack}
           disabled={loading}
           className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-all shadow-xl shadow-slate-200/40"
-          title="Cerrar edición"
+          title="Cerrar"
         >
           <X size={24} />
         </button>
@@ -160,28 +164,43 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
         <div className="xl:col-span-4 space-y-4 md:space-y-8">
           <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-6 md:gap-8">
 
-            {/* SOLD CONTEXT SECTION */}
-            {vehicle.status === 'sold' && (
-              <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 animate-in zoom-in-95 duration-500">
-                <h3 className="text-xs font-black text-emerald-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <CheckCircle size={16} /> Vehículo Vendido
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[10px] font-black text-emerald-600/60 uppercase">Cliente</p>
-                    <p className="text-lg font-black text-slate-900">{contract?.client || 'N/A'}</p>
-                  </div>
-                  <div className="flex justify-between border-t border-emerald-100 pt-3">
-                    <div>
-                      <p className="text-[10px] font-black text-emerald-600/60 uppercase">Fecha</p>
-                      <p className="text-sm font-bold text-slate-700">{contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-emerald-600/60 uppercase text-right">Monto</p>
-                      <p className="text-sm font-black text-slate-900 text-right">{contract?.price ? `$${contract.price.toLocaleString()}` : 'N/A'}</p>
+            {/* SOLD CONTEXT SECTION - REDESIGNED */}
+            {isSold && (
+              <div className="relative overflow-hidden p-8 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-[2rem] text-white shadow-xl shadow-emerald-200 transition-all border border-emerald-400/20">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-base font-black uppercase tracking-widest flex items-center gap-2">
+                      <CheckCircle size={20} /> VENTA COMPLETADA
+                    </h3>
+                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      <Lock size={16} />
                     </div>
                   </div>
+
+                  <div className="space-y-6">
+                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                      <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
+                      <p className="text-xl font-black">{contract?.client || 'N/A'}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">FECHA VENTA</p>
+                        <p className="text-sm font-black">{contract?.createdAt ? new Date(contract.createdAt).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                        <p className="text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">MONTO FINAL</p>
+                        <p className="text-sm font-black text-right">{contract?.price ? `$${contract.price.toLocaleString()}` : 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-6 text-[10px] font-bold text-emerald-100/70 text-center flex items-center justify-center gap-2">
+                    <Info size={12} /> Los detalles de unidades vendidas están protegidos y no pueden editarse.
+                  </p>
                 </div>
+                {/* Decorative circle */}
+                <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/5 rounded-full"></div>
               </div>
             )}
 
@@ -202,53 +221,58 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
                 <Info size={16} /> Especificaciones
               </h2>
               <div className="grid grid-cols-1 gap-5">
-                <Input label="Año del Modelo" name="year" value={formData.year} onChange={handleChange} icon={Calendar} />
-                <Input label="Edición / Versión" name="edition" value={formData.edition} onChange={handleChange} icon={Settings} />
+                <Input label="Año del Modelo" name="year" value={formData.year} icon={Calendar} />
+                <Input label="Edición / Versión" name="edition" value={formData.edition} icon={Settings} />
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} icon={Settings} />
-                  <Input label="Tracción" name="traction" value={formData.traction} onChange={handleChange} icon={Settings} />
+                  <Input label="Transmisión" name="transmission" value={formData.transmission} icon={Settings} />
+                  <Input label="Tracción" name="traction" value={formData.traction} icon={Settings} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Combustible" name="fuel" value={formData.fuel} onChange={handleChange} icon={Fuel} />
-                  <Input label="Kilometraje" name="mileage" value={formData.mileage} onChange={handleChange} icon={Settings} />
+                  <Input label="Combustible" name="fuel" value={formData.fuel} icon={Fuel} />
+                  <Input label="Kilometraje" name="mileage" value={formData.mileage} icon={Settings} />
                 </div>
-                <Input label="Chasis/VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} icon={IdCard} className="font-mono" />
-              </div>
-              <div className="pt-4 border-t border-slate-50">
-                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <DollarSign size={14} /> Precio de Venta
-                </h2>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
-                  <input
-                    type="number"
-                    value={formData.price_unified}
-                    onChange={handlePriceChange}
-                    className="bg-transparent text-2xl font-black text-slate-900 outline-none w-full border-b border-slate-200 focus:border-red-600 pb-1 transition-all"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCurrency('USD')}
-                      className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'USD' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
-                    >USD$</button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrency('DOP')}
-                      className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'DOP' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
-                    >DOP$</button>
-                  </div>
-                </div>
+                <Input label="Chasis/VIN" name="vin" value={formData.vin || formData.chassis} icon={IdCard} className="font-mono" />
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-5 md:py-6 bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] font-black text-base md:text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
-                >
-                  {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
-                </button>
-              </div>
+              {!isSold && (
+                <>
+                  <div className="pt-4 border-t border-slate-50">
+                    <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                      <DollarSign size={14} /> Precio de Venta
+                    </h2>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                      <input
+                        type="number"
+                        value={formData.price_unified}
+                        onChange={handlePriceChange}
+                        className="bg-transparent text-2xl font-black text-slate-900 outline-none w-full border-b border-slate-200 focus:border-red-600 pb-1 transition-all"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCurrency('USD')}
+                          className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'USD' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
+                        >USD$</button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrency('DOP')}
+                          className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'DOP' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
+                        >DOP$</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-5 md:py-6 bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] font-black text-base md:text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                    >
+                      {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
