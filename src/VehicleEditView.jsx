@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Calendar, Fuel, Settings, Save, DollarSign,
   IdCard, Instagram, Monitor, Smartphone, Maximize, ChevronLeft, ChevronRight,
-  X, ZoomIn, Info, Share2, Heart
+  X, ZoomIn, Info, Share2, Heart, Files
 } from 'lucide-react';
 
 export default function VehicleEditView({ vehicle, onBack, onSave }) {

@@ -239,6 +239,9 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       // IMPORTANTE: Mantener el ID si estamos editando
       if (initialData?.id) {
         data.id = initialData.id;
+        console.log("Editando vehículo, ID detectado:", data.id);
+      } else {
+        console.log("Nuevo vehículo, sin ID previo.");
       }
 
       await onSave(data);
@@ -562,9 +565,9 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
           <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
         </div>
         
-        <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${contract.template.toUpperCase()}</h1>
+        <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${(contract.template || 'Documento').toUpperCase()}</h1>
         
-        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${contract.date ? new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
         
         <p style="margin-bottom: 25px; text-align: justify;">
           <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong> (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
@@ -1195,12 +1198,16 @@ export default function CarbotApp() {
 
   // 3. GUARDAR (Crear o Editar en Firebase)
   const handleSaveVehicle = async (vehicleData) => {
-    console.log("Intentando guardar vehículo:", vehicleData.id ? `Editando ${vehicleData.id}` : "Creando nuevo");
+    console.log("Intentando guardar vehículo:", vehicleData.id ? `Editando ID: ${vehicleData.id}` : "Creando nuevo (SIN ID)");
+
+    // Asegurar que si hay ID, se use updateDoc
+    const existingId = vehicleData.id;
     try {
-      if (vehicleData.id) {
+      if (existingId) {
         // Editar existente
-        const vehicleRef = doc(db, "vehicles", vehicleData.id);
-        const { id: _unusedId, ...dataToUpdate } = vehicleData; // No incluir el ID en los datos del documento
+        const vehicleRef = doc(db, "vehicles", existingId);
+        const { id: _removedId, ...dataToUpdate } = vehicleData;
+        console.log("Actualizando documento Firestore:", existingId);
         await updateDoc(vehicleRef, {
           ...dataToUpdate,
           updatedAt: new Date().toISOString()
