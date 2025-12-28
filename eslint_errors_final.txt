@@ -1,0 +1,71 @@
+
+/Users/jean/carbot/src/App.jsx
+     7:3   error  'onAuthStateChanged' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+   147:22  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  145 |
+  146 |   useEffect(() => {
+> 147 |     if (initialData) setPreviewUrl(initialData.image);
+      |                      ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  148 |     else {
+  149 |       setPreviewUrl('');
+  150 |       setSelectedFile(null);                                                                    react-hooks/set-state-in-effect
+   368:41  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  366 |   const [loading, setLoading] = useState(false);
+  367 |
+> 368 |   useEffect(() => { if (initialVehicle) setSelectedVehicleId(initialVehicle.id); }, [initialVehicle]);
+      |                                         ^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  369 |
+  370 |   if (!isOpen) return null;
+  371 |  react-hooks/set-state-in-effect
+   595:60  error  'userProfile' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         no-unused-vars
+   778:30  error  'Icon' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                no-unused-vars
+   806:17  error  'setError' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-unused-vars
+   895:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  893 |     const savedEmail = localStorage.getItem('lastUserEmail');
+  894 |     if (savedEmail) {
+> 895 |       setIsLoggedIn(true);
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  896 |       setCurrentUserEmail(savedEmail);
+  897 |     }
+  898 |     setInitializing(false);                                       react-hooks/set-state-in-effect
+   928:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  926 |       fetchUserProfile();
+  927 |     } else {
+> 928 |       setUserProfile(null);
+      |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  929 |     }
+  930 |   }, [isLoggedIn, currentUserEmail]);
+  931 |                                                                                                               react-hooks/set-state-in-effect
+  1038:14  error  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   no-unused-vars
+  1046:14  error  'error' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               no-unused-vars
+
+✖ 10 problems (10 errors, 0 warnings)
+

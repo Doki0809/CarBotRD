@@ -9,9 +9,6 @@ import {
 import {
   collection,
   onSnapshot,
-  getDocs,
-  query,
-  where,
   setDoc,
   getDoc,
   addDoc,
@@ -141,7 +138,6 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
 };
 
 const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
-  if (!isOpen) return null;
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -154,6 +150,8 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       setSelectedFile(null);
     }
   }, [initialData, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -284,10 +282,11 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 };
 
 const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
-  if (!isOpen) return null;
   const [loading, setLoading] = useState(false);
   const [bankName, setBankName] = useState('');
   const [cedula, setCedula] = useState('');
+
+  if (!isOpen) return null;
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -359,7 +358,6 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
 };
 
 const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initialVehicle }) => {
-  if (!isOpen) return null;
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle ? initialVehicle.id : '');
   const [clientName, setClientName] = useState('');
@@ -367,9 +365,11 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   const [clientCedula, setClientCedula] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const availableVehicles = inventory.filter(v => v.status !== 'sold' || (initialVehicle && v.id === initialVehicle.id));
-
   useEffect(() => { if (initialVehicle) setSelectedVehicleId(initialVehicle.id); }, [initialVehicle]);
+
+  if (!isOpen) return null;
+
+  const availableVehicles = inventory.filter(v => v.status !== 'sold' || (initialVehicle && v.id === initialVehicle.id));
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -749,7 +749,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
   );
 };
 
-const ContractsView = ({ contracts, inventory, onGenerateContract, setActiveTab, userProfile }) => {
+const ContractsView = ({ contracts, inventory, onGenerateContract, userProfile }) => {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [previewContract, setPreviewContract] = useState(null);
 
@@ -933,18 +933,24 @@ export default function CarbotApp() {
 
   // ... (rest of functions)
 
-  if (initializing) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="flex flex-col items-center animate-pulse">
-          <AppLogo className="w-16 h-16 mb-4" size={64} />
-          <p className="text-slate-400 font-medium">Cargando sesión...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleLogin = ({ email }) => {
+    localStorage.setItem('lastUserEmail', email);
+    setCurrentUserEmail(email);
+    setIsLoggedIn(true);
+  };
 
-  if (!isLoggedIn || !userProfile) return <LoginScreen onLogin={handleLogin} />;
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out", error);
+    }
+    localStorage.removeItem('lastUserEmail');
+    setIsLoggedIn(false);
+    setUserProfile(null);
+    setCurrentUserEmail('');
+  };
+
   useEffect(() => {
     // Escuchar TODO el inventario, incluyendo trash
     const unsubscribe = onSnapshot(collection(db, "vehicles"), (snapshot) => {
@@ -972,6 +978,19 @@ export default function CarbotApp() {
     });
     return () => unsubscribe();
   }, []);
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center animate-pulse">
+          <AppLogo className="w-16 h-16 mb-4" size={64} />
+          <p className="text-slate-400 font-medium">Cargando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn || !userProfile) return <LoginScreen onLogin={handleLogin} />;
 
   // 3. GUARDAR (Crear o Editar en Firebase)
   const handleSaveVehicle = async (vehicleData) => {
