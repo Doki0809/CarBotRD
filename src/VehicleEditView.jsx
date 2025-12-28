@@ -292,12 +292,12 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
         <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden">
           <div className="flex justify-between items-center p-8 z-50">
             <div className="text-white">
-              <h4 className="text-xl font-black uppercase tracking-tighter">{formData.make} {formData.model}</h4>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
+              <h4 className="text-xl font-black uppercase tracking-tighter text-red-600">{formData.make} {formData.model}</h4>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
             </div>
             <button
               onClick={() => setIsLightboxOpen(false)}
-              className="p-4 rounded-full bg-white/10 text-white hover:bg-red-600 transition-all hover:rotate-90"
+              className="p-4 rounded-full bg-white/10 text-red-600 hover:bg-white transition-all hover:rotate-90 shadow-xl border border-white/10"
             >
               <X size={32} />
             </button>

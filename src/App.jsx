@@ -1698,9 +1698,9 @@ export default function CarbotApp() {
 
 
 
-  // Filtros Globale
-  const activeInventory = inventory.filter(i => i.status !== 'trash');
-  const trashInventory = inventory.filter(i => i.status === 'trash');
+  // Filtros Globales
+  const activeInventory = (inventory || []).filter(i => i && i.status !== 'trash');
+  const trashInventory = (inventory || []).filter(i => i && i.status === 'trash');
 
   const renderContent = () => {
     if (selectedVehicle) {
@@ -1715,9 +1715,9 @@ export default function CarbotApp() {
       );
     }
     switch (activeTab) {
-      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
+      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
-      case 'contracts': return <ContractsView contracts={contracts} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
