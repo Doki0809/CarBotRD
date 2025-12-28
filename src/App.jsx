@@ -796,7 +796,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         <Card className="lg:col-span-2">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <History size={20} className="text-red-600" /> Movimientos Recientes
+              <History size={20} className="text-red-600" /> Contratos Recientes
             </h3>
             <button onClick={() => onNavigate('contracts')} className="text-xs font-black text-red-600 uppercase hover:underline">Ver todo</button>
           </div>
@@ -1140,11 +1140,10 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
 
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Resumen', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventario', icon: Box },
-    { id: 'contracts', label: 'Movimientos', icon: Repeat },
-    { id: 'trash', label: 'Reportes', icon: FileText },
-    { id: 'settings', label: 'Ajustes', icon: Settings },
+    { id: 'contracts', label: 'Contratos', icon: FileText },
+    { id: 'trash', label: 'Basurero', icon: Trash2 },
   ];
 
   return (
@@ -1167,8 +1166,8 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 ${activeTab === item.id
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                  ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white'
                   }`}
               >
                 <item.icon size={18} />
