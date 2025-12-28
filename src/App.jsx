@@ -102,12 +102,12 @@ const Input = ({ label, type = "text", className = "", ...props }) => (
   </div>
 );
 
-const Select = ({ label, options, ...props }) => (
+const Select = ({ label, options = [], ...props }) => (
   <div className="mb-4 group">
     <label className="block text-sm font-medium text-gray-700 mb-1 group-focus-within:text-red-700 transition-colors">{label}</label>
     <select className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all cursor-pointer" {...props}>
-      {options.map(opt => {
-        const isObj = typeof opt === 'object';
+      {options && options.map(opt => {
+        const isObj = typeof opt === 'object' && opt !== null;
         const value = isObj ? opt.value : opt;
         const labelText = isObj ? opt.label : opt;
         return <option key={value} value={value}>{labelText}</option>;
@@ -412,6 +412,60 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
               <Button type="submit" disabled={loading}>
                 {loading ? <><Loader2 className="animate-spin mr-2" /> {uploadProgress || 'Guardando...'}</> : 'Guardar Vehículo'}
               </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
+  const [loading, setLoading] = useState(false);
+  const [bankName, setBankName] = useState('');
+  const [cedula, setCedula] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const formData = new FormData(e.target);
+    onConfirm({
+      name: formData.get('name'),
+      lastname: formData.get('lastname'),
+      phone: formData.get('phone'),
+      cedula: cedula,
+      bank: bankName
+    });
+    setLoading(false);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full max-w-md animate-in zoom-in-95 duration-200">
+        <Card>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center">
+              <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
+              Cotizar: {userProfile?.dealerName}
+            </h3>
+            <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+          </div>
+          <form onSubmit={handleSend}>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <Input name="name" label="Nombre Cliente" placeholder="Ej. Juan" required />
+              <Input name="lastname" label="Apellido" placeholder="Ej. Pérez" required />
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <Input name="phone" label="Teléfono" placeholder="+1 829..." required />
+              <Input name="cedula" label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} required />
+            </div>
+            <Input label="Banco Dirigido" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej. Banco Popular" className="mb-4" />
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
+              <Button type="submit" disabled={loading}>Enviar Cotización</Button>
             </div>
           </form>
         </Card>
@@ -973,11 +1027,11 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
         case 'date_desc': return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         case 'date_asc': return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
         case 'updated_desc': return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
-        case 'name_asc': return `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`);
+        case 'name_asc': return `${a.make || ''} ${a.model || ''}`.localeCompare(`${b.make || ''} ${b.model || ''}`);
         case 'brand_asc':
-          const brandCompare = a.make.localeCompare(b.make);
+          const brandCompare = (a.make || '').localeCompare(b.make || '');
           if (brandCompare !== 0) return brandCompare;
-          return a.model.localeCompare(b.model);
+          return (a.model || '').localeCompare(b.model || '');
         default: return 0;
       }
     });
@@ -1156,8 +1210,8 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
         case 'date_desc': return db - da;
         case 'date_asc': return da - db;
         case 'client_asc': {
-          const nameA = activeView === 'contracts' ? a.client : `${a.name} ${a.lastname}`;
-          const nameB = activeView === 'contracts' ? b.client : `${b.name} ${b.lastname}`;
+          const nameA = activeView === 'contracts' ? (a.client || '') : `${a.name || ''} ${a.lastname || ''}`;
+          const nameB = activeView === 'contracts' ? (b.client || '') : `${b.name || ''} ${b.lastname || ''}`;
           return nameA.localeCompare(nameB);
         }
         case 'vehicle_asc': return (a.vehicle || '').localeCompare(b.vehicle || '');
@@ -1323,7 +1377,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             Nuevo Contrato
           </Button>
         ) : (
-          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
+          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
             Nueva Cotización
           </Button>
         )}
@@ -1388,7 +1442,10 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           </div>
         ))}
         {totalItems === 0 && (
-          <div className="py-20 text-center"><div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><Files size={32} /></div><p className="font-bold text-slate-400">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registrados</p></div>
+          <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+            <Files size={64} className="mb-4 opacity-20" />
+            <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
+          </div>
         )}
       </div>
 
@@ -1397,8 +1454,8 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           isOpen={isGenerateModalOpen}
           onClose={() => setIsGenerateModalOpen(false)}
           inventory={inventory}
-          onSave={onGenerateContract}
-          initialData={editingContract}
+          onGenerate={onGenerateContract}
+          initialVehicle={editingContract}
         />
       )}
 
@@ -1802,21 +1859,24 @@ export default function CarbotApp() {
   // Funciones locales (Contratos, etc.)
   const handleQuoteSent = async (quoteData) => {
     try {
+      const vId = quoteData.vehicleId || selectedVehicle?.id;
+      const vName = quoteData.vehicle || (selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : 'Vehículo Desconocido');
+
       // 1. Guardar en la colección de cotizaciones
       const newQuote = {
         ...quoteData,
-        vehicleId: selectedVehicle?.id,
-        vehicle: `${selectedVehicle?.make} ${selectedVehicle?.model}`,
+        vehicleId: vId,
+        vehicle: vName,
         createdAt: new Date().toISOString()
       };
       await addDoc(collection(db, "quotes"), newQuote);
 
       // 2. Actualizar estado del vehículo
-      if (selectedVehicle?.id) {
-        const vehicleRef = doc(db, "vehicles", selectedVehicle.id);
+      if (vId) {
+        const vehicleRef = doc(db, "vehicles", vId);
         await updateDoc(vehicleRef, { status: 'quoted', updatedAt: new Date().toISOString() });
       }
-      showToast("Cotización guardada y enviada");
+      showToast("Cotización guardada");
     } catch (error) {
       console.error("Error al guardar cotización:", error);
       showToast("Error al procesar la cotización", "error");
