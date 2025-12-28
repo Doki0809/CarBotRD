@@ -967,7 +967,10 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
         case 'date_asc': return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
         case 'updated_desc': return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
         case 'name_asc': return `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`);
-        case 'brand_asc': return a.make.localeCompare(b.make);
+        case 'brand_asc':
+          const brandCompare = a.make.localeCompare(b.make);
+          if (brandCompare !== 0) return brandCompare;
+          return a.model.localeCompare(b.model);
         default: return 0;
       }
     });
