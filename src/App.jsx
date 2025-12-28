@@ -21,7 +21,7 @@ import {
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
-  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo
+  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye
 } from 'lucide-react';
 
 /**
@@ -227,12 +227,24 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm }) => {
   if (!isOpen) return null;
   const [loading, setLoading] = useState(false);
+  const [bankName, setBankName] = useState('');
+  const [cedula, setCedula] = useState('');
 
   const handleSend = (e) => {
     e.preventDefault();
     setLoading(true);
+    // Capturar datos del formulario
+    const formData = new FormData(e.target);
+    const data = {
+      name: formData.get('name'),
+      lastname: formData.get('lastname'),
+      phone: formData.get('phone'),
+      cedula: cedula,
+      bank: bankName
+    };
+
     setTimeout(() => {
-      onConfirm();
+      onConfirm(data);
       setLoading(false);
     }, 1200);
   };
@@ -244,17 +256,38 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm }) => {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
-              Cotizar en GoHighLevel
+              Cotizar: {MOCK_USER.dealerName}
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
-          <p className="text-sm text-gray-600 mb-6 leading-relaxed">Se enviará la ficha técnica del <strong>{vehicle.make} {vehicle.model}</strong>.</p>
+          <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+            Se enviará la ficha del <strong className="text-slate-900">{vehicle.make} {vehicle.model}</strong> a nombre de <strong className="text-slate-900">{MOCK_USER.name}</strong>.
+          </p>
           <form onSubmit={handleSend}>
-            <div className="grid grid-cols-2 gap-3">
-              <Input label="Nombre" placeholder="Ej. Jean" required />
-              <Input label="Apellido" placeholder="Ej. Gómez" required />
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <Input name="name" label="Nombre Cliente" placeholder="Ej. Jean" required />
+              <Input name="lastname" label="Apellido" placeholder="Ej. Gómez" required />
             </div>
-            <Input label="Teléfono (WhatsApp)" placeholder="+1 829..." required />
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <Input name="phone" label="Teléfono" placeholder="+1 829..." required />
+              <Input
+                name="cedula"
+                label="Cédula"
+                placeholder="001-0000000-0"
+                value={cedula}
+                onChange={(e) => setCedula(e.target.value)}
+                required
+              />
+            </div>
+            <div className="bg-red-50/50 p-3 rounded-xl border border-red-100/50 mb-4">
+              <Input
+                label="Banco Dirigido (Opcional)"
+                placeholder="Ej. Banco Popular"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                className="mb-0 bg-white"
+              />
+            </div>
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>Cancelar</Button>
               <Button type="submit" disabled={loading}>{loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Enviando...</> : 'Enviar Cotización'}</Button>
@@ -356,45 +389,170 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   );
 };
 
-// --- VISTAS PRINCIPALES ---
+const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
+  if (!isOpen || !contract) return null;
 
-const TrashView = ({ trash, setTrash, showToast }) => {
-  // NOTA: Para implementar papelera real con Firebase, necesitaríamos una colección "trash_vehicles".
-  // Por ahora, esto funciona en memoria local.
-  const restoreItem = (itemToRestore) => {
-    // Aquí deberías llamar a una función para restaurar en Firebase
-    showToast("Función de restauración en desarrollo (Beta)");
+  const handlePrint = () => {
+    // Truco: Abrir una ventana nueva limpia para imprimir
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Contrato - ${contract.id}</title>
+          <style>
+            body { font-family: 'Times New Roman', serif; padding: 40px; line-height: 1.6; color: #000; }
+            h1 { text-align: center; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; }
+            h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+            p { margin-bottom: 15px; text-align: justify; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .firma-box { margin-top: 60px; display: flex; justify-content: space-between; }
+            .firma { width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center; }
+            @media print {
+               body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${MOCK_USER.dealerName}</h1>
+            <p>RNC: 1-0000000-1 | Tel: 809-555-5555</p>
+          </div>
+          
+          <h1>${contract.template.toUpperCase()}</h1>
+          
+          <p>En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString()}</strong>.</p>
+          
+          <p>
+            ENTRE UNA PARTE, el señor(a) <strong>${MOCK_USER.name}</strong>, actuando en nombre y representación de <strong>${MOCK_USER.dealerName}</strong> (EL VENDEDOR).
+            <br/>
+            Y POR LA OTRA PARTE, el señor(a) <strong>${contract.client}</strong>, portador de la cédula <strong>${contract.cedula || 'N/A'}</strong> (EL COMPRADOR).
+          </p>
+          
+          <h2>PRIMERO: OBJETO</h2>
+          <p>EL VENDEDOR vende, cede y traspasa al COMPRADOR el siguiente vehículo:</p>
+          <ul>
+            <li><strong>Vehículo:</strong> ${contract.vehicle}</li>
+            <li><strong>Condición:</strong> Usado / Importado</li>
+          </ul>
+
+          <h2>SEGUNDO: PRECIO Y PAGO</h2>
+          <p>El precio pactado para la venta es de [PRECIO_AQUI], pagaderos de la siguiente forma: [DETALLE_PAGO].</p>
+          
+          <h2>TERCERO: GARANTÍA</h2>
+          <p>El vehículo se vende bajo el estatus "AS IS" (como está), salvo las garantías expresas de ley sobre el motor y transmisión por 30 días.</p>
+
+          <div class="firma-box">
+             <div class="firma">
+               <p>EL VENDEDOR</p>
+               <br/><br/>
+               ${MOCK_USER.dealerName}
+             </div>
+             <div class="firma">
+               <p>EL COMPRADOR</p>
+               <br/><br/>
+               ${contract.client}
+             </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
   };
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div><h1 className="text-3xl font-bold text-slate-900">Papelera</h1><p className="text-slate-500 text-sm mt-1">Vehículos eliminados.</p></div>
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
-        <Trash2 size={48} className="mb-4 text-slate-300" /><p className="text-lg font-medium">La papelera está vacía.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full max-w-lg animate-in zoom-in-95 duration-200">
+        <Card>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-slate-800">Vista Previa de Contrato</h3>
+            <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+          </div>
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6 h-64 overflow-y-auto font-serif text-sm leading-relaxed text-slate-700">
+            <div className="text-center font-bold mb-4 uppercase text-slate-900">{contract.template}</div>
+            <p className="mb-2"><strong>Cliente:</strong> {contract.client}</p>
+            <p className="mb-2"><strong>Vehículo:</strong> {contract.vehicle}</p>
+            <p className="mb-2"><strong>Fecha:</strong> {contract.date}</p>
+            <hr className="my-4 border-gray-300" />
+            <p className="italic text-gray-500 text-center">[ ... Texto legal completo se mostrará al imprimir ... ]</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+            <Button onClick={handlePrint} icon={Printer}>Imprimir / Descargar PDF</Button>
+          </div>
+        </Card>
       </div>
     </div>
   );
 };
 
-const DashboardView = ({ inventory, contracts, setActiveTab }) => {
+// --- VISTAS PRINCIPALES ---
+
+const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex justify-between items-center">
+        <div><h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1><p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p></div>
+        {trash.length > 0 && (
+          <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none">Vaciar Papelera</Button>
+        )}
+      </div>
+
+      {trash.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
+          <Trash2 size={48} className="mb-4 text-slate-300" /><p className="text-lg font-medium">La papelera está vacía.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {trash.map(item => (
+            <div key={item.id} className="relative group opacity-80 hover:opacity-100 transition-opacity">
+              <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30">
+                <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
+                  <img src={item.image} alt={item.model} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-red-900/10 mix-blend-multiply"></div>
+                </div>
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
+                  <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
+                  <div className="mt-auto grid grid-cols-2 gap-3">
+                    <Button variant="secondary" onClick={() => onRestore(item.id)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1"><Undo size={14} /> RESTAURAR</Button>
+                    <Button variant="secondary" onClick={() => onPermanentDelete(item.id)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1"><X size={14} /> BORRAR</Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DashboardView = ({ inventory, contracts, onNavigate }) => {
   const stats = [
-    { label: 'Inventario Total', value: inventory.length, icon: Car, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Cotizados', value: inventory.filter(i => i.status === 'quoted').length, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'Vendidos', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Inventario Total', value: inventory.length, icon: Car, color: 'text-red-600', bg: 'bg-red-50', action: () => onNavigate('inventory', 'all') },
+    { label: 'Cotizados', value: inventory.filter(i => i.status === 'quoted').length, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50', action: () => onNavigate('inventory', 'available') }, // Asumimos que cotizados están en disponibles por ahora, o podríamos filtrar solo cotizados
+    { label: 'Vendidos', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', action: () => onNavigate('inventory', 'sold') },
   ];
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div><h1 className="text-3xl font-bold text-slate-900">Dashboard</h1><p className="text-slate-500 text-sm mt-1">Datos en tiempo real de <span className="font-semibold text-red-700">Firebase</span></p></div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, idx) => (
-          <Card key={idx} className="flex items-center group cursor-pointer border-t-4 border-t-transparent hover:border-t-red-600">
-            <div className={`p-4 rounded-xl ${stat.bg} mr-5 transition-transform group-hover:scale-110 duration-300`}><stat.icon className={stat.color} size={28} /></div>
-            <div><p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p><p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p></div>
+          <Card key={idx} className="flex items-center group cursor-pointer border-t-4 border-t-transparent hover:border-t-red-600 hover:shadow-lg active:scale-95 transition-all">
+            <div className={`p-4 rounded-xl ${stat.bg} mr-5 transition-transform group-hover:scale-110 duration-300`} onClick={stat.action}><stat.icon className={stat.color} size={28} /></div>
+            <div onClick={stat.action} className="flex-1">
+              <p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p>
+              <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+            </div>
           </Card>
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
-          <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-slate-800 text-lg">Últimos Contratos</h3><span className="text-xs text-red-600 font-bold uppercase cursor-pointer hover:underline" onClick={() => setActiveTab('contracts')}>Ver todos</span></div>
+          <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-slate-800 text-lg">Últimos Contratos</h3><span className="text-xs text-red-600 font-bold uppercase cursor-pointer hover:underline" onClick={() => onNavigate('contracts')}>Ver todos</span></div>
           <div className="space-y-4">{contracts.slice(0, 3).map(contract => (<div key={contract.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="flex items-center"><div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm mr-4">{contract.client.charAt(0)}</div><div><p className="text-sm font-bold text-slate-900">{contract.client}</p><p className="text-xs text-slate-500">{contract.vehicle}</p></div></div><Badge status={contract.status} /></div>))}</div>
         </Card>
         <Card>
@@ -406,9 +564,9 @@ const DashboardView = ({ inventory, contracts, setActiveTab }) => {
   );
 };
 
-const InventoryView = ({ inventory, setInventory, showToast, onGenerateContract, onVehicleSelect, onSave, onDelete }) => {
+const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab }) => { // activeTab por props para control externo
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('available');
+  // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -531,18 +689,25 @@ const InventoryView = ({ inventory, setInventory, showToast, onGenerateContract,
 
 const ContractsView = ({ contracts, inventory, onGenerateContract, setActiveTab }) => {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const [previewContract, setPreviewContract] = useState(null);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center"><div><h1 className="text-3xl font-bold text-slate-900">Contratos (GHL)</h1><p className="text-slate-500 text-sm mt-1">Historial de documentos generados</p></div><Button icon={FilePlus} onClick={() => setIsGenerateModalOpen(true)} className="shadow-lg shadow-red-600/20">Generar Contrato</Button></div>
       <Card noPadding className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-gray-200"><tr><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vehículo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th></tr></thead>
-            <tbody className="divide-y divide-gray-100">{contracts.map(contract => (<tr key={contract.id} className="hover:bg-red-50/30 transition-colors duration-200"><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-bold text-slate-900">{contract.client}</div></td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.vehicle}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.template}</td><td className="px-6 py-4 whitespace-nowrap"><Badge status={contract.status} /></td></tr>))}</tbody>
+            <thead className="bg-slate-50 border-b border-gray-200"><tr><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Vehículo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th><th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th></tr></thead>
+            <tbody className="divide-y divide-gray-100">{contracts.map(contract => (<tr key={contract.id} className="hover:bg-red-50/30 transition-colors duration-200"><td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-bold text-slate-900">{contract.client}</div></td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.vehicle}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{contract.template}</td><td className="px-6 py-4 whitespace-nowrap"><Badge status={contract.status} /></td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <button onClick={() => setPreviewContract(contract)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Ver e Imprimir"><Eye size={18} /></button>
+              </td>
+            </tr>))}</tbody>
           </table>
         </div>
       </Card>
       <GenerateContractModal isOpen={isGenerateModalOpen} onClose={() => setIsGenerateModalOpen(false)} inventory={inventory} onGenerate={onGenerateContract} initialVehicle={null} />
+      <ContractPreviewModal isOpen={!!previewContract} onClose={() => setPreviewContract(null)} contract={previewContract} />
     </div>
   );
 };
@@ -672,10 +837,13 @@ export default function CarbotApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'dashboard');
 
+  // Nuevo Estado: Filtro de Inventario (Levantamos el estado para controlarlo desde Dashboard)
+  const [inventoryTab, setInventoryTab] = useState('available');
+
   // 1. ESTADO DE DATOS (Vacío al inicio, se llena desde Firebase)
   const [inventory, setInventory] = useState([]);
-  const [trash, setTrash] = useState([]);
   const [contracts, setContracts] = useState(INITIAL_CONTRACTS);
+  // const [trash, setTrash] = useState([]); // Ya no necesitamos trash local, filtramos del inventory global
 
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -687,26 +855,38 @@ export default function CarbotApp() {
   // 1.b AUTH STATE LISTENER
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsLoggedIn(true);
-      } else {
-        setIsLoggedIn(false);
-      }
+      setIsLoggedIn(!!user);
     });
     return () => unsubscribeAuth();
   }, []);
 
   // 2. CONEXIÓN A FIREBASE (Escuchar cambios en tiempo real)
   useEffect(() => {
-    // Esta función se ejecuta sola al abrir la app y se queda escuchando
+    // Escuchar TODO el inventario, incluyendo trash
     const unsubscribe = onSnapshot(collection(db, "vehicles"), (snapshot) => {
       const vehiclesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setInventory(vehiclesData);
+
+      // AUTO-LIMPIEZA: Revisar ítems en basura viejos (>15 días)
+      const now = new Date();
+      vehiclesData.forEach(async (v) => {
+        if (v.status === 'trash' && v.deletedAt) {
+          const deleteDate = new Date(v.deletedAt);
+          const diffDays = (now - deleteDate) / (1000 * 60 * 60 * 24);
+          if (diffDays > 15) {
+            // Eliminar permanentemente
+            try {
+              await deleteDoc(doc(db, "vehicles", v.id));
+              console.log(`Auto-eliminado vehículo trash ${v.id} (>15 días)`);
+            } catch (e) { console.error("Error auto-limpieza", e); }
+          }
+        }
+      });
     });
-    return () => unsubscribe(); // Se desconecta si cierras la app
+    return () => unsubscribe();
   }, []);
 
   // 3. GUARDAR (Crear o Editar en Firebase)
@@ -719,7 +899,7 @@ export default function CarbotApp() {
         showToast("Vehículo actualizado en la nube");
       } else {
         // Crear nuevo
-        await addDoc(collection(db, "vehicles"), vehicleData);
+        await addDoc(collection(db, "vehicles"), { ...vehicleData, createdAt: new Date().toISOString() });
         showToast("Vehículo guardado en Firebase");
       }
     } catch (error) {
@@ -728,15 +908,50 @@ export default function CarbotApp() {
     }
   };
 
-  // 4. BORRAR (Eliminar de Firebase)
+  // 4. SOFT DELETE (Enviar a Papelera)
   const handleDeleteVehicle = async (id) => {
+    // Soft Delete: update status to 'trash'
     try {
-      await deleteDoc(doc(db, "vehicles", id));
-      showToast("Vehículo eliminado");
+      const vehicleRef = doc(db, "vehicles", id);
+      await updateDoc(vehicleRef, {
+        status: 'trash',
+        deletedAt: new Date().toISOString()
+      });
+      showToast("Vehículo movido a la papelera (se borrará en 15 días)");
     } catch (error) {
       console.error(error);
+      showToast("Error al mover a papelera", "error");
+    }
+  };
+
+  const handleRestoreVehicle = async (id) => {
+    try {
+      const vehicleRef = doc(db, "vehicles", id);
+      await updateDoc(vehicleRef, {
+        status: 'available',
+        deletedAt: null
+      });
+      showToast("Vehículo restaurado al inventario");
+    } catch (e) { showToast("Error al restaurar", "error"); }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (!window.confirm("¿ESTAS SEGURO? Esto eliminará el vehículo PARA SIEMPRE. No se puede deshacer.")) return;
+    try {
+      await deleteDoc(doc(db, "vehicles", id));
+      showToast("Vehículo eliminado permanentemente");
+    } catch (error) {
       showToast("Error al eliminar", "error");
     }
+  };
+
+  const handleEmptyTrash = async () => {
+    if (!window.confirm("¿Vaciar TODA la papelera? Se perderán todos los datos.")) return;
+    const trashItems = inventory.filter(i => i.status === 'trash');
+    for (const item of trashItems) {
+      await deleteDoc(doc(db, "vehicles", item.id));
+    }
+    showToast("Papelera vaciada");
   };
 
   // Funciones locales (Contratos, etc.)
@@ -752,19 +967,27 @@ export default function CarbotApp() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    // onAuthStateChanged se encargará de setear isLoggedIn a false
+  };
+
+  const handleNavigate = (tab, filter = 'all') => {
+    setActiveTab(tab);
+    if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
 
   if (!isLoggedIn) return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
 
+  // Filtros Globale
+  const activeInventory = inventory.filter(i => i.status !== 'trash');
+  const trashInventory = inventory.filter(i => i.status === 'trash');
+
   const renderContent = () => {
     if (selectedVehicle) return <VehicleEditView vehicle={selectedVehicle} onBack={() => setSelectedVehicle(null)} />;
     switch (activeTab) {
-      case 'dashboard': return <DashboardView inventory={inventory} contracts={contracts} setActiveTab={setActiveTab} />;
-      case 'inventory': return <InventoryView inventory={inventory} setInventory={setInventory} setTrash={setTrash} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} />;
-      case 'contracts': return <ContractsView contracts={contracts} inventory={inventory} onGenerateContract={handleGenerateContract} setActiveTab={setActiveTab} />;
-      case 'trash': return <TrashView trash={trash} setTrash={setTrash} showToast={showToast} />;
-      default: return <DashboardView inventory={inventory} contracts={contracts} />;
+      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} />;
+      case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} />;
+      case 'contracts': return <ContractsView contracts={contracts} inventory={activeInventory} onGenerateContract={handleGenerateContract} setActiveTab={setActiveTab} />;
+      case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
+      default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} />;
     }
   };
 
