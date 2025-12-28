@@ -1,14 +1,10 @@
 import VehicleEditView from './VehicleEditView.jsx';
 import React, { useState, useEffect, useMemo } from 'react';
-import { db, auth, googleProvider, storage } from './firebaseConfig';
+import { db, auth, storage } from './firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
-  signInWithPopup,
   signOut,
-  onAuthStateChanged,
-  setPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence
+  onAuthStateChanged
 } from 'firebase/auth';
 import {
   collection,
