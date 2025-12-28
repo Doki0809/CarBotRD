@@ -281,7 +281,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm }) => {
             </div>
             <div className="bg-red-50/50 p-3 rounded-xl border border-red-100/50 mb-4">
               <Input
-                label="Banco Dirigido (Opcional)"
+                label="Banco Dirigido"
                 placeholder="Ej. Banco Popular"
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
@@ -392,101 +392,103 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
 const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
   if (!isOpen || !contract) return null;
 
+  const getContractHtml = () => `
+    <html>
+      <head>
+        <title>Contrato-${contract.id}</title>
+        <style>
+          body { font-family: 'Times New Roman', serif; padding: 40px; line-height: 1.6; color: #000; }
+          h1 { text-align: center; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; }
+          h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+          p { margin-bottom: 15px; text-align: justify; }
+          .header { text-align: center; margin-bottom: 40px; }
+          .firma-box { margin-top: 100px; display: flex; justify-content: space-between; }
+          .firma { width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${MOCK_USER.dealerName}</h1>
+          <p>RNC: 1-0000000-1 | Tel: 809-555-5555</p>
+        </div>
+        
+        <h1>${contract.template.toUpperCase()}</h1>
+        
+        <p>En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString()}</strong>.</p>
+        
+        <p>
+          ENTRE UNA PARTE, el señor(a) <strong>${MOCK_USER.name}</strong>, actuando en nombre y representación de <strong>${MOCK_USER.dealerName}</strong> (EL VENDEDOR).
+          <br/>
+          Y POR LA OTRA PARTE, el señor(a) <strong>${contract.client}</strong>, portador de la cédula <strong>${contract.cedula || 'N/A'}</strong> (EL COMPRADOR).
+        </p>
+        
+        <h2>PRIMERO: OBJETO</h2>
+        <p>EL VENDEDOR vende, cede y traspasa al COMPRADOR el siguiente vehículo:</p>
+        <ul>
+          <li><strong>Vehículo:</strong> ${contract.vehicle}</li>
+          <li><strong>Condición:</strong> Usado / Importado</li>
+        </ul>
+
+        <h2>SEGUNDO: PRECIO Y PAGO</h2>
+        <p>El precio pactado para la venta es de [PRECIO_AQUI], pagaderos de la siguiente forma: [DETALLE_PAGO].</p>
+        
+        <h2>TERCERO: GARANTÍA</h2>
+        <p>El vehículo se vende bajo el estatus "AS IS" (como está), salvo las garantías expresas de ley sobre el motor y transmisión por 30 días.</p>
+
+        <h2>CUARTO: JURISDICCIÓN</h2>
+        <p>Para todo lo relacionado con la interpretación y ejecución del presente contrato, las partes eligen domicilio en la ciudad de Punta Cana.</p>
+
+        <div class="firma-box">
+           <div class="firma"><p>EL VENDEDOR</p><br/><br/>${MOCK_USER.dealerName}</div>
+           <div class="firma"><p>EL COMPRADOR</p><br/><br/>${contract.client}</div>
+        </div>
+      </body>
+    </html>
+  `;
+
   const handlePrint = () => {
-    // Truco: Abrir una ventana nueva limpia para imprimir
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Contrato - ${contract.id}</title>
-          <style>
-            body { font-family: 'Times New Roman', serif; padding: 40px; line-height: 1.6; color: #000; }
-            h1 { text-align: center; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; }
-            h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; }
-            p { margin-bottom: 15px; text-align: justify; }
-            .header { text-align: center; margin-bottom: 40px; }
-            .firma-box { margin-top: 60px; display: flex; justify-content: space-between; }
-            .firma { width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center; }
-            @media print {
-               body { padding: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${MOCK_USER.dealerName}</h1>
-            <p>RNC: 1-0000000-1 | Tel: 809-555-5555</p>
-          </div>
-          
-          <h1>${contract.template.toUpperCase()}</h1>
-          
-          <p>En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString()}</strong>.</p>
-          
-          <p>
-            ENTRE UNA PARTE, el señor(a) <strong>${MOCK_USER.name}</strong>, actuando en nombre y representación de <strong>${MOCK_USER.dealerName}</strong> (EL VENDEDOR).
-            <br/>
-            Y POR LA OTRA PARTE, el señor(a) <strong>${contract.client}</strong>, portador de la cédula <strong>${contract.cedula || 'N/A'}</strong> (EL COMPRADOR).
-          </p>
-          
-          <h2>PRIMERO: OBJETO</h2>
-          <p>EL VENDEDOR vende, cede y traspasa al COMPRADOR el siguiente vehículo:</p>
-          <ul>
-            <li><strong>Vehículo:</strong> ${contract.vehicle}</li>
-            <li><strong>Condición:</strong> Usado / Importado</li>
-          </ul>
-
-          <h2>SEGUNDO: PRECIO Y PAGO</h2>
-          <p>El precio pactado para la venta es de [PRECIO_AQUI], pagaderos de la siguiente forma: [DETALLE_PAGO].</p>
-          
-          <h2>TERCERO: GARANTÍA</h2>
-          <p>El vehículo se vende bajo el estatus "AS IS" (como está), salvo las garantías expresas de ley sobre el motor y transmisión por 30 días.</p>
-
-          <div class="firma-box">
-             <div class="firma">
-               <p>EL VENDEDOR</p>
-               <br/><br/>
-               ${MOCK_USER.dealerName}
-             </div>
-             <div class="firma">
-               <p>EL COMPRADOR</p>
-               <br/><br/>
-               ${contract.client}
-             </div>
-          </div>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(getContractHtml());
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
     printWindow.close();
   };
 
+  const handleDownload = () => {
+    // Simulamos descarga abriendo print dialog (PDF)
+    handlePrint();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-lg animate-in zoom-in-95 duration-200">
-        <Card>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-slate-800">Vista Previa de Contrato</h3>
+      <div className="w-full max-w-4xl h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
+        <Card className="flex flex-col h-full bg-slate-50">
+          <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
+            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <FileText size={20} className="text-red-600" /> Contrato: ${contract.client}
+            </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
-          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6 h-64 overflow-y-auto font-serif text-sm leading-relaxed text-slate-700">
-            <div className="text-center font-bold mb-4 uppercase text-slate-900">{contract.template}</div>
-            <p className="mb-2"><strong>Cliente:</strong> {contract.client}</p>
-            <p className="mb-2"><strong>Vehículo:</strong> {contract.vehicle}</p>
-            <p className="mb-2"><strong>Fecha:</strong> {contract.date}</p>
-            <hr className="my-4 border-gray-300" />
-            <p className="italic text-gray-500 text-center">[ ... Texto legal completo se mostrará al imprimir ... ]</p>
+
+          <div className="flex-1 p-8 overflow-y-auto bg-white shadow-inner mx-4 mb-4 border border-gray-200 rounded-lg">
+            <div className="max-w-3xl mx-auto font-serif text-black leading-relaxed space-y-6" dangerouslySetInnerHTML={{
+              __html: getContractHtml().replace('<html>', '').replace('</html>', '').replace('<body>', '').replace('</body>', '').replace('<head>', '').replace('</head>', '')
+            }} />
           </div>
-          <div className="flex justify-end gap-3">
+
+          <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
             <Button variant="ghost" onClick={onClose}>Cerrar</Button>
-            <Button onClick={handlePrint} icon={Printer}>Imprimir / Descargar PDF</Button>
+            <Button variant="secondary" onClick={handleDownload} icon={FileText} className="border-slate-300">Descargar (PDF)</Button>
+            <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
           </div>
         </Card>
       </div>
     </div>
   );
 };
+
 
 // --- VISTAS PRINCIPALES ---
 
@@ -747,16 +749,18 @@ const LoginScreen = ({ onLogin }) => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
-    // const provider = new GoogleAuthProvider(); // Ya lo importamos de config, o usamos el new aqui. Usaremos el de config o new aqui.
-    // Usaremos el provider de config si esta disponible, sino new.
-    // IMPORTANTE: persistence
+
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       await signInWithPopup(auth, googleProvider);
       onLogin();
     } catch (err) {
       console.error("Error de Google:", err);
-      setError(`Error: ${err.message || err.code}. Ver consola.`);
+      let msg = `Error: ${err.message}`;
+      if (err.code === 'auth/popup-closed-by-user') msg = "Proceso cancelado por el usuario.";
+      if (err.code === 'auth/operation-not-allowed') msg = "Habilita Google Auth en Firebase Console -> Authentication -> Sign-in methods.";
+      if (err.code === 'auth/unauthorized-domain') msg = "Dominio no autorizado. Agrega este dominio en Firebase Console.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
