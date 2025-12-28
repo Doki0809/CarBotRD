@@ -1171,9 +1171,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile })
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-600/20">
-                <span className="text-xl font-black italic">C</span>
-              </div>
+              <AppLogo size={40} className="rounded-xl shadow-lg shadow-red-600/20" />
               <span className="text-lg font-black text-slate-900 tracking-tight hidden sm:block">
                 Carbot <span className="text-red-600 ml-1">Inventario</span>
               </span>
