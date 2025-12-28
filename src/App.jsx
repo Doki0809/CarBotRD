@@ -20,7 +20,8 @@ import {
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
-  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download
+  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
+  Box, AlertTriangle, TrendingUp, History, Bell
 } from 'lucide-react';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
