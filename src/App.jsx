@@ -207,10 +207,8 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (photos.length === 0) {
-      alert("Debes subir al menos 1 foto del vehículo.");
-      return;
-    }
+    // Ya no es obligatorio tener fotos
+    const hasPhotos = photos.length > 0;
 
     setLoading(true);
 
@@ -247,16 +245,26 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
           setUploadProgress(`Subiendo foto ${i + 1} de ${filesToUpload.length}...`);
 
           try {
-            const storageRef = ref(storage, `vehicles/${Date.now()}_${item.file.name}`);
+            // Sanitizar nombre de archivo para evitar caracteres problemáticos
+            const cleanName = item.file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+            const storageRef = ref(storage, `vehicles/${Date.now()}_${cleanName}`);
+
+            // Subida con await directo
             const snapshot = await uploadBytes(storageRef, item.file);
             const downloadUrl = await getDownloadURL(snapshot.ref);
-            uploadedUrls.push(downloadUrl);
+
+            if (downloadUrl) {
+              uploadedUrls.push(downloadUrl);
+            }
           } catch (err) {
             console.error(`Error al subir la imagen ${i + 1}:`, err);
-            // Podríamos continuar o fallar aquí
+            // Si una falla, informamos pero intentamos seguir con las demás
+            setUploadProgress(`Error en foto ${i + 1}, continuando...`);
+            await new Promise(r => setTimeout(r, 1000));
           }
         }
-        setUploadProgress('¡Carga completada!');
+        setUploadProgress('¡Carga finalizada!');
+        await new Promise(r => setTimeout(r, 500));
       }
 
       data.images = uploadedUrls;
@@ -312,7 +320,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                 {/* SECCIÓN DE IMAGEN */}
                 <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2 font-bold">Galería de Fotos (Mínimo 1, Máximo 10)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 font-bold">Galería de Fotos (Opcional, Máximo 10)</label>
                   <div className="p-6 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
                     <div className="flex flex-col items-center justify-center mb-6">
                       <input
