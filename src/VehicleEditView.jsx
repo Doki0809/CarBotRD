@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft, Calendar, Fuel, Settings, Save, DollarSign,
-  IdCard, Instagram, Monitor, Smartphone, Maximize, ChevronLeft, ChevronRight,
-  X, ZoomIn, Info, Share2, Heart, Files
+  IdCard, Maximize, ChevronLeft, ChevronRight,
+  X, Info, Share2, Heart, Files
 } from 'lucide-react';
 
 export default function VehicleEditView({ vehicle, onBack, onSave }) {
   const [loading, setLoading] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.price_dop > 0 ? 'DOP' : 'USD');
-  const [viewMode, setViewMode] = useState('standard'); // 'standard' or 'social'
-  const [aspectRatio, setAspectRatio] = useState('4/5'); // '4/5' or '5/4'
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -89,93 +87,55 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
   return (
     <div className='animate-in fade-in duration-700 p-4 md:p-8 max-w-[1600px] mx-auto'>
       {/* HEADER ACTIONS */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+      <div className="flex justify-between items-center mb-10">
         <button onClick={onBack} className='flex items-center text-slate-400 hover:text-red-600 font-bold transition-all group px-4 py-2 hover:bg-red-50 rounded-xl' disabled={loading}>
           <ArrowLeft size={18} className='mr-2 group-hover:-translate-x-1 transition-transform' />
           <span className="text-sm uppercase tracking-wider">Gestión de Inventario</span>
         </button>
 
-        <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/40">
-          <button
-            onClick={() => setViewMode('standard')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'standard' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <Monitor size={14} /> Desktop
-          </button>
-          <button
-            onClick={() => setViewMode('social')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'social' ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <Instagram size={14} /> Instagram
-          </button>
-        </div>
+        <button
+          onClick={onBack}
+          disabled={loading}
+          className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-all shadow-xl shadow-slate-200/40"
+          title="Cerrar edición"
+        >
+          <X size={24} />
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-12 gap-10">
 
         {/* LEFT PANEL: GALLERY & VISUALS */}
         <div className="xl:col-span-8 space-y-8">
-          <div className={`relative bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-8 border-white ${viewMode === 'social' ? 'aspect-square flex items-center justify-center bg-slate-100' : 'h-[650px]'}`}>
-
-            {viewMode === 'social' ? (
-              <div className="relative group p-4">
-                {/* Selector de Proporción */}
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 flex gap-3 z-20">
-                  {['4/5', '5/4', '1/1'].map(ratio => (
-                    <button
-                      key={ratio}
-                      type="button"
-                      onClick={() => setAspectRatio(ratio)}
-                      className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all shadow-xl ${aspectRatio === ratio ? 'bg-black text-white scale-110' : 'bg-white/90 text-slate-500'}`}
-                    >{ratio}</button>
-                  ))}
-                </div>
-
-                <div
-                  className={`bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-500 ease-out cursor-zoom-in`}
-                  style={{
-                    width: aspectRatio === '4/5' ? '380px' : aspectRatio === '5/4' ? '480px' : '400px',
-                    height: aspectRatio === '4/5' ? '475px' : aspectRatio === '5/4' ? '384px' : '400px'
-                  }}
-                  onClick={() => setIsLightboxOpen(true)}
-                >
-                  <div className="flex items-center p-3 gap-3 border-b border-slate-50">
-                    <div className="w-8 h-8 rounded-full bg-slate-200"></div>
-                    <span className="text-[11px] font-black text-slate-900">{formData.make}_{formData.model}</span>
-                  </div>
-                  <img src={formData.images[activePhotoIndex]} className='w-full h-full object-cover' />
+          <div className="relative bg-slate-950 rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-8 border-white h-[650px]">
+            <div className="w-full h-full relative group cursor-zoom-in" onClick={() => setIsLightboxOpen(true)}>
+              <img
+                src={formData.images[activePhotoIndex]}
+                className='w-full h-full object-contain p-4'
+                alt="Vista principal"
+              />
+              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="bg-white/20 backdrop-blur-md p-4 rounded-full text-white">
+                  <Maximize size={32} />
                 </div>
               </div>
-            ) : (
-              <div className="w-full h-full relative group cursor-zoom-in" onClick={() => setIsLightboxOpen(true)}>
-                <img
-                  src={formData.images[activePhotoIndex]}
-                  className='w-full h-full object-contain p-4'
-                  alt="Vista principal"
-                />
-                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <div className="bg-white/20 backdrop-blur-md p-4 rounded-full text-white">
-                    <Maximize size={32} />
-                  </div>
-                </div>
 
-                {/* NAV CONTROLS */}
-                <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-4 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-sm transition-all pointer-events-auto"><ChevronLeft size={30} /></button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-4 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-sm transition-all pointer-events-auto"><ChevronRight size={30} /></button>
-                </div>
-
-                {/* INFO OVERLAY */}
-                <div className="absolute bottom-10 left-10 text-white pointer-events-none">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="bg-red-600 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">{formData.year}</span>
-                    <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest">{formData.transmission}</span>
-                  </div>
-                  <h1 className="text-5xl font-black mb-1 drop-shadow-lg uppercase tracking-tight">{formData.make} {formData.model}</h1>
-                  <p className="text-slate-300 font-medium text-lg drop-shadow-md">{formData.edition || 'Edición Especial'}</p>
-                </div>
+              {/* NAV CONTROLS */}
+              <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-4 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-sm transition-all pointer-events-auto"><ChevronLeft size={30} /></button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-4 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-sm transition-all pointer-events-auto"><ChevronRight size={30} /></button>
               </div>
-            )}
+
+              {/* INFO OVERLAY */}
+              <div className="absolute bottom-10 left-10 text-white pointer-events-none">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="bg-red-600 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">{formData.year}</span>
+                  <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest">{formData.transmission}</span>
+                </div>
+                <h1 className="text-5xl font-black mb-1 drop-shadow-lg uppercase tracking-tight">{formData.make} {formData.model}</h1>
+                <p className="text-slate-300 font-medium text-lg drop-shadow-md">{formData.edition || 'Edición Especial'}</p>
+              </div>
+            </div>
           </div>
 
           {/* THUMBNAILS GRID */}
@@ -207,35 +167,16 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
         {/* RIGHT PANEL: INFO & CONTROLS */}
         <div className="xl:col-span-4 space-y-8">
           <div className="bg-white p-8 rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-8">
-            <div>
-              <h2 className="text-xs font-black text-red-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                <DollarSign size={16} /> Valor Comercial
-              </h2>
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 relative overflow-hidden group">
-                <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform duration-700">
-                  <DollarSign size={160} />
-                </div>
-                <div className="flex flex-col gap-4">
-                  <input
-                    type="number"
-                    value={formData.price_unified}
-                    onChange={handlePriceChange}
-                    className="bg-transparent text-4xl font-black text-slate-900 outline-none w-full border-b-2 border-slate-200 focus:border-red-600 pb-2 transition-all"
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCurrency('USD')}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currency === 'USD' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}
-                    >US$ Dólares</button>
-                    <button
-                      type="button"
-                      onClick={() => setCurrency('DOP')}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currency === 'DOP' ? 'bg-red-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200'}`}
-                    >RD$ Pesos</button>
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 font-black text-2xl tracking-tighter">{formData.year}</span>
+                <span className="w-2 h-2 rounded-full bg-slate-200"></span>
+                <span className="text-slate-400 font-bold text-lg uppercase">{formData.color}</span>
               </div>
+              <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                {formData.make} <br />
+                <span className="text-red-700">{formData.model}</span>
+              </h2>
             </div>
 
             <div className="space-y-6">
@@ -255,16 +196,41 @@ export default function VehicleEditView({ vehicle, onBack, onSave }) {
                 </div>
                 <Input label="Chasis/VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} icon={IdCard} className="font-mono" />
               </div>
-            </div>
+              <div className="pt-4 border-t border-slate-50">
+                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                  <DollarSign size={14} /> Precio de Venta
+                </h2>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                  <input
+                    type="number"
+                    value={formData.price_unified}
+                    onChange={handlePriceChange}
+                    className="bg-transparent text-2xl font-black text-slate-900 outline-none w-full border-b border-slate-200 focus:border-red-600 pb-1 transition-all"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrency('USD')}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'USD' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
+                    >USD$</button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrency('DOP')}
+                      className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'DOP' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
+                    >DOP$</button>
+                  </div>
+                </div>
+              </div>
 
-            <div className="pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
-              >
-                {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
-              </button>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                >
+                  {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
+                </button>
+              </div>
             </div>
           </div>
         </div>
