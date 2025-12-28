@@ -382,6 +382,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         client: `${clientName} ${clientLastName}`,
         cedula: clientCedula,
         vehicle: `${vehicle.make} ${vehicle.model}`,
+        vehicleId: vehicle.id,
         template: template.name,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
@@ -979,6 +980,19 @@ export default function CarbotApp() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    // Escuchar Contratos de Firebase en tiempo real
+    const unsubscribeContracts = onSnapshot(collection(db, "contracts"), (snapshot) => {
+      const contractsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      // Ordenar por fecha de creación descendente
+      setContracts(contractsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    });
+    return () => unsubscribeContracts();
+  }, []);
+
   if (initializing) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -1058,10 +1072,23 @@ export default function CarbotApp() {
   };
 
   // Funciones locales (Contratos, etc.)
-  const handleGenerateContract = (contractData) => {
-    const newContract = { id: Date.now(), ...contractData };
-    setContracts([newContract, ...contracts]);
-    showToast("Contrato generado exitosamente");
+  const handleGenerateContract = async (contractData) => {
+    try {
+      // 1. Guardar contrato en Firebase
+      const newContract = { ...contractData, createdAt: new Date().toISOString() };
+      await addDoc(collection(db, "contracts"), newContract);
+
+      // 2. Si hay un vehículo asociado, marcarlo como vendido
+      if (contractData.vehicleId) {
+        const vehicleRef = doc(db, "vehicles", contractData.vehicleId);
+        await updateDoc(vehicleRef, { status: 'sold', updatedAt: new Date().toISOString() });
+      }
+
+      showToast("Contrato generado y vehículo marcado como vendido");
+    } catch (error) {
+      console.error("Error al generar contrato:", error);
+      showToast("Error al procesar el contrato", "error");
+    }
   };
 
   const handleVehicleSelect = (vehicle) => {
