@@ -420,74 +420,81 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   );
 };
 
-const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
-  const [loading, setLoading] = useState(false);
-  const [bankName, setBankName] = useState('');
+const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [name, setName] = useState('');
+  const [lastname, setLastname] = useState('');
+  const [phone, setPhone] = useState('');
   const [cedula, setCedula] = useState('');
+  const [bank, setBank] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSend = (e) => {
+  const availableVehicles = inventory.filter(v => v.status !== 'sold');
+
+  const handleSubmit = (e) => {
     e.preventDefault();
+    if (!selectedVehicleId) return;
     setLoading(true);
-    // Capturar datos del formulario
-    const formData = new FormData(e.target);
-    const data = {
-      name: formData.get('name'),
-      lastname: formData.get('lastname'),
-      phone: formData.get('phone'),
-      cedula: cedula,
-      bank: bankName
-    };
+    const vehicle = inventory.find(v => v.id === selectedVehicleId);
 
     setTimeout(() => {
-      onConfirm(data);
+      onSave({
+        name,
+        lastname,
+        phone,
+        cedula,
+        bank,
+        vehicle: `${vehicle.make} ${vehicle.model}`,
+        vehicleId: vehicle.id
+      });
       setLoading(false);
-    }, 1200);
+      onClose();
+    }, 1000);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-md animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-lg animate-in zoom-in-95 duration-200">
         <Card>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center">
-              <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
-              Cotizar: {userProfile?.dealerName}
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-slate-800 flex items-center">
+              <div className="p-2 bg-blue-50 rounded-lg mr-3"><Send size={20} className="text-blue-600" /></div>
+              Nueva Cotización Manual
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
-          <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-            Se enviará la ficha del <strong className="text-slate-900">{vehicle.make} {vehicle.model}</strong> a nombre de <strong className="text-slate-900">{userProfile?.name}</strong>.
-          </p>
-          <form onSubmit={handleSend}>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <Input name="name" label="Nombre Cliente" placeholder="Ej. Jean" required />
-              <Input name="lastname" label="Apellido" placeholder="Ej. Gómez" required />
-            </div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <Input name="phone" label="Teléfono" placeholder="+1 829..." required />
-              <Input
-                name="cedula"
-                label="Cédula"
-                placeholder="001-0000000-0"
-                value={cedula}
-                onChange={(e) => setCedula(e.target.value)}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">1. Vehículo de Interés</label>
+              <select
+                className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold"
+                value={selectedVehicleId}
+                onChange={(e) => setSelectedVehicleId(e.target.value)}
                 required
-              />
+              >
+                <option value="">-- Seleccionar vehículo --</option>
+                {availableVehicles.map(v => (
+                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year})</option>
+                ))}
+              </select>
             </div>
-            <div className="bg-red-50/50 p-3 rounded-xl border border-red-100/50 mb-4">
-              <Input
-                label="Banco Dirigido"
-                placeholder="Ej. Banco Popular"
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                className="mb-0 bg-white"
-              />
+            <div className="space-y-4">
+              <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos del Prospecto</label>
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
+                <Input label="Apellido" value={lastname} onChange={(e) => setLastname(e.target.value)} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <Input label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} />
+              </div>
+              <Input label="Banco Dirigido (Opcional)" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej. Banco Popular" />
             </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>Cancelar</Button>
-              <Button type="submit" disabled={loading}>{loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Enviando...</> : 'Enviar Cotización'}</Button>
+            <div className="pt-4 flex justify-end gap-3">
+              <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
+              <Button type="submit" disabled={loading}>{loading ? 'Guardando...' : 'Guardar Cotización'}</Button>
             </div>
           </form>
         </Card>
@@ -1116,9 +1123,10 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
   );
 };
 
-const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onDeleteQuote, userProfile, searchTerm }) => {
+const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, userProfile, searchTerm }) => {
   const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(null);
   const [sortConfig, setSortConfig] = useState('date_desc');
 
@@ -1310,9 +1318,13 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             <option value="vehicle_asc">Vehículo</option>
           </select>
         </div>
-        {activeView === 'contracts' && (
+        {activeView === 'contracts' ? (
           <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
             Nuevo Contrato
+          </Button>
+        ) : (
+          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
+            Nueva Cotización
           </Button>
         )}
       </div>
@@ -1387,6 +1399,15 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           inventory={inventory}
           onSave={onGenerateContract}
           initialData={editingContract}
+        />
+      )}
+
+      {isQuoteModalOpen && (
+        <GenerateQuoteModal
+          isOpen={isQuoteModalOpen}
+          onClose={() => setIsQuoteModalOpen(false)}
+          inventory={inventory}
+          onSave={onGenerateQuote}
         />
       )}
     </div>
@@ -1884,7 +1905,7 @@ export default function CarbotApp() {
     switch (activeTab) {
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
