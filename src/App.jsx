@@ -9,6 +9,11 @@ import {
 import {
   collection,
   onSnapshot,
+  getDocs,
+  query,
+  where,
+  setDoc,
+  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -26,18 +31,8 @@ import {
  * VERSIÓN: ONLINE (FIREBASE)
  */
 
-const MOCK_USER = {
-  id: 'u1',
-  name: 'Jean Carlos Gómez',
-  role: 'Admin',
-  dealerId: 'd1',
-  dealerName: 'AutoPremium Punta Cana'
-};
-
-// NOTA: Eliminamos INITIAL_INVENTORY porque ahora viene de la nube.
-const INITIAL_CONTRACTS = [
-  { id: 101, client: 'Paula Gil', cedula: '402-0000000-1', vehicle: 'BMW X5 M-Sport', template: 'Venta al Contado', status: 'pending', date: '2023-10-25', ghl_id: 'ghl_123' },
-];
+// MOCK_USER ELIMINADO
+// INITIAL_CONTRACTS ELIMINADO
 
 const CONTRACT_TEMPLATES = [
   { id: 't1', name: 'Venta al Contado', icon: DollarSign, desc: 'Contrato estándar de compraventa.' },
@@ -288,7 +283,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   );
 };
 
-const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm }) => {
+const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   if (!isOpen) return null;
   const [loading, setLoading] = useState(false);
   const [bankName, setBankName] = useState('');
@@ -320,12 +315,12 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm }) => {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
-              Cotizar: {MOCK_USER.dealerName}
+              Cotizar: {userProfile?.dealerName}
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
           <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-            Se enviará la ficha del <strong className="text-slate-900">{vehicle.make} {vehicle.model}</strong> a nombre de <strong className="text-slate-900">{MOCK_USER.name}</strong>.
+            Se enviará la ficha del <strong className="text-slate-900">{vehicle.make} {vehicle.model}</strong> a nombre de <strong className="text-slate-900">{userProfile?.name}</strong>.
           </p>
           <form onSubmit={handleSend}>
             <div className="grid grid-cols-2 gap-3 mb-3">
@@ -453,7 +448,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   );
 };
 
-const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
+const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   if (!isOpen || !contract) return null;
 
   const getContractHtml = () => `
@@ -473,7 +468,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
       </head>
       <body>
         <div class="header">
-          <h1>${MOCK_USER.dealerName}</h1>
+          <h1>${userProfile.dealerName}</h1>
           <p>RNC: 1-0000000-1 | Tel: 809-555-5555</p>
         </div>
         
@@ -482,7 +477,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
         <p>En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString()}</strong>.</p>
         
         <p>
-          ENTRE UNA PARTE, el señor(a) <strong>${MOCK_USER.name}</strong>, actuando en nombre y representación de <strong>${MOCK_USER.dealerName}</strong> (EL VENDEDOR).
+          ENTRE UNA PARTE, el señor(a) <strong>${userProfile.name}</strong>, actuando en nombre y representación de <strong>${userProfile.dealerName}</strong> (EL VENDEDOR).
           <br/>
           Y POR LA OTRA PARTE, el señor(a) <strong>${contract.client}</strong>, portador de la cédula <strong>${contract.cedula || 'N/A'}</strong> (EL COMPRADOR).
         </p>
@@ -504,7 +499,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract }) => {
         <p>Para todo lo relacionado con la interpretación y ejecución del presente contrato, las partes eligen domicilio en la ciudad de Punta Cana.</p>
 
         <div class="firma-box">
-           <div class="firma"><p>EL VENDEDOR</p><br/><br/>${MOCK_USER.dealerName}</div>
+           <div className="firma"><p>EL VENDEDOR</p><br/><br/>${userProfile.dealerName}</div>
            <div class="firma"><p>EL COMPRADOR</p><br/><br/>${contract.client}</div>
         </div>
       </body>
@@ -597,7 +592,7 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
   );
 };
 
-const DashboardView = ({ inventory, contracts, onNavigate }) => {
+const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const stats = [
     { label: 'Inventario Total', value: inventory.length, icon: Car, color: 'text-red-600', bg: 'bg-red-50', action: () => onNavigate('inventory', 'all') },
     { label: 'Cotizados', value: inventory.filter(i => i.status === 'quoted').length, icon: FileText, color: 'text-amber-600', bg: 'bg-amber-50', action: () => onNavigate('inventory', 'available') }, // Asumimos que cotizados están en disponibles por ahora, o podríamos filtrar solo cotizados
@@ -631,7 +626,7 @@ const DashboardView = ({ inventory, contracts, onNavigate }) => {
   );
 };
 
-const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab }) => { // activeTab por props para control externo
+const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile }) => { // activeTab por props para control externo
   const [searchTerm, setSearchTerm] = useState('');
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -698,7 +693,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-6">
-        <div><h1 className="text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{MOCK_USER.dealerName}</span></h1><p className="text-slate-500 text-sm mt-1">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
+        <div><h1 className="text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{userProfile?.dealerName}</span></h1><p className="text-slate-500 text-sm mt-1">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
         <Button onClick={handleCreate} icon={Plus} className="shadow-lg shadow-red-600/20">Agregar Vehículo</Button>
       </div>
 
@@ -748,13 +743,13 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
 
       <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} />
       <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
-      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} />
+      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} />
       <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} />
     </div>
   );
 };
 
-const ContractsView = ({ contracts, inventory, onGenerateContract, setActiveTab }) => {
+const ContractsView = ({ contracts, inventory, onGenerateContract, setActiveTab, userProfile }) => {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [previewContract, setPreviewContract] = useState(null);
 
@@ -774,7 +769,7 @@ const ContractsView = ({ contracts, inventory, onGenerateContract, setActiveTab 
         </div>
       </Card>
       <GenerateContractModal isOpen={isGenerateModalOpen} onClose={() => setIsGenerateModalOpen(false)} inventory={inventory} onGenerate={onGenerateContract} initialVehicle={null} />
-      <ContractPreviewModal isOpen={!!previewContract} onClose={() => setPreviewContract(null)} contract={previewContract} />
+      <ContractPreviewModal isOpen={!!previewContract} onClose={() => setPreviewContract(null)} contract={previewContract} userProfile={userProfile} />
     </div>
   );
 };
@@ -784,7 +779,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button onClick={onClick} className={`w-full flex items-center px-4 py-3.5 mb-1.5 rounded-xl transition-all duration-300 group ${active ? 'bg-red-700 text-white shadow-lg shadow-red-900/50 translate-x-1' : 'text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1'}`}><Icon size={22} className={`mr-3 transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`} /><span className="font-medium text-sm tracking-wide">{label}</span></button>
 );
 
-const AppLayout = ({ children, activeTab, setActiveTab, onLogout }) => {
+const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuItems = [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'inventory', label: 'Inventario', icon: Car }, { id: 'contracts', label: 'Contratos', icon: FileText }, { id: 'trash', label: 'Papelera', icon: Trash2 }];
 
@@ -793,7 +788,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout }) => {
       <aside className="hidden md:flex flex-col w-72 bg-slate-900 border-r border-slate-800 fixed h-full z-20 shadow-2xl">
         <div className="p-8 flex items-center space-x-3"><AppLogo className="w-12 h-12" size={32} invert /><span className="text-2xl font-bold text-white tracking-tight">Carbot</span></div>
         <nav className="flex-1 px-6 mt-4"><div className="mb-6 px-2 text-xs font-bold text-slate-500 uppercase tracking-widest">Navegación</div>{menuItems.map(item => (<SidebarItem key={item.id} icon={item.icon} label={item.label} active={activeTab === item.id} onClick={() => setActiveTab(item.id)} />))}</nav>
-        <div className="p-6 border-t border-slate-800 bg-slate-900/50"><div className="flex items-center gap-3 px-2 mb-6 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50"><div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-slate-200 shadow-inner border border-slate-600"><User size={20} /></div><div className="overflow-hidden"><p className="text-sm font-bold text-white truncate">{MOCK_USER.name}</p></div></div><button onClick={onLogout} className="w-full flex items-center justify-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl text-sm font-medium transition-all duration-300 group"><LogOut size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Cerrar Sesión</button></div>
+        <div className="p-6 border-t border-slate-800 bg-slate-900/50"><div className="flex items-center gap-3 px-2 mb-6 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50"><div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-slate-200 shadow-inner border border-slate-600"><User size={20} /></div><div className="overflow-hidden"><p className="text-sm font-bold text-white truncate">{userProfile?.name || 'Usuario'}</p></div></div><button onClick={onLogout} className="w-full flex items-center justify-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl text-sm font-medium transition-all duration-300 group"><LogOut size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Cerrar Sesión</button></div>
       </aside>
       <div className="flex-1 md:ml-72 flex flex-col min-h-screen">
         <header className="md:hidden bg-white/80 backdrop-blur-md border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 z-30"><div className="flex items-center space-x-2"><AppLogo className="w-10 h-10" size={24} /><span className="font-bold text-slate-900 text-lg">Carbot</span></div><button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition-colors">{mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}</button></header>
@@ -812,11 +807,16 @@ const LoginScreen = ({ onLogin }) => {
 
 
 
-  // 2. Lógica para correo/contraseña (Simulada por ahora)
+  // 2. Lógica para correo/contraseña (Simulada por ahora, pero pasamos el email)
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => { onLogin(); setLoading(false); }, 1500);
+    const email = e.target.elements.email.value;
+    // Simulamos delay de red
+    setTimeout(() => {
+      onLogin({ email });
+      setLoading(false);
+    }, 1000);
   };
 
   return (
@@ -837,7 +837,7 @@ const LoginScreen = ({ onLogin }) => {
 
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="Correo" placeholder="usuario@dealer.com" type="email" required />
+            <Input name="email" label="Correo" placeholder="usuario@dealer.com" type="email" required />
             <Input label="Contraseña" type="password" required />
             <button type="submit" disabled={loading} className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow-lg transition-all">
               {loading ? 'Cargando...' : 'Ingresar'}
@@ -872,8 +872,9 @@ export default function CarbotApp() {
 
   // 1. ESTADO DE DATOS (Vacío al inicio, se llena desde Firebase)
   const [inventory, setInventory] = useState([]);
-  const [contracts, setContracts] = useState(INITIAL_CONTRACTS);
-  // const [trash, setTrash] = useState([]); // Ya no necesitamos trash local, filtramos del inventory global
+  const [contracts, setContracts] = useState([]);
+
+  const [userProfile, setUserProfile] = useState(null);
 
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -884,14 +885,49 @@ export default function CarbotApp() {
 
   // 1.b AUTH STATE LISTENER
   const [initializing, setInitializing] = useState(true);
+  const [currentUserEmail, setCurrentUserEmail] = useState(localStorage.getItem('lastUserEmail') || '');
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setIsLoggedIn(!!user);
-      setInitializing(false);
-    });
-    return () => unsubscribeAuth();
+    // Como eliminamos Google Auth, solo "simulamos" verificación via localStorage o estado
+    // Si queremos persistir, usamos localStorage
+    const savedEmail = localStorage.getItem('lastUserEmail');
+    if (savedEmail) {
+      setIsLoggedIn(true);
+      setCurrentUserEmail(savedEmail);
+    }
+    setInitializing(false);
   }, []);
+
+  // Fetch user profile when logged in (usando email ya que no hay auth.currentUser real)
+  useEffect(() => {
+    if (isLoggedIn && currentUserEmail) {
+      const fetchUserProfile = async () => {
+        // Usamos el email como ID del documento para simplificar
+        const userId = currentUserEmail.replace(/\./g, '_'); // Sanitizar email para ID
+        const userDocRef = doc(db, "users", userId);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          setUserProfile(userDocSnap.data());
+        } else {
+          // Crear perfil por defecto
+          const defaultProfile = {
+            name: currentUserEmail.split('@')[0],
+            email: currentUserEmail,
+            dealerId: 'defaultDealer',
+            dealerName: 'Mi Dealer',
+            role: 'Admin',
+            createdAt: new Date().toISOString()
+          };
+          await setDoc(userDocRef, defaultProfile);
+          setUserProfile(defaultProfile);
+        }
+      };
+      fetchUserProfile();
+    } else {
+      setUserProfile(null);
+    }
+  }, [isLoggedIn, currentUserEmail]);
 
   // ... (keep existing firebase connection useEffect)
 
@@ -908,7 +944,7 @@ export default function CarbotApp() {
     );
   }
 
-  if (!isLoggedIn) return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
+  if (!isLoggedIn || !userProfile) return <LoginScreen onLogin={handleLogin} />;
   useEffect(() => {
     // Escuchar TODO el inventario, incluyendo trash
     const unsubscribe = onSnapshot(collection(db, "vehicles"), (snapshot) => {
@@ -1013,16 +1049,12 @@ export default function CarbotApp() {
     setSelectedVehicle(vehicle);
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-  };
-
   const handleNavigate = (tab, filter = 'all') => {
     setActiveTab(tab);
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
 
-  if (!isLoggedIn) return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
+
 
 
 
@@ -1033,17 +1065,19 @@ export default function CarbotApp() {
   const renderContent = () => {
     if (selectedVehicle) return <VehicleEditView vehicle={selectedVehicle} onBack={() => setSelectedVehicle(null)} />;
     switch (activeTab) {
-      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} />;
-      case 'contracts': return <ContractsView contracts={contracts} inventory={activeInventory} onGenerateContract={handleGenerateContract} setActiveTab={setActiveTab} />;
+      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
+      case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} />;
+      case 'contracts': return <ContractsView contracts={contracts} inventory={activeInventory} onGenerateContract={handleGenerateContract} setActiveTab={setActiveTab} userProfile={userProfile} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
-      default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} />;
+      default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
   };
 
   return (
     <>
-      <AppLayout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}>{renderContent()}</AppLayout>
+      <AppLayout activeTab={activeTab} setActiveTab={handleNavigate} onLogout={handleLogout} userProfile={userProfile}>
+        {renderContent()}
+      </AppLayout>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </>
   );
