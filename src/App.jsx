@@ -161,6 +161,13 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
+    const totalCurrent = previewUrls.length;
+
+    if (totalCurrent + files.length > 10) {
+      alert(`Límite excedido. El inventario permite un máximo de 10 fotos. Actualmente tienes ${totalCurrent} y estás intentando agregar ${files.length}.`);
+      return;
+    }
+
     if (files.length > 0) {
       setSelectedFiles(prev => [...prev, ...files]);
       const newUrls = files.map(file => URL.createObjectURL(file));
@@ -176,6 +183,12 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (previewUrls.length === 0) {
+      alert("Debes subir al menos 1 foto del vehículo.");
+      return;
+    }
+
     setLoading(true);
 
     // Capturar datos del formulario
@@ -273,7 +286,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                 {/* SECCIÓN DE IMAGEN */}
                 <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2 font-bold">Galería de Fotos (Mínimo 10 recomendadas)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 font-bold">Galería de Fotos (Mínimo 1, Máximo 10)</label>
                   <div className="p-6 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
                     <div className="flex flex-col items-center justify-center mb-6">
                       <input
@@ -285,9 +298,9 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
                         className="hidden"
                       />
                       <label htmlFor="multi-upload" className="cursor-pointer bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all flex items-center gap-2">
-                        <Plus size={20} /> Seleccionar Fotos
+                        <Plus size={20} /> Seleccionar Fotos (Máx. 10)
                       </label>
-                      <p className="mt-3 text-xs text-slate-500 text-center">Puedes seleccionar varias fotos pulsando CTRL o CMD.<br />Máxima calidad recomendada.</p>
+                      <p className="mt-3 text-xs text-slate-500 text-center">Puedes seleccionar varias fotos pulsando CTRL o CMD.<br />Límite de 10 fotos por unidad.</p>
                       {uploadProgress && <p className="mt-4 text-sm font-bold text-red-600 animate-pulse bg-red-50 px-4 py-2 rounded-full border border-red-100">{uploadProgress}</p>}
                     </div>
 
@@ -529,34 +542,34 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
 const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   if (!isOpen || !contract) return null;
 
-  const getContractHtml = () => `
+  const getContractHtml = (isPreview = false) => `
     <div id="contract-content" style="
       font-family: 'Times New Roman', serif; 
       padding: 0; 
       line-height: 1.6; 
       color: #000; 
       background: white;
-      width: 210mm;
-      min-height: 297mm;
+      ${isPreview ? 'width: 100%; max-width: 210mm;' : 'width: 210mm; min-height: 297mm;'}
       margin: 0 auto;
       box-sizing: border-box;
       position: relative;
+      box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
     ">
-      <div style="padding: 20mm;">
+      <div style="padding: 15mm 20mm;">
         <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
           <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
           <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
           <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
         </div>
         
-        <h1 style="text-align: center; font-size: 22px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${contract.template.toUpperCase()}</h1>
+        <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${contract.template.toUpperCase()}</h1>
         
-        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
         
         <p style="margin-bottom: 25px; text-align: justify;">
-          <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong>, entidad debidamente organizada bajo las leyes de la República Dominicana (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
+          <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong> (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
           <br/><br/>
-          <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong>, con domicilio conocido (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
+          <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong> (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
         </p>
         
         <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">PRIMERO: OBJETO DEL CONTRATO</h2>
@@ -578,7 +591,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
         <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">CUARTO: JURISDICCIÓN Y LEY APLICABLE</h2>
         <p style="margin-bottom: 40px; text-align: justify;">Para todo lo no previsto en el presente contrato, las partes se remiten al derecho común y eligen domicilio en la jurisdicción de Punta Cana para cualquier proceso derivado del mismo.</p>
 
-        <div style="margin-top: 80px; display: flex; justify-content: space-between; gap: 40px;">
+        <div style="margin-top: 60px; display: flex; justify-content: space-between; gap: 40px;">
            <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
              <p style="margin: 0; font-weight: bold;">EL VENDEDOR</p>
              <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${userProfile.dealerName}</p>
@@ -588,13 +601,17 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
              <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${contract.client}</p>
            </div>
         </div>
+        
+        <div style="margin-top: 40px; text-align: center; color: #cbd5e0; font-size: 10px; font-family: sans-serif;">
+            Documento generado digitalmente por CarBot RD - ID: ${contract.id.slice(0, 8)}
+        </div>
       </div>
     </div>
   `;
 
   const handleDownloadPDF = () => {
     const element = document.createElement('div');
-    element.innerHTML = getContractHtml();
+    element.innerHTML = getContractHtml(false);
     document.body.appendChild(element);
 
     const opt = {
@@ -640,10 +657,27 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-gray-100/50 backdrop-blur-sm p-4 overflow-hidden border border-gray-200 rounded-lg mx-4 mb-4">
+          <div className="flex-1 bg-slate-200/50 p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-4 mb-4 shadow-inner">
             <iframe
-              srcDoc={getContractHtml()}
-              className="w-full h-full rounded bg-white shadow-sm"
+              srcDoc={`
+                <!DOCTYPE html>
+                <html>
+                  <head>
+                    <style>
+                      body { margin: 0; padding: 20px; background: #cbd5e1; display: flex; justify-content: center; }
+                      * { box-sizing: border-box; }
+                      ::-webkit-scrollbar { width: 8px; }
+                      ::-webkit-scrollbar-track { background: #f1f1f1; }
+                      ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+                      ::-webkit-scrollbar-thumb:hover { background: #555; }
+                    </style>
+                  </head>
+                  <body>
+                    ${getContractHtml(true)}
+                  </body>
+                </html>
+              `}
+              className="w-full h-full border-none rounded-sm min-h-[800px]"
               title="Vista Previa del Contrato"
             />
           </div>
