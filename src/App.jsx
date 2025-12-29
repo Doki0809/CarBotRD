@@ -139,7 +139,7 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800">Seleccionar Acción</h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
@@ -297,7 +297,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full max-w-4xl animate-in zoom-in-95 duration-200">
-        <Card className="w-full max-h-[90vh] overflow-y-auto">
+        <Card className="w-full max-h-[90vh] overflow-y-auto pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4 sticky top-0 bg-white z-10">
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <div className="p-2 bg-red-100 rounded-lg text-red-600"><Car size={20} /></div>
@@ -431,37 +431,52 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
     e.preventDefault();
     setLoading(true);
 
-    // 1. Tu enlace (El que termina en e41d)
+    // --- CONEXIÓN GHL (Truco del Pixel) ---
+    // 1. La URL NUEVA (Confirmado que termina en e41d)
     const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673c8d5be41d";
 
-    // 2. Preparamos los datos
+    // 2. Extraer datos del formulario (Usamos .elements para ser más seguros)
+    const form = e.target;
+    const name = form.elements['name']?.value || "";
+    const lastname = form.elements['lastname']?.value || "";
+    const phone = form.elements['phone']?.value || "";
+
+    // 3. Preparar parámetros
     const params = new URLSearchParams();
-    params.append("firstName", e.target[0].value);
-    params.append("lastName", e.target[1].value);
-    params.append("phone", e.target[2].value);
+    params.append("firstName", name);
+    params.append("lastName", lastname);
+    params.append("phone", phone);
     params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
     params.append("price", vehicle.price);
-    params.append("source", "App CarBot");
+    params.append("source", "CarBot Inventario"); // Etiqueta: Vino del inventario
+    params.append("type", "Cotizacion");
 
-    // 3. Creamos la URL final con los datos pegados
-    const finalUrl = `${baseUrl}?${params.toString()}`;
+    // 4. Disparar el Pixel 📸
+    new Image().src = `${baseUrl}?${params.toString()}`;
+    // ---------------------------------------
 
-    // 4. EL TRUCO DEL PIXEL (Dispara la petición sin bloqueo) 📸
-    const pixel = new Image();
-    pixel.src = finalUrl;
-
-    // Simulamos éxito inmediato (porque la imagen no "responderá")
+    // Simulamos éxito visual
     setTimeout(() => {
-      onConfirm();
-      alert("¡Cotización enviada a GHL!");
+      // Pasamos los datos para guardarlos en Firebase también
+      onConfirm({
+        name,
+        lastname,
+        phone,
+        cedula,
+        bank: bankName,
+        vehicleId: vehicle.id,
+        vehicle: `${vehicle.make} ${vehicle.model}`
+      });
+      alert("¡Cotización enviada al instante!");
       setLoading(false);
-    }, 500);
+      onClose();
+    }, 1000);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-md animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
@@ -481,7 +496,9 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
             <Input label="Banco Dirigido" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej. Banco Popular" className="mb-4" />
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-              <Button type="submit" disabled={loading}>Enviar Cotización</Button>
+              <Button type="submit" disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
+                {loading ? "Enviando..." : "Enviar Cotización"}
+              </Button>
             </div>
           </form>
         </Card>
@@ -507,7 +524,24 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
     e.preventDefault();
     if (!selectedVehicleId) return;
     setLoading(true);
+
     const vehicle = inventory.find(v => v.id === selectedVehicleId);
+
+    // --- CONEXIÓN GHL (Truco del Pixel) ---
+    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673c8d5be41d";
+
+    const params = new URLSearchParams();
+    params.append("firstName", name);
+    params.append("lastName", lastname);
+    params.append("phone", phone);
+    params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
+    params.append("price", vehicle.price);
+    params.append("source", "CarBot Manual"); // Etiqueta para diferenciar
+    params.append("type", "Cotizacion");
+
+    // Disparar sin bloqueo
+    new Image().src = `${baseUrl}?${params.toString()}`;
+    // ---------------------------------------
 
     setTimeout(() => {
       onSave({
@@ -519,6 +553,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
         vehicle: `${vehicle.make} ${vehicle.model}`,
         vehicleId: vehicle.id
       });
+      alert("¡Cotización enviada a GHL!");
       setLoading(false);
       onClose();
     }, 1000);
@@ -527,7 +562,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-lg animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-blue-50 rounded-lg mr-3"><Send size={20} className="text-blue-600" /></div>
@@ -564,7 +599,9 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
             </div>
             <div className="pt-4 flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-              <Button type="submit" disabled={loading}>{loading ? 'Guardando...' : 'Guardar Cotización'}</Button>
+              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {loading ? 'Guardando...' : 'Guardar Cotización'}
+              </Button>
             </div>
           </form>
         </Card>
@@ -590,7 +627,6 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         setClientLastName(parts.slice(1).join(' ') || '');
       }
       setClientCedula(initialVehicle.cedula || '');
-      // Find template ID by name
       const template = CONTRACT_TEMPLATES.find(t => t.name === initialVehicle.template);
       if (template) setSelectedTemplate(template.id);
     } else {
@@ -610,11 +646,30 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
     e.preventDefault();
     if (!selectedTemplate || !selectedVehicleId) return;
     setLoading(true);
-    const vehicle = inventory.find(v => v.id === selectedVehicleId); // Firebase IDs son strings, quitamos parseInt
+
+    const vehicle = inventory.find(v => v.id === selectedVehicleId);
     const template = CONTRACT_TEMPLATES.find(t => t.id === selectedTemplate);
+
+    // --- CONEXIÓN GHL (Truco del Pixel) ---
+    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673c8d5be41d";
+
+    const params = new URLSearchParams();
+    params.append("firstName", clientName);
+    params.append("lastName", clientLastName);
+    params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
+    params.append("price", vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price);
+    params.append("contractType", template.name); // Ej: Venta al contado
+    params.append("source", "CarBot Contratos");
+    params.append("type", "Contrato"); // Para filtrar en GHL
+
+    // Nota: El formulario de contrato no tiene teléfono, así que GHL 
+    // buscará por nombre o creará uno nuevo sin teléfono.
+    new Image().src = `${baseUrl}?${params.toString()}`;
+    // ---------------------------------------
+
     setTimeout(() => {
       onGenerate({
-        id: initialVehicle?.contractId || undefined, // Pass ID if editing
+        id: initialVehicle?.contractId || undefined,
         client: `${clientName} ${clientLastName}`,
         cedula: clientCedula,
         vehicle: `${vehicle.make} ${vehicle.model}`,
@@ -623,9 +678,10 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         template: template.name,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
-        ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`,
+        ghl_id: `ghl_${Date.now()}`,
         vin: vehicle.vin
       });
+      alert("¡Contrato generado y notificado a GHL!");
       setLoading(false);
       onClose();
     }, 1500);
@@ -634,7 +690,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-2xl animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
+        <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><FilePlus size={20} className="text-red-600" /></div>
@@ -797,7 +853,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full max-w-4xl h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
-        <Card className="flex flex-col h-full bg-slate-50">
+        <Card className="flex flex-col h-full bg-slate-50 pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <FileText size={20} className="text-red-600" /> Contrato: {contract.client}
@@ -960,7 +1016,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full max-w-4xl h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
-        <Card className="flex flex-col h-full bg-slate-50">
+        <Card className="flex flex-col h-full bg-slate-50 pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <Send size={20} className="text-red-600" /> Cotización: ${quote.name} ${quote.lastname}
@@ -1215,7 +1271,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   );
 };
 
-const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm }) => {
+const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('date_desc'); // New sorting state
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -1292,11 +1348,15 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onVehicleSele
     else if (action === 'contract') setIsContractModalOpen(true);
   };
 
-  const handleQuoteSent = () => {
+  const handleQuoteSent = (quoteData) => {
     setIsQuoteModalOpen(false);
-    showToast("Cotización enviada a GoHighLevel");
-    // Actualizar estado en Firebase a 'quoted'
-    if (currentVehicle) onSave({ ...currentVehicle, status: 'quoted' });
+    if (onGenerateQuote) {
+      onGenerateQuote(quoteData);
+    } else {
+      // Fallback si no se pasa la función (aunque la pasaremos ahora)
+      showToast("Cotización enviada");
+      if (currentVehicle) onSave({ ...currentVehicle, status: 'quoted' });
+    }
     setCurrentVehicle(null);
   };
 
@@ -1727,7 +1787,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-20 sm:pb-0">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-4 sm:px-6 py-2 sm:py-3">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
@@ -1827,61 +1887,83 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 // --- Reemplaza tu LoginScreen actual con este ---
 const LoginScreen = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-
-
-  // 2. Lógica para correo/contraseña (Simulada por ahora, pero pasamos el email)
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const email = e.target.elements.email.value;
-    // Simulamos delay de red
-    setTimeout(() => {
+    setError('');
+
+    try {
+      // Simulamos una pequeña espera de red
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      if (!email.includes('@')) {
+        throw new Error("Por favor ingresa un correo válido.");
+      }
+
+      // LOGIN EXITOSO: Pasamos el email hacia arriba
       onLogin({ email });
+
+    } catch (err) {
+      setError(err.message);
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-0 sm:p-4">
-      <div className="w-full h-full sm:h-auto sm:max-w-md p-6 sm:p-8 bg-white rounded-none sm:rounded-2xl shadow-2xl border border-gray-100 flex flex-col justify-center">
-        <div className="text-center mb-10 flex flex-col items-center">
-          <AppLogo size={120} className="mb-6" />
-          <p className="text-slate-500 font-medium">Sistema Inteligente para Dealers</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-slate-100">
+        <div className="text-center mb-8">
+          <AppLogo size={80} className="mx-auto mb-4" />
+          <h2 className="text-2xl font-black text-slate-900">Bienvenido a CarBot</h2>
+          <p className="text-slate-500 text-sm mt-2">Plataforma de Gestión para Dealers</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center">
-            <span className="mr-2">⚠️</span> {error}
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 flex items-center gap-2">
+            <span>⚠️</span> {error}
           </div>
         )}
 
-        <div className="space-y-6">
-
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input name="email" label="Correo" placeholder="usuario@dealer.com" type="email" required />
-            <Input label="Contraseña" type="password" required />
-            <button type="submit" disabled={loading} className="w-full py-3 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow-lg transition-all">
-              {loading ? 'Cargando...' : 'Ingresar'}
-            </button>
-          </form>
-
-          <div className="flex items-center justify-between">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-              />
-              <span className="text-sm text-gray-600 font-medium">Recordarme</span>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Correo Electrónico"
+            placeholder="usuario@tudealer.com"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="Contraseña"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
+          <div className="flex items-center justify-between text-xs mb-2">
+            <label className="flex items-center gap-2 text-slate-600 cursor-pointer">
+              <input type="checkbox" className="rounded text-red-600 focus:ring-red-500" defaultChecked />
+              Recordar mi sesión
             </label>
+            <a href="#" className="text-red-600 hover:underline font-bold">¿Olvidaste tu clave?</a>
           </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/20 transition-all flex justify-center items-center gap-2"
+          >
+            {loading ? <Loader2 className="animate-spin" size={20} /> : 'Iniciar Sesión'}
+          </button>
+        </form>
 
-        </div>
+        <p className="mt-8 text-center text-xs text-slate-400">
+          ¿No tienes cuenta? <span className="text-red-600 font-bold cursor-pointer hover:underline">Regístrate como Dealer</span>
+        </p>
       </div>
     </div>
   );
@@ -1891,91 +1973,95 @@ const LoginScreen = ({ onLogin }) => {
 export default function CarbotApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'dashboard');
-  const [globalSearch, setGlobalSearch] = useState('');
-  // Nuevo Estado: Filtro de Inventario (Levantamos el estado para controlarlo desde Dashboard)
-  const [inventoryTab, setInventoryTab] = useState('available');
 
-  // 1. ESTADO DE DATOS (Vacío al inicio, se llena desde Firebase)
+  // DATOS DEL USUARIO Y DEALER
+  const [userProfile, setUserProfile] = useState(null);
+  const [initializing, setInitializing] = useState(true);
+
+  // Inventario y datos
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [inventoryTab, setInventoryTab] = useState('available');
   const [inventory, setInventory] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [quotes, setQuotes] = useState([]);
-
-  const [userProfile, setUserProfile] = useState(null);
-
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
 
-  useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
-
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // 1.b AUTH STATE LISTENER
-  const [initializing, setInitializing] = useState(true);
-  const [currentUserEmail, setCurrentUserEmail] = useState(localStorage.getItem('lastUserEmail') || '');
-
+  // 1. EFECTO: RESTAURAR SESIÓN AL CARGAR LA PÁGINA
   useEffect(() => {
-    // Como eliminamos Google Auth, solo "simulamos" verificación via localStorage o estado
-    // Si queremos persistir, usamos localStorage
-    const savedEmail = localStorage.getItem('lastUserEmail');
-    if (savedEmail) {
-      setIsLoggedIn(true);
-      setCurrentUserEmail(savedEmail);
-    }
-    setInitializing(false);
+    const restoreSession = async () => {
+      const savedEmail = localStorage.getItem('carbot_user_email');
+
+      if (savedEmail) {
+        console.log("Sesión encontrada, restaurando usuario:", savedEmail);
+        await loadUserProfile(savedEmail);
+      } else {
+        setInitializing(false);
+      }
+    };
+    restoreSession();
   }, []);
 
-  // Fetch user profile when logged in (usando email ya que no hay auth.currentUser real)
-  useEffect(() => {
-    if (isLoggedIn && currentUserEmail) {
-      const fetchUserProfile = async () => {
-        // Usamos el email como ID del documento para simplificar
-        const userId = currentUserEmail.replace(/\./g, '_'); // Sanitizar email para ID
-        const userDocRef = doc(db, "users", userId);
-        const userDocSnap = await getDoc(userDocRef);
+  // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
+  const loadUserProfile = async (email) => {
+    try {
+      // Usamos el email como ID único (reemplazando puntos por guiones bajos)
+      const userId = email.replace(/\./g, '_').toLowerCase();
+      const userDocRef = doc(db, "users", userId);
+      const userDocSnap = await getDoc(userDocRef);
 
-        if (userDocSnap.exists()) {
-          setUserProfile(userDocSnap.data());
-        } else {
-          // Crear perfil por defecto
-          const defaultProfile = {
-            name: currentUserEmail.split('@')[0],
-            email: currentUserEmail,
-            dealerId: 'defaultDealer',
-            dealerName: 'Mi Dealer',
-            role: 'Admin',
-            createdAt: new Date().toISOString()
-          };
-          await setDoc(userDocRef, defaultProfile);
-          setUserProfile(defaultProfile);
-        }
-      };
-      fetchUserProfile();
-    } else {
-      setUserProfile(null);
+      let profileData;
+
+      if (userDocSnap.exists()) {
+        // A. EL USUARIO YA EXISTE -> CARGAMOS SU DEALER
+        profileData = userDocSnap.data();
+        console.log("Usuario detectado:", profileData.name, "| Dealer:", profileData.dealerName);
+      } else {
+        // B. USUARIO NUEVO -> CREAMOS CUENTA Y ASIGNAMOS UN ID DE DEALER ÚNICO
+        console.log("Usuario nuevo, creando perfil...");
+        const newDealerId = `dealer_${Date.now()}`; // Generamos ID único para el Dealer
+
+        profileData = {
+          email: email,
+          name: email.split('@')[0], // Nombre temporal basado en el email
+          dealerId: newDealerId,     // <--- AQUÍ ESTÁ LA SUBCUENTA
+          dealerName: "Mi Dealer Nuevo",
+          role: 'admin',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(userDocRef, profileData);
+      }
+
+      // Guardamos en estado y localStorage
+      setUserProfile(profileData);
+      setIsLoggedIn(true);
+      localStorage.setItem('carbot_user_email', email);
+
+    } catch (error) {
+      console.error("Error al cargar perfil:", error);
+      showToast("Error de conexión al cargar usuario", "error");
+    } finally {
+      setInitializing(false);
     }
-  }, [isLoggedIn, currentUserEmail]);
+  };
 
-  // ... (keep existing firebase connection useEffect)
-
-  // ... (rest of functions)
-
+  // 3. HANDLERS LOGIN / LOGOUT
   const handleLogin = ({ email }) => {
-    localStorage.setItem('lastUserEmail', email);
-    setCurrentUserEmail(email);
-    setIsLoggedIn(true);
+    setInitializing(true); // Mostrar carga mientras buscamos
+    loadUserProfile(email);
   };
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Error signing out", error);
-    }
-    localStorage.removeItem('lastUserEmail');
-    setIsLoggedIn(false);
+    localStorage.removeItem('carbot_user_email');
+    localStorage.removeItem('activeTab');
     setUserProfile(null);
-    setCurrentUserEmail('');
+    setIsLoggedIn(false);
+    setInventory([]); // Limpiamos datos por seguridad
   };
+
+  useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
 
   useEffect(() => {
     // Escuchar TODO el inventario, incluyendo trash
@@ -2229,7 +2315,7 @@ export default function CarbotApp() {
     }
     switch (activeTab) {
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
+      case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
