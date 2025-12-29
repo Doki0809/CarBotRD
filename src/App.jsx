@@ -427,19 +427,48 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
 
   if (!isOpen) return null;
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const formData = new FormData(e.target);
-    onConfirm({
-      name: formData.get('name'),
-      lastname: formData.get('lastname'),
-      phone: formData.get('phone'),
-      cedula: cedula,
-      bank: bankName
-    });
-    setLoading(false);
-    onClose();
+
+    // 1. Datos del cliente y vehículo
+    const formData = {
+      firstName: e.target[0].value,
+      lastName: e.target[1].value,
+      phone: e.target[2].value,
+      vehicle: `${vehicle.make} ${vehicle.model} ${vehicle.year}`,
+      price: vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price,
+      dealer: userProfile?.dealerName || "AutoPremium Punta Cana",
+      source: "App CarBot"
+    };
+
+    // 2. TU WEBHOOK DE GHL (Ya puesto) ✅
+    const webhookUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/1e51361f-3426-4528-86ab-9f1f28b52577";
+
+    try {
+      // 3. Enviar a GHL
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
+      });
+
+      onConfirm({
+        name: e.target[0].value,
+        lastname: e.target[1].value,
+        phone: e.target[2].value,
+        cedula: cedula,
+        bank: bankName
+      });
+
+      alert("¡Cotización enviada a GHL!");
+      onClose(); // Cierra el modal
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Hubo un error de conexión.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
