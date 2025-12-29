@@ -431,41 +431,31 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
     e.preventDefault();
     setLoading(true);
 
-    // 1. Datos del cliente y vehículo
-    const formData = {
-      firstName: e.target[0].value,
-      lastName: e.target[1].value,
-      phone: e.target[2].value,
-      vehicle: `${vehicle.make} ${vehicle.model} ${vehicle.year}`,
-      price: vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price,
-      dealer: userProfile?.dealerName || "AutoPremium Punta Cana",
-      source: "App CarBot"
-    };
-
-    // 2. TU WEBHOOK DE GHL (Ya puesto) ✅
+    // Tu enlace NUEVO de GHL (Confirmado que funciona)
     const webhookUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/c3456437-ef2d-4ed8-b6da-61235568dd14";
 
+    // 1. Usamos FormData (Esto evita que el navegador bloquee el envío)
+    const datos = new FormData();
+    datos.append("firstName", e.target[0].value);
+    datos.append("lastName", e.target[1].value);
+    datos.append("phone", e.target[2].value);
+    datos.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
+    datos.append("price", vehicle.price);
+    datos.append("source", "App CarBot");
+
     try {
-      // 3. Enviar a GHL
+      // 2. Enviar con modo 'no-cors'
       await fetch(webhookUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        mode: "no-cors", // <--- ESTA es la clave mágica
+        body: datos      // Enviamos 'datos' en vez de JSON
       });
 
-      onConfirm({
-        name: e.target[0].value,
-        lastname: e.target[1].value,
-        phone: e.target[2].value,
-        cedula: cedula,
-        bank: bankName
-      });
-
+      onConfirm();
       alert("¡Cotización enviada a GHL!");
-      onClose(); // Cierra el modal
     } catch (error) {
       console.error("Error:", error);
-      alert("Hubo un error de conexión.");
+      alert("Error al enviar.");
     } finally {
       setLoading(false);
     }
@@ -840,6 +830,169 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
               `}
               className="w-full h-full border-none rounded-sm min-h-[800px]"
               title="Vista Previa del Contrato"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
+            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+            <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
+            <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
+  if (!isOpen || !quote) return null;
+
+  const getQuoteHtml = (isPreview = false) => `
+    <div id="quote-content" style="
+      font-family: 'Helvetica', 'Arial', sans-serif; 
+      padding: 0; 
+      line-height: 1.6; 
+      color: #334155; 
+      background: white;
+      ${isPreview ? 'width: 100%; max-width: 210mm;' : 'width: 210mm; min-height: 297mm;'}
+      margin: 0 auto;
+      box-sizing: border-box;
+      position: relative;
+      box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
+    ">
+      <div style="padding: 15mm 20mm;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+              <div>
+                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+                <p style="margin: 5px 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+              </div>
+              <div style="text-align: right;">
+                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}</p>
+                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </div>
+          </div>
+
+          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold; width: 30%;">NOMBRE COMPLETO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+                </tr>
+                ${quote.cedula ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula}</td>
+                </tr>
+                ` : ''}
+              </table>
+          </div>
+
+          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+              <div style="margin-top: 15px; display: flex; gap: 20px;">
+                  <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
+                      <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+                      <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+                  </div>
+              </div>
+          </div>
+
+          ${quote.bank ? `
+          <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold; width: 30%;">INSTITUCIÓN:</td>
+                  <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
+                </tr>
+              </table>
+          </div>
+          ` : ''}
+
+          <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br/>
+            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+          </div>
+      </div>
+    </div>
+  `;
+
+  const handleDownloadPDF = () => {
+    const element = document.createElement('div');
+    element.innerHTML = getQuoteHtml(false);
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 0,
+      filename: `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      document.body.removeChild(element);
+    });
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Cotización</title>
+          <style>@page { size: A4; margin: 0; }</style>
+        </head>
+        <body style="margin: 0;">${getQuoteHtml()}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full max-w-4xl h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
+        <Card className="flex flex-col h-full bg-slate-50">
+          <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
+            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Send size={20} className="text-red-600" /> Cotización: ${quote.name} ${quote.lastname}
+            </h3>
+            <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+          </div>
+
+          <div className="flex-1 bg-slate-200/50 p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-4 mb-4 shadow-inner">
+            <iframe
+              srcDoc={`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <style>
+                body {margin: 0; padding: 20px; background: #cbd5e1; display: flex; justify-content: center; }
+                * {box - sizing: border-box; }
+                ::-webkit-scrollbar {width: 8px; }
+                ::-webkit-scrollbar-track {background: #f1f1f1; }
+                ::-webkit-scrollbar-thumb {background: #888; border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover {background: #555; }
+              </style>
+            </head>
+            <body>
+              ${getQuoteHtml(true)}
+            </body>
+          </html>
+              `}
+              className="w-full h-full border-none rounded-sm min-h-[800px]"
+              title="Vista Previa de la Cotización"
             />
           </div>
 
@@ -1251,6 +1404,8 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [selectedContractPreview, setSelectedContractPreview] = useState(null);
+  const [selectedQuotePreview, setSelectedQuotePreview] = useState(null);
   const [editingContract, setEditingContract] = useState(null);
   const [sortConfig, setSortConfig] = useState('date_desc');
 
@@ -1447,7 +1602,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             Nuevo Contrato
           </Button>
         ) : (
-          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
+          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
             Nueva Cotización
           </Button>
         )}
@@ -1471,9 +1626,16 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                       </div>
                       <div className="flex gap-2">
                         {activeView === 'contracts' ? (
-                          <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Descargar PDF"><Download size={18} /></button>
+                          <>
+                            <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Ver Contrato"><Eye size={18} /></button>
+                            <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Editar"><Edit size={18} /></button>
+                            <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Descargar PDF"><Download size={18} /></button>
+                          </>
                         ) : (
-                          <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Descargar Ficha"><Download size={18} /></button>
+                          <>
+                            <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Ver Cotización"><Eye size={18} /></button>
+                            <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Descargar Ficha"><Download size={18} /></button>
+                          </>
                         )}
                         <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 size={18} /></button>
                       </div>
@@ -1535,6 +1697,24 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           onClose={() => setIsQuoteModalOpen(false)}
           inventory={inventory}
           onSave={onGenerateQuote}
+        />
+      )}
+
+      {selectedContractPreview && (
+        <ContractPreviewModal
+          isOpen={!!selectedContractPreview}
+          onClose={() => setSelectedContractPreview(null)}
+          contract={selectedContractPreview}
+          userProfile={userProfile}
+        />
+      )}
+
+      {selectedQuotePreview && (
+        <QuotePreviewModal
+          isOpen={!!selectedQuotePreview}
+          onClose={() => setSelectedQuotePreview(null)}
+          quote={selectedQuotePreview}
+          userProfile={userProfile}
         />
       )}
     </div>
