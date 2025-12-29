@@ -431,24 +431,23 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
     e.preventDefault();
     setLoading(true);
 
-    // Tu enlace NUEVO de GHL (Confirmado que funciona)
-    const webhookUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/c3456437-ef2d-4ed8-b6da-61235568dd14";
+    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/c3456437-ef2d-4ed8-b6da-61235568dd14";
 
-    // 1. Usamos FormData (Esto evita que el navegador bloquee el envío)
-    const datos = new FormData();
-    datos.append("firstName", e.target[0].value);
-    datos.append("lastName", e.target[1].value);
-    datos.append("phone", e.target[2].value);
-    datos.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
-    datos.append("price", vehicle.price);
-    datos.append("source", "App CarBot");
+    const params = new URLSearchParams();
+    params.append("firstName", e.target[0].value);
+    params.append("lastName", e.target[1].value);
+    params.append("phone", e.target[2].value);
+    params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
+    params.append("price", vehicle.price);
+    params.append("source", "App CarBot");
+
+    const finalUrl = `${baseUrl}?${params.toString()}`;
 
     try {
-      // 2. Enviar con modo 'no-cors'
-      await fetch(webhookUrl, {
-        method: "POST",
-        mode: "no-cors", // <--- ESTA es la clave mágica
-        body: datos      // Enviamos 'datos' en vez de JSON
+      // CAMBIO IMPORTANTE: Usamos GET 👇
+      await fetch(finalUrl, {
+        method: "GET",
+        mode: "no-cors"
       });
 
       onConfirm();
