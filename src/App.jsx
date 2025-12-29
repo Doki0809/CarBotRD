@@ -1888,7 +1888,6 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 const LoginScreen = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -1897,16 +1896,13 @@ const LoginScreen = ({ onLogin }) => {
     setError('');
 
     try {
-      // Simulamos una pequeña espera de red
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Validación simple
+      if (email.length < 5) throw new Error("Ingresa un usuario válido.");
 
-      if (!email.includes('@')) {
-        throw new Error("Por favor ingresa un correo válido.");
-      }
+      // Simulamos delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // LOGIN EXITOSO: Pasamos el email hacia arriba
       onLogin({ email });
-
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -1915,11 +1911,11 @@ const LoginScreen = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-slate-100">
+      <div className="w-full max-w-sm p-8 bg-white rounded-2xl shadow-xl border border-slate-100">
         <div className="text-center mb-8">
-          <AppLogo size={80} className="mx-auto mb-4" />
-          <h2 className="text-2xl font-black text-slate-900">Bienvenido a CarBot</h2>
-          <p className="text-slate-500 text-sm mt-2">Plataforma de Gestión para Dealers</p>
+          <AppLogo size={60} className="mx-auto mb-4" />
+          <h2 className="text-xl font-black text-slate-900">Acceso Dealer</h2>
+          <p className="text-slate-400 text-xs mt-1">Ingresa con tu credencial de GHL</p>
         </div>
 
         {error && (
@@ -1929,40 +1925,29 @@ const LoginScreen = ({ onLogin }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Correo Electrónico"
-            placeholder="usuario@tudealer.com"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            label="Contraseña"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-          />
-          <div className="flex items-center justify-between text-xs mb-2">
-            <label className="flex items-center gap-2 text-slate-600 cursor-pointer">
-              <input type="checkbox" className="rounded text-red-600 focus:ring-red-500" defaultChecked />
-              Recordar mi sesión
-            </label>
-            <a href="#" className="text-red-600 hover:underline font-bold">¿Olvidaste tu clave?</a>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Usuario / Correo GHL</label>
+            <input
+              type="text"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 font-bold text-slate-900"
+              placeholder="Ej. usuario@dealer.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/20 transition-all flex justify-center items-center gap-2"
+            className="w-full py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-lg transition-all flex justify-center items-center gap-2"
           >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : 'Iniciar Sesión'}
+            {loading ? <Loader2 className="animate-spin" size={18} /> : 'Entrar al Sistema'}
           </button>
         </form>
 
-        <p className="mt-8 text-center text-xs text-slate-400">
-          ¿No tienes cuenta? <span className="text-red-600 font-bold cursor-pointer hover:underline">Regístrate como Dealer</span>
+        <p className="mt-6 text-center text-[10px] text-slate-300">
+          Acceso restringido. Gestionado por GHL.
         </p>
       </div>
     </div>
@@ -1989,19 +1974,32 @@ export default function CarbotApp() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // 1. EFECTO: RESTAURAR SESIÓN AL CARGAR LA PÁGINA
+  // 1. EFECTO: RESTAURAR SESIÓN O LOGIN AUTOMÁTICO DESDE GHL
   useEffect(() => {
-    const restoreSession = async () => {
-      const savedEmail = localStorage.getItem('carbot_user_email');
+    const initSystem = async () => {
+      // A. ¿Venimos desde GHL? (Revisar URL)
+      const params = new URLSearchParams(window.location.search);
+      const ghlLocationId = params.get('location_id'); // GHL manda esto automáticamente
 
+      if (ghlLocationId) {
+        console.log("DETECTADO ENTORNO GHL - Location ID:", ghlLocationId);
+        // Usamos el ID de GHL para loguear automáticamente
+        // Truco: Creamos un "email falso" basado en el ID para que Firebase lo acepte
+        await loadUserProfile(`${ghlLocationId}@ghl.auto`);
+        return;
+      }
+
+      // B. Si no es GHL, buscamos sesión guardada en el navegador
+      const savedEmail = localStorage.getItem('carbot_user_email');
       if (savedEmail) {
-        console.log("Sesión encontrada, restaurando usuario:", savedEmail);
+        console.log("Sesión guardada encontrada:", savedEmail);
         await loadUserProfile(savedEmail);
       } else {
         setInitializing(false);
       }
     };
-    restoreSession();
+
+    initSystem();
   }, []);
 
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
