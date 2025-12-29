@@ -427,12 +427,14 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
 
   if (!isOpen) return null;
 
-  const handleSend = async (e) => {
+  const handleSend = (e) => {
     e.preventDefault();
     setLoading(true);
 
+    // 1. Tu enlace (El que termina en dd14)
     const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/c3456437-ef2d-4ed8-b6da-61235568dd14";
 
+    // 2. Preparamos los datos
     const params = new URLSearchParams();
     params.append("firstName", e.target[0].value);
     params.append("lastName", e.target[1].value);
@@ -441,23 +443,19 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
     params.append("price", vehicle.price);
     params.append("source", "App CarBot");
 
+    // 3. Creamos la URL final con los datos pegados
     const finalUrl = `${baseUrl}?${params.toString()}`;
 
-    try {
-      // CAMBIO IMPORTANTE: Usamos GET 👇
-      await fetch(finalUrl, {
-        method: "GET",
-        mode: "no-cors"
-      });
+    // 4. EL TRUCO DEL PIXEL (Dispara la petición sin bloqueo) 📸
+    const pixel = new Image();
+    pixel.src = finalUrl;
 
+    // Simulamos éxito inmediato (porque la imagen no "responderá")
+    setTimeout(() => {
       onConfirm();
       alert("¡Cotización enviada a GHL!");
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error al enviar.");
-    } finally {
       setLoading(false);
-    }
+    }, 500);
   };
 
   return (
