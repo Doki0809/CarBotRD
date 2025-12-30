@@ -431,33 +431,47 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
     e.preventDefault();
     setLoading(true);
 
-    // --- CONEXIÓN GHL (Truco del Pixel) ---
-    // 1. La URL NUEVA (Confirmado que termina en e41d)
-    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673c8d5be41d";
+    // 1. URL DE GHL (Tu webhook ...673)
+    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673";
 
-    // 2. Extraer datos del formulario (Usamos .elements para ser más seguros)
     const form = e.target;
-    const name = form.elements['name']?.value || "";
-    const lastname = form.elements['lastname']?.value || "";
-    const phone = form.elements['phone']?.value || "";
+    const name = form.elements['name'].value;
+    const lastname = form.elements['lastname'].value;
+    const phone = form.elements['phone'].value;
 
-    // 3. Preparar parámetros
+    // 2. EMPAQUETAR TODOS LOS DATOS SOLICITADOS
     const params = new URLSearchParams();
+
+    // Datos del Cliente
     params.append("firstName", name);
     params.append("lastName", lastname);
     params.append("phone", phone);
-    params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
-    params.append("price", vehicle.price);
-    params.append("source", "CarBot Inventario"); // Etiqueta: Vino del inventario
+    params.append("cedula", cedula);
+    params.append("addressedTo", bankName); // "A quien va dirigida"
+
+    // Datos del Vehículo (Detallados)
+    params.append("make", vehicle.make);           // Marca
+    params.append("model", vehicle.model);         // Modelo
+    params.append("year", vehicle.year);           // Año
+    params.append("color", vehicle.color);         // Color
+    params.append("vin", vehicle.vin);             // Chasis
+    params.append("edition", vehicle.edition || ""); // Edición
+    params.append("traction", vehicle.traction);   // Tracción
+    params.append("fuel", vehicle.fuel);           // Combustible
+    params.append("transmission", vehicle.transmission); // Transmisión
+    params.append("mileage", vehicle.mileage);     // Millaje
+    params.append("price", vehicle.price);         // Precio
+    params.append("availability", vehicle.status); // Disponibilidad
+
+    // Metadatos extra
+    params.append("vehicleSummary", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
+    params.append("source", "CarBot Inventario");
     params.append("type", "Cotizacion");
 
-    // 4. Disparar el Pixel 📸
+    // 3. ENVIAR (Truco del Pixel)
     new Image().src = `${baseUrl}?${params.toString()}`;
-    // ---------------------------------------
 
-    // Simulamos éxito visual
     setTimeout(() => {
-      // Pasamos los datos para guardarlos en Firebase también
       onConfirm({
         name,
         lastname,
@@ -467,7 +481,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
         vehicleId: vehicle.id,
         vehicle: `${vehicle.make} ${vehicle.model}`
       });
-      alert("¡Cotización enviada al instante!");
+      alert("¡Cotización completa enviada a GHL!");
       setLoading(false);
       onClose();
     }, 1000);
@@ -476,7 +490,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-md animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={18} className="text-red-600" /></div>
@@ -486,19 +500,17 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
           </div>
           <form onSubmit={handleSend}>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <Input name="name" label="Nombre Cliente" placeholder="Ej. Juan" required />
+              <Input name="name" label="Nombre" placeholder="Ej. Juan" required />
               <Input name="lastname" label="Apellido" placeholder="Ej. Pérez" required />
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <Input name="phone" label="Teléfono" placeholder="+1 829..." required />
+              <Input name="phone" label="Teléfono" placeholder="+1..." required />
               <Input name="cedula" label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} required />
             </div>
-            <Input label="Banco Dirigido" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej. Banco Popular" className="mb-4" />
+            <Input label="A quien va dirigida (Banco/Persona)" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej. Banco Popular" className="mb-4" />
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-              <Button type="submit" disabled={loading} className="bg-red-600 hover:bg-red-700 text-white">
-                {loading ? "Enviando..." : "Enviar Cotización"}
-              </Button>
+              <Button type="submit" disabled={loading}>{loading ? "Enviando..." : "Enviar Cotización"}</Button>
             </div>
           </form>
         </Card>
@@ -517,7 +529,6 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
-
   const availableVehicles = inventory.filter(v => v.status !== 'sold');
 
   const handleSubmit = (e) => {
@@ -526,34 +537,38 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
     setLoading(true);
 
     const vehicle = inventory.find(v => v.id === selectedVehicleId);
+    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673";
 
-    // --- CONEXIÓN GHL (Truco del Pixel) ---
-    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673c8d5be41d";
-
+    // EMPAQUETAR DATOS COMPLETOS
     const params = new URLSearchParams();
     params.append("firstName", name);
     params.append("lastName", lastname);
     params.append("phone", phone);
-    params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
+    params.append("cedula", cedula);
+    params.append("addressedTo", bank); // "A quien va dirigida"
+
+    // Especificaciones del Auto
+    params.append("make", vehicle.make);
+    params.append("model", vehicle.model);
+    params.append("year", vehicle.year);
+    params.append("color", vehicle.color);
+    params.append("vin", vehicle.vin);
+    params.append("edition", vehicle.edition || "");
+    params.append("traction", vehicle.traction);
+    params.append("fuel", vehicle.fuel);
+    params.append("transmission", vehicle.transmission);
+    params.append("mileage", vehicle.mileage);
     params.append("price", vehicle.price);
-    params.append("source", "CarBot Manual"); // Etiqueta para diferenciar
+    params.append("availability", vehicle.status);
+
+    params.append("source", "CarBot Manual");
     params.append("type", "Cotizacion");
 
-    // Disparar sin bloqueo
     new Image().src = `${baseUrl}?${params.toString()}`;
-    // ---------------------------------------
 
     setTimeout(() => {
-      onSave({
-        name,
-        lastname,
-        phone,
-        cedula,
-        bank,
-        vehicle: `${vehicle.make} ${vehicle.model}`,
-        vehicleId: vehicle.id
-      });
-      alert("¡Cotización enviada a GHL!");
+      onSave({ name, lastname, phone, cedula, bank, vehicle: `${vehicle.make} ${vehicle.model}`, vehicleId: vehicle.id });
+      alert("¡Cotización manual enviada a GHL!");
       setLoading(false);
       onClose();
     }, 1000);
@@ -562,7 +577,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-lg animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-blue-50 rounded-lg mr-3"><Send size={20} className="text-blue-600" /></div>
@@ -572,21 +587,14 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">1. Vehículo de Interés</label>
-              <select
-                className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold"
-                value={selectedVehicleId}
-                onChange={(e) => setSelectedVehicleId(e.target.value)}
-                required
-              >
-                <option value="">-- Seleccionar vehículo --</option>
-                {availableVehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year})</option>
-                ))}
+              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">1. Vehículo</label>
+              <select className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold" value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)} required>
+                <option value="">-- Seleccionar --</option>
+                {availableVehicles.map(v => (<option key={v.id} value={v.id}>{v.make} {v.model} ({v.year})</option>))}
               </select>
             </div>
             <div className="space-y-4">
-              <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos del Prospecto</label>
+              <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos</label>
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
                 <Input label="Apellido" value={lastname} onChange={(e) => setLastname(e.target.value)} required />
@@ -595,14 +603,9 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
                 <Input label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} required />
                 <Input label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} />
               </div>
-              <Input label="Banco Dirigido (Opcional)" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej. Banco Popular" />
+              <Input label="A quien va dirigida" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej. Banco Popular" />
             </div>
-            <div className="pt-4 flex justify-end gap-3">
-              <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-              <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-                {loading ? 'Guardando...' : 'Guardar Cotización'}
-              </Button>
-            </div>
+            <div className="pt-4 flex justify-end gap-3"><Button variant="ghost" onClick={onClose} type="button">Cancelar</Button><Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar</Button></div>
           </form>
         </Card>
       </div>
@@ -630,16 +633,11 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
       const template = CONTRACT_TEMPLATES.find(t => t.name === initialVehicle.template);
       if (template) setSelectedTemplate(template.id);
     } else {
-      setSelectedTemplate('');
-      setSelectedVehicleId('');
-      setClientName('');
-      setClientLastName('');
-      setClientCedula('');
+      setSelectedTemplate(''); setSelectedVehicleId(''); setClientName(''); setClientLastName(''); setClientCedula('');
     }
   }, [initialVehicle, isOpen]);
 
   if (!isOpen) return null;
-
   const availableVehicles = inventory.filter(v => v.status !== 'sold' || (initialVehicle && v.id === initialVehicle.id));
 
   const handleSubmit = (e) => {
@@ -649,23 +647,35 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
 
     const vehicle = inventory.find(v => v.id === selectedVehicleId);
     const template = CONTRACT_TEMPLATES.find(t => t.id === selectedTemplate);
+    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673";
 
-    // --- CONEXIÓN GHL (Truco del Pixel) ---
-    const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673c8d5be41d";
-
+    // EMPAQUETAR DATOS PARA CONTRATO
     const params = new URLSearchParams();
     params.append("firstName", clientName);
     params.append("lastName", clientLastName);
-    params.append("vehicle", `${vehicle.make} ${vehicle.model} ${vehicle.year}`);
-    params.append("price", vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price);
-    params.append("contractType", template.name); // Ej: Venta al contado
-    params.append("source", "CarBot Contratos");
-    params.append("type", "Contrato"); // Para filtrar en GHL
+    params.append("cedula", clientCedula);
+    // Nota: El formulario de contrato básico a veces no pide teléfono, 
+    // pero si lo tienes en el futuro, agrégalo aquí.
 
-    // Nota: El formulario de contrato no tiene teléfono, así que GHL 
-    // buscará por nombre o creará uno nuevo sin teléfono.
+    // Datos Vehículo
+    params.append("make", vehicle.make);
+    params.append("model", vehicle.model);
+    params.append("year", vehicle.year);
+    params.append("color", vehicle.color);
+    params.append("vin", vehicle.vin);
+    params.append("edition", vehicle.edition || "");
+    params.append("traction", vehicle.traction);
+    params.append("fuel", vehicle.fuel);
+    params.append("transmission", vehicle.transmission);
+    params.append("mileage", vehicle.mileage);
+    params.append("price", vehicle.price);
+    params.append("availability", "Vendido"); // Al hacer contrato, se vende
+
+    params.append("source", "CarBot Contratos");
+    params.append("type", "Contrato");
+    params.append("contractType", template.name);
+
     new Image().src = `${baseUrl}?${params.toString()}`;
-    // ---------------------------------------
 
     setTimeout(() => {
       onGenerate({
@@ -681,7 +691,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         ghl_id: `ghl_${Date.now()}`,
         vin: vehicle.vin
       });
-      alert("¡Contrato generado y notificado a GHL!");
+      alert("¡Contrato generado y datos enviados a GHL!");
       setLoading(false);
       onClose();
     }, 1500);
@@ -690,7 +700,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-2xl animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px] pb-32 sm:pb-0">
+        <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><FilePlus size={20} className="text-red-600" /></div>
@@ -700,12 +710,10 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
           </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">1. Selecciona el Vehículo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">1. Vehículo</label>
               <select className="w-full px-3 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)} required>
-                <option value="">-- Seleccionar vehículo disponible --</option>
-                {availableVehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${v.price.toLocaleString()}`}</option>
-                ))}
+                <option value="">-- Seleccionar --</option>
+                {availableVehicles.map(v => (<option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${v.price.toLocaleString()}`}</option>))}
               </select>
             </div>
             <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
@@ -720,8 +728,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
               <label className="block text-sm font-medium text-gray-700 mb-3">3. Elige una Plantilla</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {CONTRACT_TEMPLATES.map(template => {
-                  const Icon = template.icon;
-                  const isSelected = selectedTemplate === template.id;
+                  const Icon = template.icon; const isSelected = selectedTemplate === template.id;
                   return (
                     <div key={template.id} onClick={() => setSelectedTemplate(template.id)} className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 relative overflow-hidden ${isSelected ? 'border-red-600 bg-red-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-gray-300'}`}>
                       {isSelected && <div className="absolute top-2 right-2 text-red-600"><CheckCircle size={16} fill="currentColor" className="text-white" /></div>}
