@@ -2081,17 +2081,19 @@ export default function CarbotApp() {
         // ¡TE ENCONTRAMOS! (Ya existías manualmente)
         profileData = userDocSnap.data();
 
-        // --- CORRECCIÓN DE NOMBRE (NUEVO) ---
-        // Si el nombre es igual al ID (ej: jeancarlos1313...), le preguntamos el nombre real
+        // DETECTOR DE NOMBRES FEOS:
+        // Si el nombre es igual al ID (ej: jeancarlosgf1313), asumimos que falta el nombre real.
         if (profileData.name === userId || profileData.name === emailOrId) {
-          const properName = prompt("¡Hola! 👋 Veo que es tu primer acceso manual. \n\n¿Cuál es tu Nombre y Apellido para el perfil?");
-          if (properName) {
-            profileData.name = properName;
-            // Guardamos el nombre bonito en la base de datos para siempre
+          // Le preguntamos al usuario su nombre real
+          const properName = prompt("¡Hola! 👋 Para completar tu perfil, ¿cuál es tu Nombre y Apellido?");
+
+          if (properName && properName.trim() !== "") {
+            profileData.name = properName; // Lo actualizamos en la memoria ahora mismo
+
+            // Lo guardamos en la base de datos para que no vuelva a preguntar nunca más
             await updateDoc(userDocRef, { name: properName });
           }
         }
-        // ------------------------------------
 
         // Si vienes de GHL, actualizamos tu perfil viejo para que tenga el dealerId nuevo
         if (isGHL) {
