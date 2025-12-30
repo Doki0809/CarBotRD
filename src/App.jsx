@@ -1986,90 +1986,96 @@ export default function CarbotApp() {
   // 1. EFECTO: RESTAURAR SESIÓN O LOGIN AUTOMÁTICO DESDE GHL
   useEffect(() => {
     const initSystem = async () => {
-      // A. ¿Venimos desde GHL? (Revisar URL)
       const params = new URLSearchParams(window.location.search);
-      const ghlLocationId = params.get('location_id'); // GHL manda esto automáticamente
-      const ghlLocationName = params.get('location_name'); // <--- NUEVO: Leemos el nombre
+
+      // 1. CAPTURAR DATOS DE GHL
+      const ghlLocationId = params.get('location_id');
+      const ghlLocationName = params.get('location_name');
+      const ghlUserId = params.get('user_id');     // <--- NUEVO
+      const ghlUserName = params.get('user_name'); // <--- NUEVO
 
       if (ghlLocationId) {
-        console.log("🌎 Entorno GHL Detectado:", ghlLocationId, ghlLocationName);
-        // Pasamos el nombre también a la función
-        await loadUserProfile(ghlLocationId, true, ghlLocationName);
+        console.log("🌎 GHL Detectado. Usuario:", ghlUserName);
+
+        // Pasamos TODOS los datos a la función de carga
+        // El último objeto {} lleva los datos del usuario específico
+        await loadUserProfile(ghlLocationId, true, ghlLocationName, {
+          id: ghlUserId,
+          name: ghlUserName
+        });
         return;
       }
 
-      // B. Si no es GHL, buscamos sesión guardada en el navegador
       const savedEmail = localStorage.getItem('carbot_user_email');
-      if (savedEmail) {
-        console.log("Sesión guardada encontrada:", savedEmail);
-        await loadUserProfile(savedEmail);
-      } else {
-        setInitializing(false);
-      }
+      if (savedEmail) await loadUserProfile(savedEmail);
+      else setInitializing(false);
     };
 
     initSystem();
   }, []);
 
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
-  const loadUserProfile = async (emailOrId, isGHL = false, ghlName = null) => {
+  const loadUserProfile = async (emailOrId, isGHL = false, ghlName = null, ghlUser = null) => {
     try {
-      // 1. Definir ID de Usuario y ID de Dealer
       let userId = emailOrId.replace(/\./g, '_').toLowerCase();
       let dealerId = '';
 
-      // Si viene de GHL, el "emailOrId" es el LocationID (ej: 123456)
-      // Pero queremos que cada vendedor sea único.
       if (isGHL) {
-        dealerId = emailOrId; // El Dealer es la cuenta de GHL
-        // Generamos un ID de usuario temporal o pedimos login (simplificado para MVP: todos son admin por ahora)
-        // O MEJOR: Si es GHL, usamos localStorage para ver si ya sabemos quién es este empleado
-        const savedName = localStorage.getItem('carbot_employee_name');
+        dealerId = emailOrId; // El Dealer es el location_id
 
-        if (!savedName) {
-          // Si es la primera vez que este empleado entra desde GHL, le preguntamos quién es
-          const nameInput = prompt("¡Bienvenido! ¿Cuál es tu nombre de vendedor?");
-          if (nameInput) {
-            userId = `${dealerId}_${nameInput.replace(/\s+/g, '_').toLowerCase()}`; // ej: 12345_juan
-            localStorage.setItem('carbot_employee_name', userId);
-            // Guardamos también el nombre bonito para mostrarlo
-            localStorage.setItem('carbot_employee_real_name', nameInput);
-          } else {
-            userId = `${dealerId}_admin`; // Fallback
-          }
+        // --- LÓGICA DE IDENTIDAD MEJORADA ---
+        if (ghlUser && ghlUser.id) {
+          // CASO A: GHL nos manda el ID del usuario (LO PERFECTO)
+          userId = `${dealerId}_${ghlUser.id}`;
+          localStorage.setItem('carbot_employee_name', userId);
+          if (ghlUser.name) localStorage.setItem('carbot_employee_real_name', ghlUser.name);
         } else {
-          userId = savedName;
+          // CASO B: Fallback (Si por alguna razón no llega el ID, usamos la lógica vieja)
+          const savedName = localStorage.getItem('carbot_employee_name');
+          if (!savedName) {
+            const nameInput = prompt("Bienvenido al sistema. ¿Cuál es tu nombre?");
+            if (nameInput) {
+              userId = `${dealerId}_${nameInput.replace(/\s+/g, '_').toLowerCase()}`;
+              localStorage.setItem('carbot_employee_name', userId);
+              localStorage.setItem('carbot_employee_real_name', nameInput);
+            } else {
+              userId = `${dealerId}_admin`;
+            }
+          } else {
+            userId = savedName;
+          }
         }
       }
 
       const userDocRef = doc(db, "users", userId);
       const userDocSnap = await getDoc(userDocRef);
+
+      // Nombre del Dealer
+      const realDealerName = ghlName || (isGHL ? "Dealer GHL" : "Mi Dealer");
+      // Nombre del Vendedor (Prioridad: GHL > LocalStorage > ID)
+      const realEmployeeName = (ghlUser && ghlUser.name) ? ghlUser.name : (localStorage.getItem('carbot_employee_real_name') || userId);
+
       let profileData;
 
-      // Definimos el nombre correcto del Dealer (Si viene de GHL, usamos ese, si no, el genérico)
-      const realDealerName = ghlName || (isGHL ? "Dealer GHL Conectado" : "Mi Dealer Nuevo");
-
       if (userDocSnap.exists()) {
-        // USUARIO EXISTE: Actualizamos el nombre del Dealer por si cambió
+        // ACTUALIZAR DATOS EXISTENTES
         profileData = userDocSnap.data();
 
-        // TRUCO: Si el nombre en la base de datos es diferente al de GHL, lo actualizamos ahora mismo
-        if (isGHL && ghlName && profileData.dealerName !== ghlName) {
-          await updateDoc(userDocRef, { dealerName: ghlName });
-          profileData.dealerName = ghlName; // Actualizamos localmente también
+        // Si cambió el nombre del dealer o del empleado, actualizamos la BD
+        if (isGHL) {
+          await updateDoc(userDocRef, {
+            dealerName: realDealerName,
+            name: realEmployeeName
+          });
+          profileData.dealerName = realDealerName;
+          profileData.name = realEmployeeName;
         }
       } else {
-        // USUARIO NUEVO (Primer acceso de este empleado)
-        console.log("Creando perfil de empleado...");
-        const realName = localStorage.getItem('carbot_employee_real_name') || userId;
-
-        // Si NO es GHL, generamos un dealerId nuevo. Si ES GHL, usamos el que trajimos.
-        const finalDealerId = isGHL ? dealerId : `dealer_${Date.now()}`;
-
+        // CREAR USUARIO NUEVO
         profileData = {
-          email: userId, // Usamos esto como ID
-          name: realName,
-          dealerId: finalDealerId, // <--- AQUÍ ESTÁ LA CLAVE: Todos comparten este ID
+          email: userId, // ID único del empleado
+          name: realEmployeeName,
+          dealerId: dealerId, // Comparten el mismo inventario
           dealerName: realDealerName,
           role: 'admin',
           createdAt: new Date().toISOString()
