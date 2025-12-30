@@ -1991,10 +1991,9 @@ export default function CarbotApp() {
       const ghlLocationId = params.get('location_id'); // GHL manda esto automáticamente
 
       if (ghlLocationId) {
-        console.log("DETECTADO ENTORNO GHL - Location ID:", ghlLocationId);
-        // Usamos el ID de GHL para loguear automáticamente
-        // Truco: Creamos un "email falso" basado en el ID para que Firebase lo acepte
-        await loadUserProfile(`${ghlLocationId}@ghl.auto`);
+        console.log("🌎 Entorno GHL Detectado - Dealer:", ghlLocationId);
+        // Le pasamos true en el segundo parámetro para indicar que es GHL
+        await loadUserProfile(ghlLocationId, true);
         return;
       }
 
@@ -2012,43 +2011,69 @@ export default function CarbotApp() {
   }, []);
 
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
-  const loadUserProfile = async (email) => {
+  const loadUserProfile = async (emailOrId, isGHL = false) => {
     try {
-      // Usamos el email como ID único (reemplazando puntos por guiones bajos)
-      const userId = email.replace(/\./g, '_').toLowerCase();
+      // 1. Definir ID de Usuario y ID de Dealer
+      let userId = emailOrId.replace(/\./g, '_').toLowerCase();
+      let dealerId = '';
+
+      // Si viene de GHL, el "emailOrId" es el LocationID (ej: 123456)
+      // Pero queremos que cada vendedor sea único.
+      if (isGHL) {
+        dealerId = emailOrId; // El Dealer es la cuenta de GHL
+        // Generamos un ID de usuario temporal o pedimos login (simplificado para MVP: todos son admin por ahora)
+        // O MEJOR: Si es GHL, usamos localStorage para ver si ya sabemos quién es este empleado
+        const savedName = localStorage.getItem('carbot_employee_name');
+
+        if (!savedName) {
+          // Si es la primera vez que este empleado entra desde GHL, le preguntamos quién es
+          const nameInput = prompt("¡Bienvenido! ¿Cuál es tu nombre de vendedor?");
+          if (nameInput) {
+            userId = `${dealerId}_${nameInput.replace(/\s+/g, '_').toLowerCase()}`; // ej: 12345_juan
+            localStorage.setItem('carbot_employee_name', userId);
+            // Guardamos también el nombre bonito para mostrarlo
+            localStorage.setItem('carbot_employee_real_name', nameInput);
+          } else {
+            userId = `${dealerId}_admin`; // Fallback
+          }
+        } else {
+          userId = savedName;
+        }
+      }
+
       const userDocRef = doc(db, "users", userId);
       const userDocSnap = await getDoc(userDocRef);
-
       let profileData;
 
       if (userDocSnap.exists()) {
-        // A. EL USUARIO YA EXISTE -> CARGAMOS SU DEALER
+        // USUARIO EXISTE
         profileData = userDocSnap.data();
-        console.log("Usuario detectado:", profileData.name, "| Dealer:", profileData.dealerName);
       } else {
-        // B. USUARIO NUEVO -> CREAMOS CUENTA Y ASIGNAMOS UN ID DE DEALER ÚNICO
-        console.log("Usuario nuevo, creando perfil...");
-        const newDealerId = `dealer_${Date.now()}`; // Generamos ID único para el Dealer
+        // USUARIO NUEVO (Primer acceso de este empleado)
+        console.log("Creando perfil de empleado...");
+        const realName = localStorage.getItem('carbot_employee_real_name') || userId;
+
+        // Si NO es GHL, generamos un dealerId nuevo. Si ES GHL, usamos el que trajimos.
+        const finalDealerId = isGHL ? dealerId : `dealer_${Date.now()}`;
 
         profileData = {
-          email: email,
-          name: email.split('@')[0], // Nombre temporal basado en el email
-          dealerId: newDealerId,     // <--- AQUÍ ESTÁ LA SUBCUENTA
-          dealerName: "Mi Dealer Nuevo",
+          email: userId, // Usamos esto como ID
+          name: realName,
+          dealerId: finalDealerId, // <--- AQUÍ ESTÁ LA CLAVE: Todos comparten este ID
+          dealerName: isGHL ? "Dealer GHL Conectado" : "Mi Dealer Nuevo",
           role: 'admin',
           createdAt: new Date().toISOString()
         };
         await setDoc(userDocRef, profileData);
       }
 
-      // Guardamos en estado y localStorage
       setUserProfile(profileData);
       setIsLoggedIn(true);
-      localStorage.setItem('carbot_user_email', email);
+      if (!isGHL) localStorage.setItem('carbot_user_email', emailOrId);
 
     } catch (error) {
-      console.error("Error al cargar perfil:", error);
-      showToast("Error de conexión al cargar usuario", "error");
+      console.error("Error cargando perfil:", error);
+      showToast("Error de conexión", "error");
     } finally {
       setInitializing(false);
     }
