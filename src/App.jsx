@@ -4,7 +4,9 @@ import { db, auth, storage } from './firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  getAuth,
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import {
   collection,
@@ -1895,63 +1897,87 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 
 // --- Reemplaza tu LoginScreen actual con este ---
 const LoginScreen = ({ onLogin }) => {
-  const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState(''); // <--- Nuevo campo
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    const auth = getAuth(); // Obtenemos el servicio de autenticación
+
     try {
-      // Validación simple
-      if (email.length < 5) throw new Error("Ingresa un usuario válido.");
+      // 1. Verificamos correo y contraseña con Firebase
+      await signInWithEmailAndPassword(auth, email, password);
 
-      // Simulamos delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 2. Si pasa, calculamos el ID para cargar sus datos
+      const emailId = email.replace(/\./g, '_').toLowerCase();
 
-      onLogin({ email });
+      // 3. Entramos al sistema
+      await onLogin(emailId);
+
     } catch (err) {
-      setError(err.message);
+      console.error("Error de login:", err);
+      if (err.code === 'auth/wrong-password') {
+        setError("Contraseña incorrecta.");
+      } else if (err.code === 'auth/user-not-found') {
+        setError("Este correo no está registrado en la App.");
+      } else {
+        setError("Error al iniciar sesión. Verifica tus datos.");
+      }
       setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm p-8 bg-white rounded-2xl shadow-xl border border-slate-100">
-        <div className="text-center mb-8">
-          <AppLogo size={60} className="mx-auto mb-4" />
-          <h2 className="text-xl font-black text-slate-900">Acceso Dealer</h2>
-          <p className="text-slate-400 text-xs mt-1">Ingresa con tu credencial de GHL</p>
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+        <div className="text-center mb-6">
+          <img src="/logo.png" alt="CarBot" className="w-20 h-20 mx-auto mb-4" />
+          <h1 className="text-2xl font-black text-slate-900">Bienvenido a CarBot</h1>
+          <p className="text-slate-500">Inicia sesión con tu cuenta de Dealer</p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 flex items-center gap-2">
-            <span>⚠️</span> {error}
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium text-center border border-red-100">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1 uppercase">Usuario / Correo GHL</label>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico</label>
             <input
-              type="text"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 font-bold text-slate-900"
-              placeholder="Ej. usuario@dealer.com"
+              type="email"
+              required
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-red-500 focus:outline-none"
+              placeholder="tu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
+            <input
+              type="password"
               required
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-red-500 focus:outline-none"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-lg transition-all flex justify-center items-center gap-2"
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-500/30 flex justify-center items-center mt-4"
           >
-            {loading ? <Loader2 className="animate-spin" size={18} /> : 'Entrar al Sistema'}
+            {loading ? <Loader2 className="animate-spin" /> : "Iniciar Sesión"}
           </button>
         </form>
 
@@ -1988,20 +2014,24 @@ export default function CarbotApp() {
     const initSystem = async () => {
       const params = new URLSearchParams(window.location.search);
 
-      // 1. CAPTURAR DATOS DE GHL
+      // Datos de GHL
       const ghlLocationId = params.get('location_id');
       const ghlLocationName = params.get('location_name');
-      const ghlUserId = params.get('user_id');     // <--- NUEVO
-      const ghlUserName = params.get('user_name'); // <--- NUEVO
+      const ghlUserId = params.get('user_id');
+      const ghlUserName = params.get('user_name');
+      const ghlUserEmail = params.get('user_email'); // <--- NUEVO
 
       if (ghlLocationId) {
-        console.log("🌎 GHL Detectado. Usuario:", ghlUserName);
+        console.log("🌎 GHL Detectado. Email:", ghlUserEmail);
 
-        // Pasamos TODOS los datos a la función de carga
-        // El último objeto {} lleva los datos del usuario específico
+        // Limpieza agresiva de memoria vieja
+        localStorage.removeItem('carbot_user_email');
+
+        // Cargamos perfil pasando el EMAIL como dato clave
         await loadUserProfile(ghlLocationId, true, ghlLocationName, {
           id: ghlUserId,
-          name: ghlUserName
+          name: ghlUserName,
+          email: ghlUserEmail // Pasamos el email
         });
         return;
       }
@@ -2017,65 +2047,58 @@ export default function CarbotApp() {
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
   const loadUserProfile = async (emailOrId, isGHL = false, ghlName = null, ghlUser = null) => {
     try {
-      let userId = emailOrId.replace(/\./g, '_').toLowerCase();
+      let userId = emailOrId.replace(/\./g, '_').toLowerCase(); // ID por defecto
       let dealerId = '';
 
       if (isGHL) {
-        dealerId = emailOrId; // El Dealer es el location_id
+        dealerId = emailOrId; // El primer parámetro es location_id si es GHL
 
-        // --- LÓGICA DE IDENTIDAD MEJORADA ---
-        if (ghlUser && ghlUser.id) {
-          // CASO A: GHL nos manda el ID del usuario (LO PERFECTO)
+        // --- LÓGICA DE FUSIÓN DE CUENTAS ---
+        if (ghlUser && ghlUser.email) {
+          // TRUCO MAESTRO:
+          // Convertimos el email de GHL al formato de ID manual (ej: jean@gmail.com -> jean_gmail_com)
+          const emailId = ghlUser.email.replace(/\./g, '_').toLowerCase();
+
+          // Vamos a intentar usar ESTE ID basado en email para conectarte con tu cuenta vieja
+          userId = emailId;
+          console.log("🔗 Intentando vincular por email:", userId);
+        }
+        else if (ghlUser && ghlUser.id) {
+          // Si no hay email, usamos el ID de GHL
           userId = `${dealerId}_${ghlUser.id}`;
-          localStorage.setItem('carbot_employee_name', userId);
-          if (ghlUser.name) localStorage.setItem('carbot_employee_real_name', ghlUser.name);
-        } else {
-          // CASO B: Fallback (Si por alguna razón no llega el ID, usamos la lógica vieja)
-          const savedName = localStorage.getItem('carbot_employee_name');
-          if (!savedName) {
-            const nameInput = prompt("Bienvenido al sistema. ¿Cuál es tu nombre?");
-            if (nameInput) {
-              userId = `${dealerId}_${nameInput.replace(/\s+/g, '_').toLowerCase()}`;
-              localStorage.setItem('carbot_employee_name', userId);
-              localStorage.setItem('carbot_employee_real_name', nameInput);
-            } else {
-              userId = `${dealerId}_admin`;
-            }
-          } else {
-            userId = savedName;
-          }
         }
       }
 
       const userDocRef = doc(db, "users", userId);
       const userDocSnap = await getDoc(userDocRef);
 
-      // Nombre del Dealer
       const realDealerName = ghlName || (isGHL ? "Dealer GHL" : "Mi Dealer");
-      // Nombre del Vendedor (Prioridad: GHL > LocalStorage > ID)
       const realEmployeeName = (ghlUser && ghlUser.name) ? ghlUser.name : (localStorage.getItem('carbot_employee_real_name') || userId);
 
       let profileData;
 
       if (userDocSnap.exists()) {
-        // ACTUALIZAR DATOS EXISTENTES
+        // ¡TE ENCONTRAMOS! (Ya existías manualmente)
+        console.log("✅ Usuario existente encontrado. Fusionando datos...");
         profileData = userDocSnap.data();
 
-        // Si cambió el nombre del dealer o del empleado, actualizamos la BD
+        // Si vienes de GHL, actualizamos tu perfil viejo para que tenga el dealerId nuevo
         if (isGHL) {
           await updateDoc(userDocRef, {
+            dealerId: dealerId, // ¡IMPORTANTE! Ahora tu cuenta vieja pertenece a este Dealer GHL
             dealerName: realDealerName,
-            name: realEmployeeName
+            lastLoginGHL: new Date().toISOString() // Rastro de auditoría
           });
+          // Actualizamos la memoria local
+          profileData.dealerId = dealerId;
           profileData.dealerName = realDealerName;
-          profileData.name = realEmployeeName;
         }
       } else {
-        // CREAR USUARIO NUEVO
+        // USUARIO NUEVO (No existía correo previo)
         profileData = {
-          email: userId, // ID único del empleado
+          email: userId,
           name: realEmployeeName,
-          dealerId: dealerId, // Comparten el mismo inventario
+          dealerId: isGHL ? dealerId : `dealer_${Date.now()}`,
           dealerName: realDealerName,
           role: 'admin',
           createdAt: new Date().toISOString()
@@ -2096,9 +2119,9 @@ export default function CarbotApp() {
   };
 
   // 3. HANDLERS LOGIN / LOGOUT
-  const handleLogin = ({ email }) => {
+  const handleLogin = (emailId) => {
     setInitializing(true); // Mostrar carga mientras buscamos
-    loadUserProfile(email);
+    loadUserProfile(emailId);
   };
 
   const handleLogout = async () => {
