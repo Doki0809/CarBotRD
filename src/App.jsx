@@ -14,7 +14,9 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  doc
+  doc,
+  query,
+  where
 } from 'firebase/firestore';
 
 import {
@@ -2069,22 +2071,34 @@ export default function CarbotApp() {
   useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
 
   useEffect(() => {
-    // Escuchar TODO el inventario, incluyendo trash
-    const unsubscribe = onSnapshot(collection(db, "vehicles"), (snapshot) => {
-      const vehiclesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setInventory(vehiclesData);
+    // Si no hay usuario logueado o no tiene dealerId, no cargamos nada (Seguridad)
+    if (!userProfile || !userProfile.dealerId) {
+      setInventory([]);
+      setContracts([]);
+      setQuotes([]);
+      return;
+    }
+
+    const currentDealerId = userProfile.dealerId;
+    console.log("🔒 Cargando datos seguros para Dealer:", currentDealerId);
+
+    // 1. Cargar SOLO mi Inventario (Vehículos)
+    const qInventory = query(
+      collection(db, "vehicles"),
+      where("dealerId", "==", currentDealerId)
+    );
+
+    const unsubscribeInventory = onSnapshot(qInventory, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInventory(data);
 
       // AUTO-LIMPIEZA: Revisar ítems en basura viejos (>15 días)
       const now = new Date();
-      vehiclesData.forEach(async (v) => {
+      data.forEach(async (v) => {
         if (v.status === 'trash' && v.deletedAt) {
           const deleteDate = new Date(v.deletedAt);
-          const diffDays = (now - deleteDate) / (1000 * 60 * 60 * 24);
+          const diffDays = (now.getTime() - deleteDate.getTime()) / (1000 * 60 * 60 * 24);
           if (diffDays > 15) {
-            // Eliminar permanentemente
             try {
               await deleteDoc(doc(db, "vehicles", v.id));
               console.log(`Auto-eliminado vehículo trash ${v.id} (>15 días)`);
@@ -2093,28 +2107,35 @@ export default function CarbotApp() {
         }
       });
     });
-    return () => unsubscribe();
-  }, []);
 
-  useEffect(() => {
-    // Escuchar Contratos de Firebase en tiempo real
-    const unsubscribeContracts = onSnapshot(collection(db, "contracts"), (snapshot) => {
-      const contractsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      // Ordenar por fecha de creación descendente
-      setContracts(contractsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    // 2. Cargar SOLO mis Contratos
+    const qContracts = query(
+      collection(db, "contracts"),
+      where("dealerId", "==", currentDealerId)
+    );
+
+    const unsubscribeContracts = onSnapshot(qContracts, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setContracts(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     });
-    const unsubscribeQuotes = onSnapshot(collection(db, "quotes"), (snapshot) => {
-      const quotesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setQuotes(quotesData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+
+    // 3. Cargar SOLO mis Cotizaciones
+    const qQuotes = query(
+      collection(db, "quotes"),
+      where("dealerId", "==", currentDealerId)
+    );
+
+    const unsubscribeQuotes = onSnapshot(qQuotes, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setQuotes(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
     });
-    return () => { unsubscribeContracts(); unsubscribeQuotes(); };
-  }, []);
+
+    return () => {
+      unsubscribeInventory();
+      unsubscribeContracts();
+      unsubscribeQuotes();
+    };
+  }, [userProfile]);
 
   if (initializing) {
     return (
@@ -2150,6 +2171,8 @@ export default function CarbotApp() {
         // Crear nuevo
         const newVehicle = {
           ...vehicleData,
+          dealerId: userProfile.dealerId,
+          dealerName: userProfile.dealerName,
           createdAt: new Date().toISOString(),
           status: vehicleData.status || 'available'
         };
@@ -2223,6 +2246,10 @@ export default function CarbotApp() {
         ...quoteData,
         vehicleId: vId,
         vehicle: vName,
+        dealerId: userProfile.dealerId,
+        dealerName: userProfile.dealerName,
+        status: 'active',
+        date: new Date().toISOString(),
         createdAt: new Date().toISOString()
       };
       await addDoc(collection(db, "quotes"), newQuote);
@@ -2252,7 +2279,12 @@ export default function CarbotApp() {
         showToast("Contrato actualizado con éxito");
       } else {
         // Crear nuevo
-        const newContract = { ...data, createdAt: new Date().toISOString() };
+        const newContract = {
+          ...data,
+          dealerId: userProfile.dealerId,
+          dealerName: userProfile.dealerName,
+          createdAt: new Date().toISOString()
+        };
         await addDoc(collection(db, "contracts"), newContract);
 
         // 2. Si hay un vehículo asociado, marcarlo como vendido
