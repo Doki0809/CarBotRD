@@ -1989,11 +1989,12 @@ export default function CarbotApp() {
       // A. ¿Venimos desde GHL? (Revisar URL)
       const params = new URLSearchParams(window.location.search);
       const ghlLocationId = params.get('location_id'); // GHL manda esto automáticamente
+      const ghlLocationName = params.get('location_name'); // <--- NUEVO: Leemos el nombre
 
       if (ghlLocationId) {
-        console.log("🌎 Entorno GHL Detectado - Dealer:", ghlLocationId);
-        // Le pasamos true en el segundo parámetro para indicar que es GHL
-        await loadUserProfile(ghlLocationId, true);
+        console.log("🌎 Entorno GHL Detectado:", ghlLocationId, ghlLocationName);
+        // Pasamos el nombre también a la función
+        await loadUserProfile(ghlLocationId, true, ghlLocationName);
         return;
       }
 
@@ -2011,7 +2012,7 @@ export default function CarbotApp() {
   }, []);
 
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
-  const loadUserProfile = async (emailOrId, isGHL = false) => {
+  const loadUserProfile = async (emailOrId, isGHL = false, ghlName = null) => {
     try {
       // 1. Definir ID de Usuario y ID de Dealer
       let userId = emailOrId.replace(/\./g, '_').toLowerCase();
@@ -2045,9 +2046,18 @@ export default function CarbotApp() {
       const userDocSnap = await getDoc(userDocRef);
       let profileData;
 
+      // Definimos el nombre correcto del Dealer (Si viene de GHL, usamos ese, si no, el genérico)
+      const realDealerName = ghlName || (isGHL ? "Dealer GHL Conectado" : "Mi Dealer Nuevo");
+
       if (userDocSnap.exists()) {
-        // USUARIO EXISTE
+        // USUARIO EXISTE: Actualizamos el nombre del Dealer por si cambió
         profileData = userDocSnap.data();
+
+        // TRUCO: Si el nombre en la base de datos es diferente al de GHL, lo actualizamos ahora mismo
+        if (isGHL && ghlName && profileData.dealerName !== ghlName) {
+          await updateDoc(userDocRef, { dealerName: ghlName });
+          profileData.dealerName = ghlName; // Actualizamos localmente también
+        }
       } else {
         // USUARIO NUEVO (Primer acceso de este empleado)
         console.log("Creando perfil de empleado...");
@@ -2060,7 +2070,7 @@ export default function CarbotApp() {
           email: userId, // Usamos esto como ID
           name: realName,
           dealerId: finalDealerId, // <--- AQUÍ ESTÁ LA CLAVE: Todos comparten este ID
-          dealerName: isGHL ? "Dealer GHL Conectado" : "Mi Dealer Nuevo",
+          dealerName: realDealerName,
           role: 'admin',
           createdAt: new Date().toISOString()
         };
