@@ -1789,9 +1789,18 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 mb-1">Documentos del Negocio</h1>
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Historial organizado • {totalItems} registros</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 mb-1">Documentos del Negocio</h1>
+            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Historial organizado • {totalItems} registros</p>
+          </div>
+          <button
+            onClick={() => activeView === 'contracts' ? setIsGenerateModalOpen(true) : setIsQuoteModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-red-600/20 active:scale-95 border-b-4 border-red-800"
+          >
+            <Plus size={18} strokeWidth={3} />
+            Crear {activeView === 'contracts' ? 'Contrato' : 'Cotización'}
+          </button>
         </div>
 
         <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full md:w-auto md:flex shadow-inner mb-2">
@@ -1890,51 +1899,42 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                  <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
                     <button
                       onClick={() => activeView === 'contracts' ? setSelectedContractPreview(item) : setSelectedQuotePreview(item)}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-red-600 text-slate-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-100 hover:border-red-600"
-                      title="Ver Detalles"
+                      className="flex items-center justify-center gap-2 py-3 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-red-100"
                     >
                       <Eye size={14} /> VER
                     </button>
                     <button
                       onClick={() => activeView === 'contracts' ? downloadPDF(item) : downloadQuotePDF(item)}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-slate-900 text-slate-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-100 hover:border-slate-900"
-                      title="Descargar PDF"
+                      className="flex items-center justify-center gap-2 py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
                     >
                       <Download size={14} /> PDF
                     </button>
                     <button
                       onClick={() => activeView === 'contracts' ? downloadPDF(item) : downloadQuotePDF(item)}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-slate-900 text-slate-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-100 hover:border-slate-900"
-                      title="Imprimir"
+                      className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-200"
                     >
                       <Printer size={14} /> IMPRIMIR
                     </button>
-                    <div className="flex items-center gap-2 w-full mt-2">
-                      <button
-                        onClick={() => {
-                          if (activeView === 'contracts') {
-                            setEditingContract(item);
-                            setIsGenerateModalOpen(true);
-                          } else {
-                            //Cotizaciones logic if needed
-                          }
-                        }}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-blue-600 text-slate-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-100 hover:border-blue-600"
-                        title="Editar"
-                      >
-                        <Edit2 size={14} /> EDITAR
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-600 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-100 hover:border-red-600"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        if (activeView === 'contracts') {
+                          setEditingContract(item);
+                          setIsGenerateModalOpen(true);
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-blue-100"
+                    >
+                      <Edit2 size={14} /> EDITAR
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(item.id)}
+                      className="col-span-2 flex items-center justify-center gap-2 py-2 bg-white hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all mt-1"
+                    >
+                      <Trash2 size={12} /> Eliminar Registro
+                    </button>
                   </div>
                 </Card>
               ))}
