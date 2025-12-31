@@ -1074,7 +1074,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 // --- VISTAS PRINCIPALES ---
 
-const SettingsView = ({ userProfile, onLogout, darkMode, onToggleDarkMode, onUpdateProfile, showToast }) => {
+const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast }) => {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(userProfile?.name || '');
 
@@ -1144,28 +1144,11 @@ const SettingsView = ({ userProfile, onLogout, darkMode, onToggleDarkMode, onUpd
           </div>
         </Card>
 
-        {/* Preferences Card */}
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Preferencias</h3>
+        {/* Account Card */}
+        <Card>
+          <h3 className="text-lg font-bold text-slate-900 mb-6">Cuenta</h3>
 
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${darkMode ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-600'}`}>
-                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">Modo Oscuro</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Cambia la apariencia del sistema</p>
-                </div>
-              </div>
-              <button
-                onClick={onToggleDarkMode}
-                className={`w-12 h-6 rounded-full transition-all relative ${darkMode ? 'bg-red-600' : 'bg-slate-300'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${darkMode ? 'left-7' : 'left-1'}`}></div>
-              </button>
-            </div>
 
             <Button
               variant="danger"
@@ -1932,7 +1915,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
 };
 
 // --- LAYOUT ---
-const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange, darkMode }) => {
+const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventario', icon: Box },
@@ -1941,9 +1924,9 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
   ];
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark' : ''} bg-[#f8fafc] dark:bg-slate-950 flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0 transition-colors duration-300`}>
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0 transition-colors duration-300">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm px-4 sm:px-6 py-2 sm:py-3 transition-colors">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-4 sm:px-6 py-2 sm:py-3">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
@@ -2025,14 +2008,14 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90 dark:bg-slate-900/90 transition-colors">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90 transition-colors">
         {menuItems.map(item => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-red-600 scale-110' : 'text-slate-400 dark:text-slate-500'}`}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-red-600 scale-110' : 'text-slate-400'}`}
             >
               <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
               <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
@@ -2241,18 +2224,12 @@ export default function CarbotApp() {
   const [initializing, setInitializing] = useState(true);
   const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
   const [pendingUserData, setPendingUserData] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('carbot_theme') === 'dark');
 
-  // Aplicar Modo Oscuro
+  // Asegurar que el modo oscuro esté desactivado al iniciar
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('carbot_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('carbot_theme', 'light');
-    }
-  }, [darkMode]);
+    document.documentElement.classList.remove('dark');
+    localStorage.removeItem('carbot_theme');
+  }, []);
 
   // Inventario y datos
   const [globalSearch, setGlobalSearch] = useState('');
@@ -2726,8 +2703,6 @@ export default function CarbotApp() {
         <SettingsView
           userProfile={userProfile}
           onLogout={handleLogout}
-          darkMode={darkMode}
-          onToggleDarkMode={() => setDarkMode(!darkMode)}
           onUpdateProfile={handleUpdateProfile}
           showToast={showToast}
         />
@@ -2744,7 +2719,6 @@ export default function CarbotApp() {
       userProfile={userProfile}
       searchTerm={globalSearch}
       onSearchChange={setGlobalSearch}
-      darkMode={darkMode}
     >
       {renderContent()}
     </AppLayout>
