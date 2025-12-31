@@ -1534,7 +1534,9 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4 sm:mb-8">
               <div className="flex items-center gap-3 sm:gap-5">
-                <AppLogo size={64} className="group-hover:scale-110 transition-transform duration-500" />
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-xl shadow-emerald-500/30 group-hover:scale-110 transition-transform duration-500 rotate-3 group-hover:rotate-0">
+                  <DollarSign size={36} strokeWidth={3} />
+                </div>
                 <div>
                   <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">Valor Total</p>
                   <h3 className="text-xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">Cifras Globales</h3>
