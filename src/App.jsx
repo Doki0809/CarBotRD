@@ -1197,9 +1197,9 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
           <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
             <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm">
-                  <Box size={20} className="sm:hidden" />
-                  <Box size={26} className="hidden sm:block" />
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm transition-colors duration-500 group-hover:bg-blue-100">
+                  <Box size={20} className="sm:hidden transition-all duration-500 group-hover:scale-110 group-hover:rotate-12" />
+                  <Box size={26} className="hidden sm:block transition-all duration-500 group-hover:scale-110 group-hover:rotate-12" />
                 </div>
                 {newThisMonth > 0 && (
                   <span className="text-[9px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
@@ -1212,15 +1212,15 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                 {inventory.filter(v => v.status === 'available').length}
               </h3>
             </div>
-            <Box className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.05] w-20 h-20 group-hover:scale-110 transition-transform duration-700" />
+            <Box className="absolute -right-4 -bottom-4 text-blue-600 opacity-[0.03] w-24 h-24 group-hover:scale-125 group-hover:rotate-12 transition-all duration-1000 ease-out pointer-events-none" />
           </Card>
 
           <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
             <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm">
-                  <DollarSign size={20} className="sm:hidden" />
-                  <DollarSign size={26} className="hidden sm:block" />
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm transition-colors duration-500 group-hover:bg-emerald-100">
+                  <DollarSign size={20} className="sm:hidden transition-all duration-500 group-hover:scale-110 group-hover:rotate-[-12deg]" />
+                  <DollarSign size={26} className="hidden sm:block transition-all duration-500 group-hover:scale-110 group-hover:rotate-[-12deg]" />
                 </div>
                 <span className="text-[9px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
                   {soldThisMonth > 0 ? 'SUBIENDO' : 'OK'}
@@ -1231,7 +1231,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                 {inventory.filter(v => v.status === 'sold').length}
               </h3>
             </div>
-            <DollarSign className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.05] w-20 h-20 group-hover:scale-110 transition-transform duration-700" />
+            <DollarSign className="absolute -right-4 -bottom-4 text-emerald-600 opacity-[0.03] w-24 h-24 group-hover:scale-125 group-hover:rotate-[-12deg] transition-all duration-1000 ease-out pointer-events-none" />
           </Card>
         </div>
 
@@ -1698,6 +1698,14 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   };
 
   const downloadPDF = (contract, isPrint = false) => {
+    let printWindow = null;
+    if (isPrint) {
+      printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write('<p style="font-family:sans-serif; text-align:center; margin-top:50px;">Generando documento para imprimir...</p>');
+      }
+    }
+
     const tempEl = document.createElement('div');
     tempEl.innerHTML = `
       <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
@@ -1713,10 +1721,18 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
         </div>
       </div>
       `;
-    const worker = html2pdf().set({ filename: `Contrato_${contract.client}.pdf` }).from(tempEl);
-    if (isPrint) {
-      worker.toPdf().get('pdf').then(pdf => {
-        window.open(pdf.output('bloburl'), '_blank');
+
+    const worker = html2pdf().set({
+      margin: 10,
+      filename: `Contrato_${contract.client}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(tempEl);
+
+    if (isPrint && printWindow) {
+      worker.output('bloburl').then(blobUrl => {
+        printWindow.location.href = blobUrl;
       });
     } else {
       worker.save();
@@ -1724,6 +1740,14 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   };
 
   const downloadQuotePDF = (quote, isPrint = false) => {
+    let printWindow = null;
+    if (isPrint) {
+      printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write('<p style="font-family:sans-serif; text-align:center; margin-top:50px;">Generando cotización...</p>');
+      }
+    }
+
     const tempEl = document.createElement('div');
     tempEl.innerHTML = `
       <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
@@ -1785,13 +1809,13 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
       margin: 10,
       filename: `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     const worker = html2pdf().set(opt).from(tempEl);
-    if (isPrint) {
-      worker.toPdf().get('pdf').then(pdf => {
-        window.open(pdf.output('bloburl'), '_blank');
+    if (isPrint && printWindow) {
+      worker.output('bloburl').then(blobUrl => {
+        printWindow.location.href = blobUrl;
       });
     } else {
       worker.save();
@@ -1915,7 +1939,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
+                  <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       onClick={() => activeView === 'contracts' ? setSelectedContractPreview(item) : setSelectedQuotePreview(item)}
                       className="flex items-center justify-center gap-2 py-3 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-red-100"
