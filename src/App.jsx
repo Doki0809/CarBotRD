@@ -2856,6 +2856,10 @@ export default function CarbotApp() {
           });
           profileData.dealerId = dealerId;
           profileData.dealerName = realDealerName;
+        } else if (!profileData.dealerName) {
+          // Migración: Si es un usuario viejo sin dealerName, le asignamos uno por defecto
+          await updateDoc(userDocRef, { dealerName: realDealerName });
+          profileData.dealerName = realDealerName;
         }
       } else {
         // USUARIO NUEVO
@@ -3036,17 +3040,22 @@ export default function CarbotApp() {
     );
   }
 
-  if (!isLoggedIn || !userProfile) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
-
-  // 3. GUARDAR (Crear o Editar en Firebase)
+  // 3. GUARDAR VEHÍCULO (Multi-Tenant)
   const handleSaveVehicle = async (vehicleData) => {
-    const dealerName = userProfile.dealerName;
-    if (!dealerName) return showToast("Error: No se encontró el Dealer", "error");
-
-    const existingId = vehicleData.id;
     try {
+      // 1. Validamos el Dealer (Prioridad: Perfil de usuario o Payload)
+      const dealerName = userProfile?.dealerName || vehicleData.dealerName;
+
+      if (!dealerName) {
+        showToast("Error: No se detectó el nombre del Dealer", "error");
+        console.error("❌ Error Multi-Tenant: Falta dealerName");
+        return;
+      }
+
+      // 2. Definimos la ruta dinámica: Dealers > {NombreDealer} > Inventario
+      // Nota: El SDK modular usa collection(db, "camino", "a", "subcoleccion")
+      const existingId = vehicleData.id;
+
       if (existingId) {
         const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", existingId);
         const { id: _removedId, ...dataToUpdate } = vehicleData;
@@ -3054,29 +3063,33 @@ export default function CarbotApp() {
           ...dataToUpdate,
           updatedAt: new Date().toISOString()
         });
-        showToast("Vehículo actualizado con éxito");
+        showToast("Vehículo actualizado en tu inventario privado");
       } else {
         const newVehicle = {
           ...vehicleData,
-          dealerId: userProfile.dealerId,
-          dealerName: userProfile.dealerName,
-          creadoPor: userProfile.name,
+          dealerId: userProfile?.dealerId || "",
+          dealerName: dealerName,
+          creadoPor: userProfile?.name || "Sistema",
           createdAt: new Date().toISOString(),
           status: vehicleData.status || 'available'
         };
         await addDoc(collection(db, "Dealers", dealerName, "Inventario"), newVehicle);
-        showToast("Vehículo guardado en Inventario");
+        showToast("Vehículo agregado correctamente a tu inventario privado");
       }
+
+      console.log(`✅ Vehículo guardado en: Dealers/${dealerName}/Inventario`);
+
     } catch (error) {
-      console.error("Error al guardar:", error);
-      showToast("Error al guardar", "error");
+      console.error("❌ Error al guardar vehículo:", error);
+      showToast("Hubo un error al guardar.", "error");
     }
   };
 
   // 4. SOFT DELETE (Enviar a Papelera)
   const handleDeleteVehicle = async (id) => {
     try {
-      const dealerName = userProfile.dealerName;
+      const dealerName = userProfile?.dealerName;
+      if (!dealerName) return;
       const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", id);
       await updateDoc(vehicleRef, {
         status: 'trash',
@@ -3091,7 +3104,8 @@ export default function CarbotApp() {
 
   const handleRestore = async (id, type) => {
     try {
-      const dealerName = userProfile.dealerName;
+      const dealerName = userProfile?.dealerName;
+      if (!dealerName) return;
       const coll = type === 'vehicle' ? 'Inventario' : (type === 'contract' ? 'Contratos' : 'Cotizaciones');
       const docRef = doc(db, "Dealers", dealerName, coll, id);
       await updateDoc(docRef, {
@@ -3113,7 +3127,8 @@ export default function CarbotApp() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const dealerName = userProfile.dealerName;
+          const dealerName = userProfile?.dealerName;
+          if (!dealerName) return;
           const coll = type === 'vehicle' ? 'Inventario' : (type === 'contract' ? 'Contratos' : 'Cotizaciones');
           await deleteDoc(doc(db, "Dealers", dealerName, coll, id));
           showToast("Eliminado para siempre");
@@ -3132,7 +3147,8 @@ export default function CarbotApp() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const dealerName = userProfile.dealerName;
+          const dealerName = userProfile?.dealerName;
+          if (!dealerName) return;
 
           // Vaciar vehículos
           const trashV = inventory.filter(i => i.status === 'trash');
@@ -3158,7 +3174,8 @@ export default function CarbotApp() {
   // Funciones locales (Contratos, etc.)
   const handleQuoteSent = async (quoteData) => {
     try {
-      const dealerName = userProfile.dealerName;
+      const dealerName = userProfile?.dealerName;
+      if (!dealerName) return;
       const vId = quoteData.vehicleId || selectedVehicle?.id;
       const vName = quoteData.vehicle || (selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : 'Vehículo Desconocido');
 
@@ -3166,7 +3183,7 @@ export default function CarbotApp() {
         ...quoteData,
         vehicleId: vId,
         vehicle: vName,
-        dealerId: userProfile.dealerId,
+        dealerId: userProfile?.dealerId,
         dealerName: dealerName,
         status: 'active',
         date: new Date().toISOString(),
@@ -3187,7 +3204,8 @@ export default function CarbotApp() {
 
   const handleGenerateContract = async (contractData) => {
     try {
-      const dealerName = userProfile.dealerName;
+      const dealerName = userProfile?.dealerName;
+      if (!dealerName) return;
       const { id, ...data } = contractData;
       if (id) {
         const contractRef = doc(db, "Dealers", dealerName, "Contratos", id);
@@ -3199,7 +3217,7 @@ export default function CarbotApp() {
       } else {
         const newContract = {
           ...data,
-          dealerId: userProfile.dealerId,
+          dealerId: userProfile?.dealerId,
           dealerName: dealerName,
           createdAt: new Date().toISOString()
         };
@@ -3218,7 +3236,8 @@ export default function CarbotApp() {
   };
 
   const handleDeleteContract = async (id) => {
-    const dealerName = userProfile.dealerName;
+    const dealerName = userProfile?.dealerName;
+    if (!dealerName) return;
     await updateDoc(doc(db, "Dealers", dealerName, "Contratos", id), {
       status: 'trash',
       deletedAt: new Date().toISOString()
@@ -3227,7 +3246,8 @@ export default function CarbotApp() {
   };
 
   const handleDeleteQuote = async (id) => {
-    const dealerName = userProfile.dealerName;
+    const dealerName = userProfile?.dealerName;
+    if (!dealerName) return;
     await updateDoc(doc(db, "Dealers", dealerName, "Cotizaciones", id), {
       status: 'trash',
       deletedAt: new Date().toISOString()
@@ -3302,15 +3322,23 @@ export default function CarbotApp() {
   };
 
   return (
-    <AppLayout
-      activeTab={activeTab}
-      setActiveTab={handleNavigate}
-      onLogout={handleLogout}
-      userProfile={userProfile}
-      searchTerm={globalSearch}
-      onSearchChange={setGlobalSearch}
-    >
-      {renderContent()}
+    <>
+      {(!isLoggedIn || !userProfile) ? (
+        <LoginScreen onLogin={handleLogin} />
+      ) : (
+        <AppLayout
+          activeTab={activeTab}
+          setActiveTab={handleNavigate}
+          onLogout={handleLogout}
+          userProfile={userProfile}
+          searchTerm={globalSearch}
+          onSearchChange={setGlobalSearch}
+        >
+          {renderContent()}
+        </AppLayout>
+      )}
+
+      {/* Global Modals (Hoisted for visibility during Onboarding/Login) */}
       <ConfirmationModal
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
@@ -3342,6 +3370,6 @@ export default function CarbotApp() {
           onClose={() => setToast(null)}
         />
       )}
-    </AppLayout>
+    </>
   );
 }
