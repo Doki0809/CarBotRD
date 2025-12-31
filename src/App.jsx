@@ -1126,15 +1126,18 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-red-600 to-red-700 p-8 sm:p-12 shadow-2xl shadow-red-600/20 mb-8 border border-red-500/50">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="max-w-2xl">
-            <h1 className="text-3xl sm:text-4xl font-black text-white mb-3 tracking-tight flex items-center gap-3">
-              Gestión de Inventario 📦
+            <h1 className="text-2xl sm:text-3xl font-black text-white mb-2 tracking-tight flex items-center gap-3 uppercase">
+              Bienvenido al sistema de CarBot para <span className="text-red-200">{userProfile?.dealerName || 'tu Dealer'}</span>
             </h1>
             <p className="text-red-50/90 text-sm sm:text-base font-medium max-w-lg leading-relaxed">
-              Bienvenido, <span className="text-white font-black underline decoration-red-400 underline-offset-4">{userProfile?.name?.split(' ')[0] || 'Dealer'}</span>. Listo para vender y gestionar tu inventario hoy.
+              Bienvenido, <span className="text-white font-black underline decoration-red-400 underline-offset-4">{userProfile?.name?.split(' ')[0] || 'Dealer'}</span>.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className="px-6 py-3 bg-red-800/40 hover:bg-red-800/60 backdrop-blur-md rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all border border-white/10 hover:scale-105 active:scale-95 shadow-lg">
+            <button
+              onClick={() => onNavigate('contracts')}
+              className="px-6 py-3 bg-red-800/40 hover:bg-red-800/60 backdrop-blur-md rounded-2xl text-white text-xs font-black uppercase tracking-widest transition-all border border-white/10 hover:scale-105 active:scale-95 shadow-lg"
+            >
               Ver Reporte
             </button>
             <button
