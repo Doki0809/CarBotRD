@@ -19,7 +19,9 @@ import {
   deleteField,
   doc,
   query,
-  where
+  where,
+  writeBatch,
+  getDocs
 } from 'firebase/firestore';
 
 import {
@@ -3003,7 +3005,53 @@ export default function CarbotApp() {
   };
 
 
-  // 3. HANDLERS LOGIN / LOGOUT
+
+  // 3. ROBOT DE LIMPIEZA AUTOMÁTICA (Papelera > 7 Días) 🧹🤖
+  useEffect(() => {
+    const limpiarPapelera = async () => {
+      const dealerName = userProfile?.dealerName;
+      if (!dealerName) return;
+
+      // 1. Calcular la fecha de hace 7 días
+      const hace7Dias = new Date();
+      hace7Dias.setDate(hace7Dias.getDate() - 7);
+      const fechaLimite = hace7Dias.toISOString();
+
+      try {
+        // 2. Buscar basura vieja
+        const q = query(
+          collection(db, "Dealers", dealerName, "Papelera"),
+          where("fechaEliminacion", "<", fechaLimite)
+        );
+
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          console.log("🧹 La papelera está limpia (nada viejo).");
+          return;
+        }
+
+        // 3. Borrar todo lo viejo de un golpe
+        const batch = writeBatch(db);
+        snapshot.forEach((documento) => {
+          batch.delete(documento.ref);
+        });
+
+        await batch.commit();
+        console.log(`🗑️ Limpieza Automática: Se eliminaron ${snapshot.size} ítems viejos.`);
+
+      } catch (error) {
+        console.error("Error limpiando papelera:", error);
+      }
+    };
+
+    if (userProfile?.dealerName) {
+      limpiarPapelera();
+    }
+  }, [userProfile?.dealerName]);
+
+
+  // 4. HANDLERS LOGIN / LOGOUT
   const handleLogin = (emailId, rememberMe) => {
     setInitializing(true); // Mostrar carga mientras buscamos
     loadUserProfile(emailId, false, "", null, rememberMe);
@@ -3242,6 +3290,40 @@ export default function CarbotApp() {
     }
   };
 
+  const handleMarkAsSold = async (vehicle, clientName) => {
+    try {
+      const dealerName = userProfile?.dealerName;
+      if (!dealerName || !clientName) {
+        showToast("Faltan datos para la venta", "error");
+        return;
+      }
+
+      const idVenta = `${vehicle.idPersonalizado || vehicle.id}_VENDIDO`;
+
+      // 1. Guardar en carpeta VENDIDOS (Historial)
+      await setDoc(doc(db, "Dealers", dealerName, "VehiculosVendidos", idVenta), {
+        ...vehicle,
+        comprador: clientName,
+        fechaVenta: new Date().toISOString().split('T')[0],
+        status: "sold"
+      });
+
+      // 2. Borrar de INVENTARIO
+      await deleteDoc(doc(db, "Dealers", dealerName, "Inventario", vehicle.id));
+
+      showConfirm({
+        title: '¡Vehículo Vendido!',
+        message: `Felicidades. El vehículo ha sido movido al historial de ventas de ${clientName}.`,
+        showCancel: false,
+        confirmText: 'Excelente'
+      });
+
+    } catch (error) {
+      console.error("Error al vender:", error);
+      showToast("Error registrando la venta", "error");
+    }
+  };
+
   const handlePermanentDelete = async (id, type) => {
     showConfirm({
       title: 'Borrado Definitivo',
@@ -3454,6 +3536,7 @@ export default function CarbotApp() {
           onBack={() => setSelectedVehicle(null)}
           onSave={async (data) => { await handleSaveVehicle(data); setSelectedVehicle(null); }}
           onRevert={handleRevertSale}
+          onSell={handleMarkAsSold}
           showConfirm={showConfirm}
         />
       );

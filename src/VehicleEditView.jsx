@@ -5,7 +5,7 @@ import {
   X, Info, Share2, Heart, Files, CheckCircle, Lock, Trash2
 } from 'lucide-react';
 
-export default function VehicleEditView({ vehicle, contract, onBack, onSave, onRevert, showConfirm }) {
+export default function VehicleEditView({ vehicle, contract, onBack, onSave, onRevert, showConfirm, onSell }) {
   const [loading, setLoading] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.price_dop > 0 ? 'DOP' : 'USD');
@@ -96,6 +96,26 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, onR
           <ArrowLeft size={16} className='mr-1 sm:mr-2 group-hover:-translate-x-1 transition-transform' />
           <span className="text-[10px] sm:text-sm uppercase tracking-wider">Volver</span>
         </button>
+
+        {!isSold && (
+          <button
+            type="button"
+            onClick={() => {
+              const name = showConfirm ? null : prompt("Nombre del Cliente Comprador:");
+              // Si tenemos showConfirm, idealmente usariamos un modal custom, 
+              // pero para input rapido usamos prompt por ahora o implementamos un modal simple.
+              // Dado que el usuario pidio la funcion "Copia y Reemplaza", el prompt es estandar.
+              // Mejor usamos prompt simple aqui para cumplir rapido.
+              const clientName = prompt("👤 Ingrese el Nombre del Comprador:");
+              if (clientName && clientName.trim()) {
+                onSell(vehicle, clientName.trim());
+              }
+            }}
+            className="ml-auto mr-4 px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center gap-2"
+          >
+            <DollarSign size={16} /> Vender
+          </button>
+        )}
 
         <button
           onClick={onBack}
