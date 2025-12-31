@@ -1148,7 +1148,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const fmtM = (val) => (val / 1000000).toFixed(1) + 'M';
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-full overflow-x-hidden px-1">
 
       {/* Hero Banner Section */}
       <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-red-600 to-red-700 p-8 sm:p-12 shadow-2xl shadow-red-600/20 mb-8 border border-red-500/50">
@@ -1191,9 +1191,9 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       </div>
 
       {/* Stats Widgets Section */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 w-full max-w-full overflow-x-hidden">
         {/* Row 1: Small Widgets (Mobile: Side by Side) */}
-        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 w-full">
           <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
             <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center justify-between mb-3">
@@ -1497,7 +1497,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
         <div>
@@ -1786,7 +1786,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   const totalItems = Object.values(filteredData).flat().length;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
         <div>
@@ -1794,21 +1794,21 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Historial organizado • {totalItems} registros</p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full md:w-auto shadow-inner">
+        <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full md:w-auto md:flex shadow-inner mb-2">
           <button
             onClick={() => setActiveView('contracts')}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeView === 'contracts'
-              ? 'bg-white text-slate-900 shadow-md scale-105'
-              : 'text-slate-500 hover:text-slate-800'
+            className={`flex-1 px-4 py-2.5 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 text-center ${activeView === 'contracts'
+              ? 'bg-red-600 text-white shadow-md scale-105'
+              : 'text-slate-400 hover:text-slate-800'
               }`}
           >
             Contratos
           </button>
           <button
             onClick={() => setActiveView('quotes')}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeView === 'quotes'
-              ? 'bg-white text-slate-900 shadow-md scale-105'
-              : 'text-slate-500 hover:text-slate-800'
+            className={`flex-1 px-4 py-2.5 rounded-xl text-[11px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 text-center ${activeView === 'quotes'
+              ? 'bg-red-600 text-white shadow-md scale-105'
+              : 'text-slate-400 hover:text-slate-800'
               }`}
           >
             Cotizaciones
@@ -1966,7 +1966,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0 transition-colors duration-300">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0 transition-colors duration-300 max-w-full overflow-x-hidden">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-4 sm:px-6 py-2 sm:py-3 mx-auto w-full">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
