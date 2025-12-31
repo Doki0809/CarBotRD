@@ -1697,7 +1697,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     }
   };
 
-  const downloadPDF = (contract) => {
+  const downloadPDF = (contract, isPrint = false) => {
     const tempEl = document.createElement('div');
     tempEl.innerHTML = `
       <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
@@ -1713,10 +1713,17 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
         </div>
       </div>
       `;
-    html2pdf().set({ filename: `Contrato_${contract.client}.pdf` }).from(tempEl).save();
+    const worker = html2pdf().set({ filename: `Contrato_${contract.client}.pdf` }).from(tempEl);
+    if (isPrint) {
+      worker.toPdf().get('pdf').then(pdf => {
+        window.open(pdf.output('bloburl'), '_blank');
+      });
+    } else {
+      worker.save();
+    }
   };
 
-  const downloadQuotePDF = (quote) => {
+  const downloadQuotePDF = (quote, isPrint = false) => {
     const tempEl = document.createElement('div');
     tempEl.innerHTML = `
       <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
@@ -1781,8 +1788,16 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
       html2canvas: { scale: 2 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
-    html2pdf().set(opt).from(tempEl).save();
+    const worker = html2pdf().set(opt).from(tempEl);
+    if (isPrint) {
+      worker.toPdf().get('pdf').then(pdf => {
+        window.open(pdf.output('bloburl'), '_blank');
+      });
+    } else {
+      worker.save();
+    }
   };
+
 
   const totalItems = Object.values(filteredData).flat().length;
 
@@ -1795,13 +1810,13 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             <h1 className="text-2xl font-black text-slate-900 mb-1">Documentos del Negocio</h1>
             <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Historial organizado • {totalItems} registros</p>
           </div>
-          <button
+          <Button
             onClick={() => activeView === 'contracts' ? setIsGenerateModalOpen(true) : setIsQuoteModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-red-600/20 active:scale-95 border-b-4 border-red-800"
+            icon={Plus}
+            className="w-full md:w-auto px-8 py-4 bg-red-600 hover:bg-red-700 text-white shadow-xl shadow-red-600/20 active:scale-95 transition-all text-xs font-black uppercase tracking-widest rounded-2xl"
           >
-            <Plus size={18} strokeWidth={3} />
             Crear {activeView === 'contracts' ? 'Contrato' : 'Cotización'}
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full md:w-auto md:flex shadow-inner mb-2">
@@ -1914,7 +1929,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                       <Download size={14} /> PDF
                     </button>
                     <button
-                      onClick={() => activeView === 'contracts' ? downloadPDF(item) : downloadQuotePDF(item)}
+                      onClick={() => activeView === 'contracts' ? downloadPDF(item, true) : downloadQuotePDF(item, true)}
                       className="flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-200"
                     >
                       <Printer size={14} /> IMPRIMIR
