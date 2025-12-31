@@ -25,7 +25,7 @@ import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
-  Box, AlertTriangle, TrendingUp, History, Bell, Calendar, Moon, Sun
+  Box, AlertTriangle, TrendingUp, History, Bell, Calendar
 } from 'lucide-react';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -2467,10 +2467,10 @@ export default function CarbotApp() {
 
   if (initializing) {
     return (
-      <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} flex items-center justify-center p-4 transition-colors duration-300`}>
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4">
         <div className="flex flex-col items-center animate-pulse">
-          <AppLogo className="w-16 h-16 mb-4 dark:brightness-110" size={64} />
-          <p className="text-slate-400 dark:text-slate-500 font-medium">Cargando sesión...</p>
+          <AppLogo className="w-16 h-16 mb-4" size={64} />
+          <p className="text-slate-400 font-medium">Cargando sesión...</p>
         </div>
       </div>
     );
