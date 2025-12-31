@@ -150,9 +150,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestr
       <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
         <Card className="rounded-[45px] p-10 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center text-center">
-            {/* Red Logo Box */}
-            <div className="w-24 h-24 rounded-[32px] bg-red-600 shadow-2xl shadow-red-600/40 flex items-center justify-center mb-8 transition-all hover:scale-105">
-              <AppLogo size={48} className="brightness-0 invert" />
+            <div className="mb-8 hover:scale-105 transition-transform">
+              <AppLogo size={100} />
             </div>
 
             <h3 className="text-2xl font-black text-slate-900 mb-3 uppercase tracking-tight leading-tight px-2">{title}</h3>
@@ -197,9 +196,8 @@ const PromptModal = ({ isOpen, onClose, onConfirm, title, message, defaultValue 
       <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
         <Card className="rounded-[45px] p-10 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center">
-            {/* Red Logo Box consistent with others */}
-            <div className="w-24 h-24 rounded-[32px] bg-red-600 shadow-2xl shadow-red-600/40 flex items-center justify-center mb-8 rotate-3">
-              <AppLogo size={48} className="brightness-0 invert" />
+            <div className="mb-6">
+              <AppLogo size={80} />
             </div>
             <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight text-center px-4 leading-tight">{title}</h3>
             <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-4 text-center">{message}</p>
@@ -254,8 +252,8 @@ const WelcomeModal = ({ isOpen, onConfirm, dealerName }) => {
       <div className="w-full max-w-md animate-in zoom-in-95 duration-500">
         <Card className="rounded-[40px] p-10 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center">
-            <div className="w-20 h-20 rounded-3xl bg-red-600 flex items-center justify-center mb-8 shadow-xl shadow-red-600/20 rotate-3 hover:rotate-0 transition-transform duration-300">
-              <AppLogo size={48} className="brightness-0 invert" />
+            <div className="mb-8 hover:scale-105 transition-transform">
+              <AppLogo size={90} />
             </div>
 
             <div className="text-center mb-10">
@@ -487,7 +485,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
         <Card className="w-full max-h-[90vh] overflow-y-auto pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4 sticky top-0 bg-white z-10">
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <div className="p-2 bg-red-100 rounded-lg text-red-600"><AppLogo size={20} /></div>
+              <AppLogo size={32} />
               {initialData ? 'Editar Vehículo' : 'Nuevo Vehículo'}
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
@@ -1300,8 +1298,8 @@ const TrashView = ({ trashInventory, trashDocuments, onRestore, onPermanentDelet
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-600/30 rotate-3">
-            <AppLogo size={32} className="brightness-0 invert" />
+          <div className="rotate-3 transition-transform hover:rotate-0">
+            <AppLogo size={60} />
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">PAPELERA SEGURA</h1>
@@ -1536,9 +1534,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4 sm:mb-8">
               <div className="flex items-center gap-3 sm:gap-5">
-                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[24px] bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-600/30 rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                  <AppLogo size={32} className="brightness-0 invert" />
-                </div>
+                <AppLogo size={64} className="group-hover:scale-110 transition-transform duration-500" />
                 <div>
                   <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">Valor Total</p>
                   <h3 className="text-xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">Cifras Globales</h3>
@@ -1607,9 +1603,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                     <tr key={contract.id} className="group hover:bg-slate-50/50 transition-colors">
                       <td className="py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-11 h-11 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-red-600 group-hover:bg-red-50 transition-all shadow-inner">
-                            <AppLogo size={18} />
-                          </div>
+                          <AppLogo size={44} />
                           <div>
                             <p className="text-sm font-black text-slate-900 group-hover:text-red-700 transition-colors">{contract.vehicle}</p>
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{contract.template}</p>
@@ -1647,9 +1641,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
               {recentContracts.length > 0 ? recentContracts.map(contract => (
                 <div key={contract.id} className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-red-600 shadow-sm border border-slate-100">
-                      <AppLogo size={18} />
-                    </div>
+                    <AppLogo size={40} />
                     <div>
                       <p className="font-black text-slate-900 text-sm leading-tight">{contract.vehicle}</p>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{contract.template}</p>
@@ -2469,9 +2461,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <div className="w-10 h-10 rounded-[14px] bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/20">
-                <AppLogo size={22} className="brightness-0 invert" />
-              </div>
+              <AppLogo size={45} />
               <div className="flex flex-col">
                 <span className="text-sm font-black text-red-600 tracking-tight leading-none uppercase">Inventario</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">CarBot</span>
@@ -2600,10 +2590,8 @@ const LoginScreen = ({ onLogin }) => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
       <Card className="max-w-md w-full p-8 sm:p-10 border-none shadow-2xl">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center mb-10 group transition-transform hover:scale-105 duration-500">
-            <div className="w-32 h-32 rounded-[36px] bg-red-600 shadow-2xl shadow-red-600/40 flex items-center justify-center rotate-3 hover:rotate-0 transition-all duration-300">
-              <AppLogo size={64} className="brightness-0 invert" />
-            </div>
+          <div className="inline-flex items-center justify-center mb-6 group transition-transform hover:scale-105 duration-500">
+            <AppLogo size={120} />
           </div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">CarBot <span className="text-red-600">System</span></h1>
           <p className="text-slate-500 mt-2 font-medium">Gestión inteligente de inventario</p>
@@ -3038,8 +3026,8 @@ export default function CarbotApp() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4">
         <div className="flex flex-col items-center animate-pulse">
-          <div className="w-20 h-20 rounded-[24px] bg-red-600 shadow-xl shadow-red-600/30 flex items-center justify-center mb-6 animate-bounce">
-            <AppLogo size={40} className="brightness-0 invert" />
+          <div className="mb-6 animate-bounce">
+            <AppLogo size={80} />
           </div>
           <p className="text-slate-400 font-medium">Cargando sesión...</p>
         </div>
