@@ -25,8 +25,13 @@ import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
-  Package, TriangleAlert, TrendingUp, History, Bell, Calendar, Settings, Shield
+  Package as PackageNew, TriangleAlert as TriangleAlertNew, TrendingUp, History, Bell, Calendar, Settings, Shield,
+  Box, AlertTriangle
 } from 'lucide-react';
+
+// Capa de compatibilidad para iconos (Evita crashes por versión)
+const TriangleAlert = TriangleAlertNew || AlertTriangle;
+const Package = PackageNew || Box;
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
 // o directamente ya que es una SPA de Vite.
@@ -2420,6 +2425,28 @@ export default function CarbotApp() {
   const [userProfile, setUserProfile] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
+  // --- Confirm Dialog State (Hoisted for Stability) ---
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    isDestructive: false
+  });
+
+  const showConfirm = (options) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: options.title || '¿Estás seguro?',
+      message: options.message || 'Esta acción no se puede deshacer.',
+      onConfirm: () => {
+        options.onConfirm();
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+      isDestructive: options.isDestructive || false
+    });
+  };
+
   // Asegurar que el modo oscuro esté desactivado al iniciar
   useEffect(() => {
     document.documentElement.classList.remove('dark');
@@ -2840,27 +2867,6 @@ export default function CarbotApp() {
     }
   };
 
-  // --- Confirm Dialog State ---
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => { },
-    isDestructive: false
-  });
-
-  const showConfirm = (options) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: options.title || '¿Estás seguro?',
-      message: options.message || 'Esta acción no se puede deshacer.',
-      onConfirm: () => {
-        options.onConfirm();
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      },
-      isDestructive: options.isDestructive || false
-    });
-  };
 
 
   const handleVehicleSelect = (vehicle) => {
@@ -2938,6 +2944,13 @@ export default function CarbotApp() {
         message={confirmDialog.message}
         isDestructive={confirmDialog.isDestructive}
       />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </AppLayout>
   );
 }
