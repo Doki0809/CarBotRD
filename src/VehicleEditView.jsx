@@ -221,124 +221,123 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, onR
                   </div>
                 </div>
               </div>
-              </div>
             )}
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-red-600 font-black text-2xl tracking-tighter">{formData.year}</span>
-              <span className="w-2 h-2 rounded-full bg-slate-200"></span>
-              <span className="text-slate-400 font-bold text-lg uppercase">{formData.color}</span>
-            </div>
-            <h2 className="text-3xl md:text-4xl font-black text-slate-900 uppercase tracking-tight leading-none">
-              {formData.make} <br />
-              <span className="text-red-700">{formData.model}</span>
-            </h2>
-          </div>
-
-          <div className="space-y-6">
-            <h2 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2">
-              <Info size={16} /> Especificaciones
-            </h2>
-            <div className="grid grid-cols-1 gap-5">
-              <Input label="Año del Modelo" name="year" value={formData.year} icon={Calendar} />
-              <Input label="Edición / Versión" name="edition" value={formData.edition} icon={Settings} />
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Transmisión" name="transmission" value={formData.transmission} icon={Settings} />
-                <Input label="Tracción" name="traction" value={formData.traction} icon={Settings} />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 font-black text-2xl tracking-tighter">{formData.year}</span>
+                <span className="w-2 h-2 rounded-full bg-slate-200"></span>
+                <span className="text-slate-400 font-bold text-lg uppercase">{formData.color}</span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Combustible" name="fuel" value={formData.fuel} icon={Fuel} />
-                <Input label="Kilometraje" name="mileage" value={formData.mileage} icon={Settings} />
-              </div>
-              <Input label="Chasis/VIN" name="vin" value={formData.vin || formData.chassis} icon={IdCard} className="font-mono" />
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                {formData.make} <br />
+                <span className="text-red-700">{formData.model}</span>
+              </h2>
             </div>
 
-            {!isSold && (
-              <>
-                <div className="pt-4 border-t border-slate-50">
-                  <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                    <DollarSign size={14} /> Precio de Venta
-                  </h2>
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
-                    <input
-                      type="number"
-                      value={formData.price_unified}
-                      onChange={handlePriceChange}
-                      className="bg-transparent text-2xl font-black text-slate-900 outline-none w-full border-b border-slate-200 focus:border-red-600 pb-1 transition-all"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCurrency('USD')}
-                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'USD' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
-                      >USD$</button>
-                      <button
-                        type="button"
-                        onClick={() => setCurrency('DOP')}
-                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'DOP' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
-                      >DOP$</button>
+            <div className="space-y-6">
+              <h2 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Info size={16} /> Especificaciones
+              </h2>
+              <div className="grid grid-cols-1 gap-5">
+                <Input label="Año del Modelo" name="year" value={formData.year} icon={Calendar} />
+                <Input label="Edición / Versión" name="edition" value={formData.edition} icon={Settings} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Transmisión" name="transmission" value={formData.transmission} icon={Settings} />
+                  <Input label="Tracción" name="traction" value={formData.traction} icon={Settings} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Combustible" name="fuel" value={formData.fuel} icon={Fuel} />
+                  <Input label="Kilometraje" name="mileage" value={formData.mileage} icon={Settings} />
+                </div>
+                <Input label="Chasis/VIN" name="vin" value={formData.vin || formData.chassis} icon={IdCard} className="font-mono" />
+              </div>
+
+              {!isSold && (
+                <>
+                  <div className="pt-4 border-t border-slate-50">
+                    <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                      <DollarSign size={14} /> Precio de Venta
+                    </h2>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                      <input
+                        type="number"
+                        value={formData.price_unified}
+                        onChange={handlePriceChange}
+                        className="bg-transparent text-2xl font-black text-slate-900 outline-none w-full border-b border-slate-200 focus:border-red-600 pb-1 transition-all"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCurrency('USD')}
+                          className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'USD' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
+                        >USD$</button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrency('DOP')}
+                          className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${currency === 'DOP' ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200'}`}
+                        >DOP$</button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-5 md:py-6 bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] font-black text-base md:text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
-                  >
-                    {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
-                  </button>
-                </div>
-              </>
-            )}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-5 md:py-6 bg-slate-900 text-white rounded-[1.5rem] md:rounded-[2rem] font-black text-base md:text-lg uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-red-600 transition-all shadow-2xl shadow-slate-900/40 hover:shadow-red-600/40 transform hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+                    >
+                      {loading ? <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : <><Save size={24} /> Guardar Unidad</>}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-    </div>
       </form >
 
-    { isLightboxOpen && (
-      <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden">
-        <div className="flex justify-between items-center p-4 sm:p-8 z-50">
-          <div className="text-white">
-            <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-red-600 line-clamp-1">{formData.make} {formData.model}</h4>
-            <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
-          </div>
-          <button
-            onClick={() => setIsLightboxOpen(false)}
-            className="p-3 sm:p-4 rounded-full bg-white/10 text-red-600 hover:bg-white transition-all shadow-xl"
-          >
-            <X size={24} className="sm:w-[32px] sm:h-[32px]" />
-          </button>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center relative px-4 sm:px-10">
-          <button onClick={prevPhoto} className="absolute left-2 sm:left-10 p-3 sm:p-6 rounded-full bg-white/5 text-white z-10"><ChevronLeft size={24} className="sm:w-[48px] sm:h-[48px]" /></button>
-          <img
-            src={formData.images[activePhotoIndex]}
-            className="max-w-full max-h-[70vh] sm:max-h-[85vh] object-contain shadow-2xl rounded-lg"
-            alt="Lightbox View"
-          />
-          <button onClick={nextPhoto} className="absolute right-2 sm:right-10 p-3 sm:p-6 rounded-full bg-white/5 text-white z-10"><ChevronRight size={24} className="sm:w-[48px] sm:h-[48px]" /></button>
-        </div>
-
-        <div className="p-4 sm:p-10 flex justify-start sm:justify-center gap-2 sm:gap-3 overflow-x-auto pb-8 custom-scrollbar">
-          {formData.images.map((img, idx) => (
-            <div
-              key={idx}
-              onClick={() => setActivePhotoIndex(idx)}
-              className={`min-w-[70px] sm:min-w-[100px] h-[70px] sm:h-[100px] rounded-lg sm:rounded-xl overflow-hidden cursor-pointer transition-all border-2 sm:border-4 ${activePhotoIndex === idx ? 'border-red-600 scale-105' : 'border-transparent opacity-30'}`}
-            >
-              <img src={img} className="w-full h-full object-cover" />
+      {isLightboxOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden">
+          <div className="flex justify-between items-center p-4 sm:p-8 z-50">
+            <div className="text-white">
+              <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-red-600 line-clamp-1">{formData.make} {formData.model}</h4>
+              <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
             </div>
-          ))}
-        </div>
-      </div>
-    )
-}
+            <button
+              onClick={() => setIsLightboxOpen(false)}
+              className="p-3 sm:p-4 rounded-full bg-white/10 text-red-600 hover:bg-white transition-all shadow-xl"
+            >
+              <X size={24} className="sm:w-[32px] sm:h-[32px]" />
+            </button>
+          </div>
 
-<style>{`
+          <div className="flex-1 flex items-center justify-center relative px-4 sm:px-10">
+            <button onClick={prevPhoto} className="absolute left-2 sm:left-10 p-3 sm:p-6 rounded-full bg-white/5 text-white z-10"><ChevronLeft size={24} className="sm:w-[48px] sm:h-[48px]" /></button>
+            <img
+              src={formData.images[activePhotoIndex]}
+              className="max-w-full max-h-[70vh] sm:max-h-[85vh] object-contain shadow-2xl rounded-lg"
+              alt="Lightbox View"
+            />
+            <button onClick={nextPhoto} className="absolute right-2 sm:right-10 p-3 sm:p-6 rounded-full bg-white/5 text-white z-10"><ChevronRight size={24} className="sm:w-[48px] sm:h-[48px]" /></button>
+          </div>
+
+          <div className="p-4 sm:p-10 flex justify-start sm:justify-center gap-2 sm:gap-3 overflow-x-auto pb-8 custom-scrollbar">
+            {formData.images.map((img, idx) => (
+              <div
+                key={idx}
+                onClick={() => setActivePhotoIndex(idx)}
+                className={`min-w-[70px] sm:min-w-[100px] h-[70px] sm:h-[100px] rounded-lg sm:rounded-xl overflow-hidden cursor-pointer transition-all border-2 sm:border-4 ${activePhotoIndex === idx ? 'border-red-600 scale-105' : 'border-transparent opacity-30'}`}
+              >
+                <img src={img} className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+      }
+
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
