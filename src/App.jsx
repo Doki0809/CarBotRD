@@ -487,7 +487,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
         <Card className="w-full max-h-[90vh] overflow-y-auto pb-32 sm:pb-0">
           <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4 sticky top-0 bg-white z-10">
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <div className="p-2 bg-red-100 rounded-lg text-red-600"><Car size={20} /></div>
+              <div className="p-2 bg-red-100 rounded-lg text-red-600"><AppLogo size={20} /></div>
               {initialData ? 'Editar Vehículo' : 'Nuevo Vehículo'}
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
@@ -1300,7 +1300,7 @@ const TrashView = ({ trashInventory, trashDocuments, onRestore, onPermanentDelet
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-900/20 rotate-3">
+          <div className="w-14 h-14 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-600/30 rotate-3">
             <AppLogo size={32} className="brightness-0 invert" />
           </div>
           <div>
@@ -1608,7 +1608,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                       <td className="py-6">
                         <div className="flex items-center gap-4">
                           <div className="w-11 h-11 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-red-600 group-hover:bg-red-50 transition-all shadow-inner">
-                            <Car size={18} strokeWidth={2.5} />
+                            <AppLogo size={18} />
                           </div>
                           <div>
                             <p className="text-sm font-black text-slate-900 group-hover:text-red-700 transition-colors">{contract.vehicle}</p>
@@ -1648,7 +1648,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                 <div key={contract.id} className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-red-600 shadow-sm border border-slate-100">
-                      <Car size={18} strokeWidth={2.5} />
+                      <AppLogo size={18} />
                     </div>
                     <div>
                       <p className="font-black text-slate-900 text-sm leading-tight">{contract.vehicle}</p>
@@ -2240,7 +2240,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
-                        <Car size={14} />
+                        <AppLogo size={14} />
                       </div>
                       <span className="text-xs font-bold text-slate-700 uppercase truncate">{item.vehicle}</span>
                     </div>
@@ -2468,8 +2468,10 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
-            <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <AppLogo size={42} className="sm:h-[50px]" />
+            <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+              <div className="w-10 h-10 rounded-[14px] bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/20">
+                <AppLogo size={22} className="brightness-0 invert" />
+              </div>
               <div className="flex flex-col">
                 <span className="text-sm font-black text-red-600 tracking-tight leading-none uppercase">Inventario</span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">CarBot</span>
@@ -2598,8 +2600,10 @@ const LoginScreen = ({ onLogin }) => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
       <Card className="max-w-md w-full p-8 sm:p-10 border-none shadow-2xl">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center mb-6 group transition-transform hover:scale-105 duration-500">
-            <AppLogo size={100} className="group-hover:scale-110 transition-transform" />
+          <div className="inline-flex items-center justify-center mb-10 group transition-transform hover:scale-105 duration-500">
+            <div className="w-32 h-32 rounded-[36px] bg-red-600 shadow-2xl shadow-red-600/40 flex items-center justify-center rotate-3 hover:rotate-0 transition-all duration-300">
+              <AppLogo size={64} className="brightness-0 invert" />
+            </div>
           </div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">CarBot <span className="text-red-600">System</span></h1>
           <p className="text-slate-500 mt-2 font-medium">Gestión inteligente de inventario</p>
@@ -3034,7 +3038,9 @@ export default function CarbotApp() {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4">
         <div className="flex flex-col items-center animate-pulse">
-          <AppLogo className="w-16 h-16 mb-4" size={64} />
+          <div className="w-20 h-20 rounded-[24px] bg-red-600 shadow-xl shadow-red-600/30 flex items-center justify-center mb-6 animate-bounce">
+            <AppLogo size={40} className="brightness-0 invert" />
+          </div>
           <p className="text-slate-400 font-medium">Cargando sesión...</p>
         </div>
       </div>
