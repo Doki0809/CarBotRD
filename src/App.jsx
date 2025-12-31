@@ -25,7 +25,7 @@ import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
-  Box, AlertTriangle, TrendingUp, History, Bell, Calendar
+  Box, AlertTriangle, TrendingUp, History, Bell, Calendar, Moon, Sun
 } from 'lucide-react';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -77,7 +77,7 @@ const Button = ({ children, variant = 'primary', className = '', icon: Icon, onC
 const Card = ({ children, className = '', noPadding = false }) => {
   const hasBg = className.includes('bg-');
   return (
-    <div className={`${hasBg ? '' : 'bg-white'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
+    <div className={`${hasBg ? '' : 'bg-white dark:bg-slate-900'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 dark:border-slate-800 overflow-hidden transition-all duration-300 ${className}`}>
       <div className={noPadding ? '' : 'p-6'}>{children}</div>
     </div>
   );
@@ -85,11 +85,11 @@ const Card = ({ children, className = '', noPadding = false }) => {
 
 const Badge = ({ status }) => {
   const styles = {
-    available: "bg-emerald-50 text-emerald-700 border-emerald-100 ring-1 ring-emerald-600/10",
-    quoted: "bg-amber-50 text-amber-700 border-amber-100 ring-1 ring-amber-600/10",
-    sold: "bg-slate-100 text-slate-600 border-slate-200 ring-1 ring-slate-600/10",
-    pending: "bg-red-50 text-red-700 border-red-100 ring-1 ring-red-600/10",
-    signed: "bg-green-50 text-green-700 border-green-100 ring-1 ring-green-600/10",
+    available: "bg-emerald-50 text-emerald-700 border-emerald-100 ring-1 ring-emerald-600/10 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
+    quoted: "bg-amber-50 text-amber-700 border-amber-100 ring-1 ring-amber-600/10 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
+    sold: "bg-slate-100 text-slate-600 border-slate-200 ring-1 ring-slate-600/10 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+    pending: "bg-red-50 text-red-700 border-red-100 ring-1 ring-red-600/10 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+    signed: "bg-green-50 text-green-700 border-green-100 ring-1 ring-green-600/10 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
   };
   const labels = { available: "Disponible", quoted: "Cotizado", sold: "Vendido", pending: "Pendiente Firma", signed: "Firmado" };
   return (
@@ -1074,6 +1074,113 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 // --- VISTAS PRINCIPALES ---
 
+const SettingsView = ({ userProfile, onLogout, darkMode, onToggleDarkMode, onUpdateProfile, showToast }) => {
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState(userProfile?.name || '');
+
+  const handleUpdateName = async () => {
+    if (!newName.trim()) return;
+    try {
+      await onUpdateProfile({ ...userProfile, name: newName.trim() });
+      setEditingName(false);
+      showToast("Nombre actualizado correctamente");
+    } catch (e) {
+      showToast("Error al actualizar nombre", "error");
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-6">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white">Ajustes</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona tu perfil y preferencias del sistema.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Profile Card */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 text-2xl font-black">
+              {userProfile?.name?.charAt(0) || 'U'}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Información Personal</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{userProfile?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tu Nombre</label>
+              {editingName ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                  <Button onClick={handleUpdateName} className="px-4 py-2">Guardar</Button>
+                  <Button variant="ghost" onClick={() => setEditingName(false)}>Cancelar</Button>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{userProfile?.name}</span>
+                  <button onClick={() => setEditingName(true)} className="text-red-600 hover:text-red-700 p-1">
+                    <Edit size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dealer</label>
+              <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 opacity-70">
+                <span className="font-bold text-slate-600 dark:text-slate-400">{userProfile?.dealerName || 'No asignado'}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Preferences Card */}
+        <Card className="dark:bg-slate-900 dark:border-slate-800">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Preferencias</h3>
+
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${darkMode ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-600'}`}>
+                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">Modo Oscuro</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Cambia la apariencia del sistema</p>
+                </div>
+              </div>
+              <button
+                onClick={onToggleDarkMode}
+                className={`w-12 h-6 rounded-full transition-all relative ${darkMode ? 'bg-red-600' : 'bg-slate-300'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${darkMode ? 'left-7' : 'left-1'}`}></div>
+              </button>
+            </div>
+
+            <Button
+              variant="danger"
+              onClick={onLogout}
+              className="w-full py-4 border-red-200 text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center justify-center gap-2 font-black uppercase tracking-widest text-xs"
+            >
+              <LogOut size={18} /> Cerrar Sesión
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1116,9 +1223,9 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const stats = [
-    { label: 'TOTAL INVENTARIO', value: inventory.length.toLocaleString(), icon: Car, color: 'text-blue-600', bg: 'bg-blue-50', badge: '+12 nuevos', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'all') },
-    { label: 'TOTAL VENDIDOS', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', badge: 'En crecimiento', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'sold') },
-    { label: 'VALOR TOTAL', value: `$${(inventory.reduce((acc, current) => acc + (current.price || 0), 0) / 1000).toFixed(1)}k`, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50', badge: '+5.4% mes', badgeColor: 'bg-emerald-100 text-emerald-700', action: () => onNavigate('inventory', 'sold') },
+    { label: 'TOTAL INVENTARIO', value: inventory.length.toLocaleString(), icon: Car, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', badge: '+12 nuevos', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', action: () => onNavigate('inventory', 'all') },
+    { label: 'TOTAL VENDIDOS', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', badge: 'En crecimiento', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', action: () => onNavigate('inventory', 'sold') },
+    { label: 'VALOR TOTAL', value: `$${(inventory.reduce((acc, current) => acc + (current.price || 0), 0) / 1000).toFixed(1)}k`, icon: TrendingUp, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', badge: '+5.4% mes', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', action: () => onNavigate('inventory', 'sold') },
   ];
 
   const recentContracts = contracts.slice(0, 3);
@@ -1149,18 +1256,16 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         {stats.map((stat, idx) => (
-          <Card key={idx} className={`group cursor-pointer hover:shadow-xl transition-all active:scale-[0.98] ${idx === 2 ? 'col-span-2 md:col-span-1' : ''}`} onClick={stat.action}>
-            <div className="flex justify-between items-start mb-2 sm:mb-4">
-              <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${stat.bg} ${stat.color}`}>
-                <stat.icon size={20} className="sm:w-[24px] sm:h-[24px]" />
-              </div>
-              <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-wider ${stat.badgeColor}`}>
+          <Card key={idx} className="hover:scale-[1.02] active:scale-95 transition-all cursor-pointer border-none shadow-sm dark:bg-slate-900" onClick={stat.action}>
+            <div className={`w-12 h-12 rounded-2xl ${stat.bg} flex items-center justify-center mb-4 transition-colors`}>
+              <stat.icon size={24} className={stat.color} />
+            </div>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
+            <div className="flex items-baseline gap-2">
+              <h4 className="text-2xl font-black text-slate-900 dark:text-white">{stat.value}</h4>
+              <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${stat.badgeColor}`}>
                 {stat.badge}
               </span>
-            </div>
-            <div>
-              <p className="text-[9px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">{stat.label}</p>
-              <p className="text-xl sm:text-3xl font-black text-slate-900">{stat.value}</p>
             </div>
           </Card>
         ))}
@@ -1168,49 +1273,55 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
 
       {/* Bottom Section: Recent Contracts & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2">
-          <div className="overflow-hidden">
-            <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2 mb-6 sm:mb-8">
-              <History size={20} className="text-red-600" /> Contratos Recientes
-            </h3>
+        <Card className="lg:col-span-2 overflow-hidden dark:bg-slate-900">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">Contratos Recientes</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest font-bold">Últimas transacciones generadas</p>
+            </div>
+            <button onClick={() => onNavigate('contracts')} className="text-red-600 hover:text-red-700 text-xs font-black uppercase tracking-widest flex items-center gap-1 group">
+              Ver todos <TrendingUp size={14} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
 
-            {/* Desktop Table View */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
-                  <tr>
-                    <th className="pb-4">Producto</th>
-                    <th className="pb-4">Cliente</th>
-                    <th className="pb-4">Fecha</th>
-                    <th className="pb-4 text-right">Monto</th>
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto">
+            <div className="hidden sm:block">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left border-b border-slate-50 dark:border-slate-800">
+                    <th className="pb-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Vehículo</th>
+                    <th className="pb-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cliente</th>
+                    <th className="pb-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Fecha</th>
+                    <th className="pb-4 text-right text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Monto</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                   {recentContracts.length > 0 ? recentContracts.map(contract => (
-                    <tr key={contract.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <tr key={contract.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="py-5">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
-                            <Car size={20} />
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-red-600 transition-colors">
+                            <Car size={18} />
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 leading-tight">{contract.vehicle}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">{contract.template}</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{contract.vehicle}</p>
+                            <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{contract.template}</p>
                           </div>
                         </div>
                       </td>
                       <td className="py-5">
-                        <p className="text-sm font-bold text-slate-700">{contract.client}</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{contract.client}</p>
                       </td>
                       <td className="py-5">
-                        <p className="text-xs font-bold text-slate-400 uppercase">{new Date(contract.createdAt).toLocaleDateString()}</p>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase">{new Date(contract.createdAt).toLocaleDateString()}</p>
                       </td>
-                      <td className="py-5 text-right font-black text-slate-900">
+                      <td className="py-5 text-right font-black text-slate-900 dark:text-white">
                         {contract.price > 0 ? `RD$ ${contract.price.toLocaleString()}` : 'N/A'}
                       </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan="4" className="py-10 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No hay contratos recientes</td></tr>
+                    <tr><td colSpan="4" className="py-10 text-center text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest text-xs">No hay contratos recientes</td></tr>
                   )}
                 </tbody>
               </table>
@@ -1219,60 +1330,60 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
             {/* Mobile Card View */}
             <div className="sm:hidden space-y-4">
               {recentContracts.length > 0 ? recentContracts.map(contract => (
-                <div key={contract.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                <div key={contract.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-red-600 shadow-sm border border-slate-100">
+                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-red-600 shadow-sm border border-slate-100 dark:border-slate-700">
                       <Car size={18} />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 text-sm leading-tight">{contract.vehicle}</p>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{contract.template}</p>
+                      <p className="font-bold text-slate-900 dark:text-white text-sm leading-tight">{contract.vehicle}</p>
+                      <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{contract.template}</p>
                     </div>
                   </div>
-                  <div className="flex justify-between items-end border-t border-white pt-3">
+                  <div className="flex justify-between items-end border-t border-white dark:border-slate-800 pt-3">
                     <div className="space-y-0.5">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</p>
-                      <p className="text-sm font-bold text-slate-800">{contract.client}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Cliente</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-300">{contract.client}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-red-700">
+                      <p className="text-sm font-black text-red-700 dark:text-red-400">
                         {contract.price > 0 ? `RD$ ${contract.price.toLocaleString()}` : 'N/A'}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400">{new Date(contract.createdAt).toLocaleDateString()}</p>
+                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500">{new Date(contract.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </div>
               )) : (
-                <div className="py-10 text-center text-slate-300 font-bold uppercase tracking-widest text-[10px]">No hay contratos recientes</div>
+                <div className="py-10 text-center text-slate-300 dark:text-slate-700 font-bold uppercase tracking-widest text-[10px]">No hay contratos recientes</div>
               )}
             </div>
 
-            <button onClick={() => onNavigate('contracts')} className="w-full mt-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 sm:hidden">
+            <button onClick={() => onNavigate('contracts')} className="w-full mt-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 sm:hidden">
               Ver todos los contratos
             </button>
           </div>
         </Card>
 
-        <Card>
+        <Card className="dark:bg-slate-900">
           <div className="mb-8">
-            <h3 className="text-xl font-black text-slate-900">Actividad</h3>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white">Actividad</h3>
           </div>
           <div className="space-y-6">
             <div className="flex gap-4">
               <div className="relative">
-                <div className="w-3 h-3 bg-red-600 rounded-full mt-1.5 ring-4 ring-red-100"></div>
-                <div className="absolute top-6 bottom-0 left-[5px] w-0.5 bg-slate-100"></div>
+                <div className="w-3 h-3 bg-red-600 rounded-full mt-1.5 ring-4 ring-red-100 dark:ring-red-900/30"></div>
+                <div className="absolute top-6 bottom-0 left-[5px] w-0.5 bg-slate-100 dark:bg-slate-800"></div>
               </div>
               <div>
-                <p className="text-sm font-black text-slate-900">Base de datos conectada</p>
-                <p className="text-xs text-slate-500 mt-1">Sincronizado con Firebase</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white">Base de datos conectada</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sincronizado con Firebase</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="w-3 h-3 bg-slate-200 rounded-full mt-1.5"></div>
+              <div className="w-3 h-3 bg-slate-200 dark:bg-slate-800 rounded-full mt-1.5"></div>
               <div>
-                <p className="text-sm font-bold text-slate-400">Próximos reportes</p>
-                <p className="text-xs text-slate-400 mt-1">Programado para mañana</p>
+                <p className="text-sm font-bold text-slate-400 dark:text-slate-600">Próximos reportes</p>
+                <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Programado para mañana</p>
               </div>
             </div>
           </div>
@@ -1379,15 +1490,15 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4 sm:pb-6">
-        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{userProfile?.dealerName}</span></h1><p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 dark:border-slate-800 pb-4 sm:pb-6">
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Inventario: <span className="text-red-700 dark:text-red-500">{userProfile?.dealerName}</span></h1><p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
         <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">Agregar Vehículo</Button>
       </div>
 
-      <div className="flex space-x-1 bg-slate-100/80 p-1 rounded-xl w-full sm:w-fit backdrop-blur-sm overflow-x-auto no-scrollbar">
-        <button onClick={() => setActiveTab('available')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'available' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Disponibles</button>
-        <button onClick={() => setActiveTab('sold')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'sold' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Vendidos</button>
-        <button onClick={() => setActiveTab('all')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Todos</button>
+      <div className="flex space-x-1 bg-slate-100/80 dark:bg-slate-800/50 p-1 rounded-xl w-full sm:w-fit backdrop-blur-sm overflow-x-auto no-scrollbar border border-transparent dark:border-slate-800">
+        <button onClick={() => setActiveTab('available')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'available' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Disponibles</button>
+        <button onClick={() => setActiveTab('sold')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'sold' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Vendidos</button>
+        <button onClick={() => setActiveTab('all')} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-300 ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Todos</button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -1396,18 +1507,18 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
           <input
             type="text"
             placeholder="Filtrar en esta vista..."
-            className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium"
+            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium dark:text-white"
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar por:</span>
+          <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase whitespace-nowrap">Ordenar por:</span>
           <select
             value={sortConfig}
             onChange={(e) => setSortConfig(e.target.value)}
-            className="flex-1 sm:flex-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 appearance-none cursor-pointer"
+            className="flex-1 sm:flex-none px-4 py-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 appearance-none cursor-pointer dark:text-white"
           >
             <option value="date_desc">Más Recientes</option>
             <option value="date_asc">Más Antiguos</option>
@@ -1422,21 +1533,21 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
         {sortedBrands.map(brand => (
           <div key={brand}>
             <div className="flex items-center mb-3 sm:mb-4">
-              <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
-              <div className="h-px flex-1 bg-gray-100"></div>
-              <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
+              <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white mr-2 sm:mr-3">{brand}</h2>
+              <div className="h-px flex-1 bg-gray-100 dark:bg-slate-800"></div>
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 ml-2 sm:ml-3 bg-slate-50 dark:bg-slate-900 px-2.5 py-1 rounded-full border border-slate-100 dark:border-slate-800">{groupedInventory[brand].length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {groupedInventory[brand].map(item => (
                 <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
-                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
-                    <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
+                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1 dark:bg-slate-900 dark:border-slate-800">
+                    <div className="relative aspect-[16/10] bg-gray-100 dark:bg-slate-800 overflow-hidden">
                       <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
                       <div className="absolute top-3 right-3 shadow-sm"><Badge status={item.status} /></div>
                     </div>
                     <div className="p-5 flex flex-col flex-1">
-                      <h3 className="font-bold text-slate-900 text-lg">{item.make} {item.model}</h3>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
+                      <h3 className="font-bold text-slate-900 dark:text-white text-lg">{item.make} {item.model}</h3>
+                      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
                       <div className="mt-2 mb-4">
                         <p className="text-xl font-bold text-red-700">
                           {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase">Precio de Venta</span>}
@@ -1446,8 +1557,8 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
                       <div className="mt-auto grid grid-cols-2 gap-2 sm:gap-3">
                         <Button variant="secondary" className="w-full text-[10px] sm:text-xs font-black border-red-50 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 py-2 sm:py-2.5" onClick={(e) => { e.stopPropagation(); openActionModal(item); }}><Files size={12} className="sm:w-[14px] sm:h-[14px]" /> GENERAR</Button>
                         <div className="flex gap-1.5 sm:gap-2">
-                          <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl text-slate-400 hover:text-red-600 transition-all"><Edit size={14} className="sm:w-[16px] sm:h-[16px]" /></button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl text-slate-400 hover:text-red-600 transition-all"><Trash2 size={14} className="sm:w-[16px] sm:h-[16px]" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl text-slate-400 hover:text-red-600 transition-all dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-red-900/20 dark:hover:border-red-700 dark:text-slate-500 dark:hover:text-red-400"><Edit size={14} className="sm:w-[16px] sm:h-[16px]" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="flex-1 flex items-center justify-center bg-gray-50 hover:bg-red-50 border border-gray-100 hover:border-red-200 rounded-xl text-slate-400 hover:text-red-600 transition-all dark:bg-slate-800 dark:border-slate-700 dark:hover:bg-red-900/20 dark:hover:border-red-700 dark:text-slate-500 dark:hover:text-red-400"><Trash2 size={14} className="sm:w-[16px] sm:h-[16px]" /></button>
                         </div>
                       </div>
                     </div>
@@ -1631,120 +1742,151 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Documentos del Negocio</h1>
-          <p className="text-slate-500 text-sm mt-1">Historial organizado • {totalItems} registros</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white">Documentos del Negocio</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Historial organizado • {totalItems} registros</p>
         </div>
 
-        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-full md:w-auto">
+        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl w-full md:w-auto border border-transparent dark:border-slate-800">
           <button
             onClick={() => setActiveView('contracts')}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'contracts' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-black transition-all ${activeView === 'contracts' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
           >
             Contratos
           </button>
           <button
             onClick={() => setActiveView('quotes')}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeView === 'quotes' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-black transition-all ${activeView === 'quotes' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
           >
             Cotizaciones
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-bold text-slate-400 uppercase">Ordenar:</span>
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="relative flex-1 max-w-md group w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors" size={18} />
+          <input
+            type="text"
+            placeholder={`Buscar ${activeView === 'contracts' ? 'contrato' : 'cotización'}...`}
+            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/10 transition-all dark:text-white"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap">Ordenar:</label>
           <select
             value={sortConfig}
             onChange={(e) => setSortConfig(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border-none rounded-lg text-sm font-bold focus:ring-2 focus:ring-red-500/20 cursor-pointer"
+            className="flex-1 md:flex-none px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/10 appearance-none cursor-pointer dark:text-white"
           >
-            <option value="date_desc">Recientes</option>
-            <option value="date_asc">Antiguos</option>
-            <option value="client_asc">Nombre</option>
-            <option value="vehicle_asc">Vehículo</option>
+            <option value="date_desc">Más Recientes</option>
+            <option value="date_asc">Más Antiguos</option>
+            <option value="client_asc">Cliente (A-Z)</option>
+            <option value="vehicle_asc">Vehículo (A-Z)</option>
           </select>
         </div>
-        {activeView === 'contracts' ? (
-          <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
-            Nuevo Contrato
-          </Button>
-        ) : (
-          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
-            Nueva Cotización
-          </Button>
-        )}
       </div>
 
-      <div className="space-y-12">
-        {Object.keys(filteredData).map(groupName => (
-          <div key={groupName} className="space-y-6">
-            <div className="flex items-center gap-4">
-              <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
-              <div className="h-px flex-1 bg-slate-100"></div>
+      <div className="space-y-10">
+        {Object.keys(filteredData).length > 0 ? Object.keys(filteredData).map(month => (
+          <div key={month}>
+            <div className="flex items-center gap-4 mb-6">
+              <h2 className="text-xs font-black text-slate-400 dark:text-slate-500 tracking-[0.2em]">{month}</h2>
+              <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredData[groupName].map(item => (
-                <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className={`p-2 rounded-xl ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                        {activeView === 'contracts' ? <FileText size={20} /> : <Send size={20} />}
-                      </div>
-                      <div className="flex gap-2">
+            <Card className="overflow-hidden border-none shadow-sm dark:bg-slate-900">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800">
+                    <tr>
+                      <th className="px-6 py-4">Fecha</th>
+                      <th className="px-6 py-4">Cliente</th>
+                      <th className="px-6 py-4">Vehículo</th>
+                      {activeView === 'contracts' ? (
+                        <>
+                          <th className="px-6 py-4">Documento</th>
+                          <th className="px-6 py-4">Monto</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-6 py-4">Banco</th>
+                          <th className="px-6 py-4">Estado</th>
+                        </>
+                      )}
+                      <th className="px-6 py-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                    {filteredData[month].map(item => (
+                      <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">{new Date(item.date || item.createdAt).toLocaleDateString('es-DO', { day: '2-digit', month: 'short' })}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                            {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{item.phone || 'S/N'}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Car size={14} className="text-slate-300 dark:text-slate-600" />
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.vehicle}</p>
+                          </div>
+                        </td>
                         {activeView === 'contracts' ? (
                           <>
-                            <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Ver Contrato"><Eye size={18} /></button>
-                            <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Editar"><Edit size={18} /></button>
-                            <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Descargar PDF"><Download size={18} /></button>
+                            <td className="px-6 py-4">
+                              <Badge status="signed" />
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-black text-slate-900 dark:text-white">RD$ {item.price?.toLocaleString() || '0'}</p>
+                            </td>
                           </>
                         ) : (
                           <>
-                            <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Ver Cotización"><Eye size={18} /></button>
-                            <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Descargar Ficha"><Download size={18} /></button>
+                            <td className="px-6 py-4">
+                              <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">{item.bank || 'Particular'}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge status={item.status || 'quoted'} />
+                            </td>
                           </>
                         )}
-                        <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Eliminar"><Trash2 size={18} /></button>
-                      </div>
-                    </div>
-
-                    <h3 className="text-lg font-black text-slate-900 mb-1">
-                      {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
-                    </h3>
-                    <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
-                      <Car size={12} /> {item.vehicle}
-                    </p>
-
-                    {activeView === 'quotes' && (
-                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
-                          <span className="text-slate-700 font-bold">{item.phone}</span>
-                        </div>
-                        {item.bank && (
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400 font-bold uppercase">Banco:</span>
-                            <span className="text-slate-700 font-bold">{item.bank}</span>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => activeView === 'contracts' ? downloadPDF(item) : downloadQuotePDF(item)}
+                              className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              title="Descargar PDF"
+                            >
+                              <Download size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={18} />
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                      <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}</div>
-                      {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </div>
-        ))}
-        {totalItems === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-            <Files size={64} className="mb-4 opacity-20" />
-            <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
+        )) : (
+          <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-200 dark:border-slate-800">
+            <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 dark:text-slate-700 mb-4">
+              <Files size={32} />
+            </div>
+            <p className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-xs">No se encontraron resultados</p>
           </div>
         )}
       </div>
@@ -1790,37 +1932,38 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
 };
 
 // --- LAYOUT ---
-const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange }) => {
+const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange, darkMode }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventario', icon: Box },
     { id: 'contracts', label: 'Contratos', icon: FileText },
+    { id: 'settings', label: 'Ajustes', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0">
+    <div className={`min-h-screen ${darkMode ? 'dark' : ''} bg-[#f8fafc] dark:bg-slate-950 flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0 transition-colors duration-300`}>
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-4 sm:px-6 py-2 sm:py-3">
+      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm px-4 sm:px-6 py-2 sm:py-3 transition-colors">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <AppLogo size={50} className="sm:h-[65px]" />
-              <span className="text-lg font-black text-slate-900 tracking-tight hidden lg:block">
+              <AppLogo size={50} className="sm:h-[65px] dark:brightness-110" />
+              <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight hidden lg:block">
                 <span className="text-red-600">Inventario</span>
               </span>
             </div>
           </div>
 
           {/* Center: Main Nav Items (Hidden on Mobile) */}
-          <nav className="hidden sm:flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
+          <nav className="hidden sm:flex items-center gap-1 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-100 dark:border-slate-700">
             {menuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 ${activeTab === item.id
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-white'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800'
                   }`}
               >
                 <item.icon size={18} />
@@ -1839,29 +1982,32 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
                 placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold dark:text-white"
               />
             </div>
 
-            {/* Trash Icon (Visible on all sizes, but adjusted for mobile) */}
+            {/* Trash Icon */}
             <button
               onClick={() => setActiveTab('trash')}
-              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 dark:bg-red-900/10 text-red-600' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               title="Ir a Basurero"
             >
               <Trash2 size={18} className="sm:w-[20px] sm:h-[20px]" />
             </button>
 
             {/* User Profile Info */}
-            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100">
+            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100 dark:border-slate-800">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-black text-slate-900 leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
                 <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">{userProfile?.dealerName || 'Almacén'}</p>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100">
+              <div
+                onClick={() => setActiveTab('settings')}
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 dark:from-red-900 dark:to-red-800 flex items-center justify-center text-red-600 dark:text-red-100 text-xs sm:text-base font-black border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-red-100 dark:ring-red-900/30 cursor-pointer hover:scale-105 transition-transform"
+              >
                 {userProfile?.name?.charAt(0) || 'J'}
               </div>
-              <button onClick={onLogout} className="p-1 sm:p-2 text-slate-300 hover:text-red-600 transition-colors">
+              <button onClick={onLogout} className="p-1 sm:p-2 text-slate-300 dark:text-slate-600 hover:text-red-600 transition-colors">
                 <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
               </button>
             </div>
@@ -1875,14 +2021,14 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90 dark:bg-slate-900/90 transition-colors">
         {menuItems.map(item => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-red-600 scale-110' : 'text-slate-400'}`}
+              className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-red-600 scale-110' : 'text-slate-400 dark:text-slate-500'}`}
             >
               <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
               <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
@@ -1898,7 +2044,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 // --- Reemplaza tu LoginScreen actual con este ---
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // <--- Nuevo campo
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -1907,83 +2053,176 @@ const LoginScreen = ({ onLogin }) => {
     setLoading(true);
     setError('');
 
-    const auth = getAuth(); // Obtenemos el servicio de autenticación
+    const auth = getAuth();
 
     try {
-      // 1. Verificamos correo y contraseña con Firebase
       await signInWithEmailAndPassword(auth, email, password);
-
-      // 2. Si pasa, calculamos el ID para cargar sus datos
       const emailId = email.replace(/\./g, '_').toLowerCase();
-
-      // 3. Entramos al sistema
       await onLogin(emailId);
-
     } catch (err) {
       console.error("Error de login:", err);
-      if (err.code === 'auth/wrong-password') {
-        setError("Contraseña incorrecta.");
-      } else if (err.code === 'auth/user-not-found') {
-        setError("Este correo no está registrado en la App.");
-      } else {
-        setError("Error al iniciar sesión. Verifica tus datos.");
-      }
+      if (err.code === 'auth/wrong-password') setError("Contraseña incorrecta.");
+      else if (err.code === 'auth/user-not-found') setError("Este correo no está registrado.");
+      else setError("Error al iniciar sesión.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-6">
-          <img src="/logo.png" alt="CarBot" className="w-20 h-20 mx-auto mb-4" />
-          <h1 className="text-2xl font-black text-slate-900">Bienvenido a CarBot</h1>
-          <p className="text-slate-500">Inicia sesión con tu cuenta de Dealer</p>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
+      <Card className="max-w-md w-full p-8 sm:p-10 border-none shadow-2xl dark:bg-slate-900">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-red-600 shadow-xl shadow-red-600/20 mb-6 group transition-transform hover:scale-105 duration-500">
+            <AppLogo size={100} className="brightness-0 invert opacity-95 group-hover:scale-110 transition-transform" />
+          </div>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">CarBot <span className="text-red-600">Pro</span></h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Gestión inteligente de inventario</p>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium text-center border border-red-100">
-            {error}
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Correo Electrónico</label>
+            <div className="relative group">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors" size={18} />
+              <input
+                type="email"
+                required
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 dark:text-white"
+                placeholder="tu@correo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
           </div>
-        )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico</label>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Contraseña</label>
+            <div className="relative group">
+              <LogOut className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors rotate-90" size={18} />
+              <input
+                type="password"
+                required
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 dark:text-white"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake">
+              <AlertTriangle size={16} /> {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full py-5 rounded-2xl shadow-xl shadow-red-600/20 text-sm"
+            icon={loading ? Loader2 : LogOut}
+          >
+            {loading ? 'Iniciando Sesión...' : 'Entrar al Sistema'}
+          </Button>
+        </form>
+
+        <p className="text-center mt-10 text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest leading-loose">
+          Reservado para <span className="text-red-600 opacity-80">CarBot Dealers</span><br />
+          v2.5.0 • © 2024
+        </p>
+      </Card>
+    </div>
+  );
+};
+
+const ProfileOnboardingScreen = ({ onComplete, pendingData }) => {
+  const [dealerName, setDealerName] = useState(pendingData?.dealerName || '');
+  const [name, setName] = useState(pendingData?.name || '');
+  const [role, setRole] = useState('Vendedor');
+  const [loading, setLoading] = useState(false);
+
+  const roles = [
+    { id: 'owner', label: 'Dueño' },
+    { id: 'manager', label: 'Gerente' },
+    { id: 'sales', label: 'Vendedor' },
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    await onComplete({ ...pendingData, dealerName, name, role });
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl p-8 sm:p-12 animate-in fade-in zoom-in duration-700">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-[24px] bg-red-50 dark:bg-red-900/10 mb-6">
+            <AppLogo size={100} className="dark:brightness-110" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">¡Hola! 👋</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2">Configuremos tu perfil profesional.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+              <span>🏢</span> ¿En qué Dealer trabajas?
+            </label>
             <input
-              type="email"
+              type="text"
               required
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-red-500 focus:outline-none"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:outline-none transition-all font-bold text-slate-900 dark:text-white"
+              placeholder="Ej. Toyota Center"
+              value={dealerName}
+              onChange={(e) => setDealerName(e.target.value)}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña</label>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+              <span>👤</span> ¿Cuál es tu Nombre y Apellido?
+            </label>
             <input
-              type="password"
+              type="text"
               required
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-red-500 focus:outline-none"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:outline-none transition-all font-bold text-slate-900 dark:text-white"
+              placeholder="Ej. Laura García"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
+              <span>💼</span> ¿Cuál es tu cargo?
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {roles.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setRole(r.label)}
+                  className={`px-6 py-3 rounded-full text-sm font-bold transition-all border ${role === r.label
+                    ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 scale-105'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-red-500/30 flex justify-center items-center mt-4"
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-[20px] transition-all shadow-xl shadow-red-500/20 flex justify-center items-center mt-8 text-lg hover:scale-[1.02] active:scale-95 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="animate-spin" /> : "Iniciar Sesión"}
+            {loading ? <Loader2 className="animate-spin" /> : "Empezar a usar CarBot"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-[10px] text-slate-300">
-          Acceso restringido. Gestionado por GHL.
-        </p>
       </div>
     </div>
   );
@@ -1994,9 +2233,22 @@ export default function CarbotApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'dashboard');
 
-  // DATOS DEL USUARIO Y DEALER
   const [userProfile, setUserProfile] = useState(null);
   const [initializing, setInitializing] = useState(true);
+  const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
+  const [pendingUserData, setPendingUserData] = useState(null);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('carbot_theme') === 'dark');
+
+  // Aplicar Modo Oscuro
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('carbot_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('carbot_theme', 'light');
+    }
+  }, [darkMode]);
 
   // Inventario y datos
   const [globalSearch, setGlobalSearch] = useState('');
@@ -2055,16 +2307,11 @@ export default function CarbotApp() {
 
         // --- LÓGICA DE FUSIÓN DE CUENTAS ---
         if (ghlUser && ghlUser.email) {
-          // TRUCO MAESTRO:
-          // Convertimos el email de GHL al formato de ID manual (ej: jean@gmail.com -> jean_gmail_com)
           const emailId = ghlUser.email.replace(/\./g, '_').toLowerCase();
-
-          // Vamos a intentar usar ESTE ID basado en email para conectarte con tu cuenta vieja
           userId = emailId;
           console.log("🔗 Intentando vincular por email:", userId);
         }
         else if (ghlUser && ghlUser.id) {
-          // Si no hay email, usamos el ID de GHL
           userId = `${dealerId}_${ghlUser.id}`;
         }
       }
@@ -2078,45 +2325,49 @@ export default function CarbotApp() {
       let profileData;
 
       if (userDocSnap.exists()) {
-        // ¡TE ENCONTRAMOS! (Ya existías manualmente)
         profileData = userDocSnap.data();
 
-        // DETECTOR DE NOMBRES FEOS:
-        // Si el nombre es igual al ID (ej: jeancarlosgf1313), asumimos que falta el nombre real.
-        if (profileData.name === userId || profileData.name === emailOrId) {
-          // Le preguntamos al usuario su nombre real
-          const properName = prompt("¡Hola! 👋 Para completar tu perfil, ¿cuál es tu Nombre y Apellido?");
-
-          if (properName && properName.trim() !== "") {
-            profileData.name = properName; // Lo actualizamos en la memoria ahora mismo
-
-            // Lo guardamos en la base de datos para que no vuelva a preguntar nunca más
-            await updateDoc(userDocRef, { name: properName });
-          }
+        // DETECTOR DE NOMBRES FEOS O PERFIL INCOMPLETO
+        // Si no tiene nombre real o no tiene un rol/cargo definido, pedimos completar
+        const isUglyName = profileData.name === userId || profileData.name === emailOrId || profileData.name.includes('_');
+        if (isUglyName || !profileData.role || !profileData.dealerName || profileData.dealerName === "Mi Dealer") {
+          setPendingUserData({ ...profileData, email: userId });
+          setShowProfileOnboarding(true);
+          setInitializing(false);
+          return;
         }
 
         // Si vienes de GHL, actualizamos tu perfil viejo para que tenga el dealerId nuevo
         if (isGHL) {
           await updateDoc(userDocRef, {
-            dealerId: dealerId, // ¡IMPORTANTE! Ahora tu cuenta vieja pertenece a este Dealer GHL
+            dealerId: dealerId,
             dealerName: realDealerName,
-            lastLoginGHL: new Date().toISOString() // Rastro de auditoría
+            lastLoginGHL: new Date().toISOString()
           });
-          // Actualizamos la memoria local
           profileData.dealerId = dealerId;
           profileData.dealerName = realDealerName;
         }
       } else {
-        // USUARIO NUEVO (No existía correo previo)
-        profileData = {
+        // USUARIO NUEVO
+        const newProfile = {
           email: userId,
           name: realEmployeeName,
-          dealerId: isGHL ? dealerId : `dealer_${Date.now()}`,
+          dealerId: isGHL ? dealerId : "", // Vacío si es manual para que lo pida
           dealerName: realDealerName,
-          role: 'admin',
+          role: 'sales',
           createdAt: new Date().toISOString()
         };
-        await setDoc(userDocRef, profileData);
+
+        if (!isGHL || (isGHL && realEmployeeName === userId)) {
+          // Si es manual o GHL sin nombre, pedimos completar
+          setPendingUserData(newProfile);
+          setShowProfileOnboarding(true);
+          setInitializing(false);
+          return;
+        }
+
+        await setDoc(userDocRef, newProfile);
+        profileData = newProfile;
       }
 
       setUserProfile(profileData);
@@ -2128,6 +2379,25 @@ export default function CarbotApp() {
       showToast("Error de conexión", "error");
     } finally {
       setInitializing(false);
+    }
+  };
+
+  const handleOnboardingComplete = async (finalProfile) => {
+    try {
+      const userDocRef = doc(db, "users", finalProfile.email);
+      await setDoc(userDocRef, {
+        ...finalProfile,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      setUserProfile(finalProfile);
+      setShowProfileOnboarding(false);
+      setIsLoggedIn(true);
+      localStorage.setItem('carbot_user_email', finalProfile.email);
+      showToast("¡Perfil completado con éxito!", "success");
+    } catch (error) {
+      console.error("Error al guardar perfil:", error);
+      showToast("Error al guardar los datos", "error");
     }
   };
 
@@ -2216,16 +2486,21 @@ export default function CarbotApp() {
 
   if (initializing) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className={`min-h-screen ${darkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} flex items-center justify-center p-4 transition-colors duration-300`}>
         <div className="flex flex-col items-center animate-pulse">
-          <AppLogo className="w-16 h-16 mb-4" size={64} />
-          <p className="text-slate-400 font-medium">Cargando sesión...</p>
+          <AppLogo className="w-16 h-16 mb-4 dark:brightness-110" size={64} />
+          <p className="text-slate-400 dark:text-slate-500 font-medium">Cargando sesión...</p>
         </div>
       </div>
     );
   }
 
-  if (!isLoggedIn || !userProfile) return <LoginScreen onLogin={handleLogin} />;
+  if (!isLoggedIn || !userProfile) {
+    if (showProfileOnboarding && pendingUserData) {
+      return <ProfileOnboardingScreen pendingData={pendingUserData} onComplete={handleOnboardingComplete} />;
+    }
+    return <LoginScreen onLogin={handleLogin} />;
+  }
 
   // 3. GUARDAR (Crear o Editar en Firebase)
   const handleSaveVehicle = async (vehicleData) => {
@@ -2407,6 +2682,17 @@ export default function CarbotApp() {
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
 
+  const handleUpdateProfile = async (newProfile) => {
+    try {
+      const userDocRef = doc(db, "users", newProfile.email);
+      await updateDoc(userDocRef, { name: newProfile.name });
+      setUserProfile(newProfile);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      throw error;
+    }
+  };
+
 
 
 
@@ -2432,23 +2718,31 @@ export default function CarbotApp() {
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
+      case 'settings': return (
+        <SettingsView
+          userProfile={userProfile}
+          onLogout={handleLogout}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+          onUpdateProfile={handleUpdateProfile}
+          showToast={showToast}
+        />
+      );
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
   };
 
   return (
-    <>
-      <AppLayout
-        activeTab={activeTab}
-        setActiveTab={handleNavigate}
-        onLogout={handleLogout}
-        userProfile={userProfile}
-        searchTerm={globalSearch}
-        onSearchChange={setGlobalSearch}
-      >
-        {renderContent()}
-      </AppLayout>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-    </>
+    <AppLayout
+      activeTab={activeTab}
+      setActiveTab={handleNavigate}
+      onLogout={handleLogout}
+      userProfile={userProfile}
+      searchTerm={globalSearch}
+      onSearchChange={setGlobalSearch}
+      darkMode={darkMode}
+    >
+      {renderContent()}
+    </AppLayout>
   );
 }
