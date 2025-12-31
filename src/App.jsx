@@ -3038,49 +3038,51 @@ export default function CarbotApp() {
   }
 
   // 3. GUARDAR VEHÍCULO (Multi-Tenant)
-  const handleSaveVehicle = async (vehicleData) => {
+const handleSaveVehicle = async (vehicleData) => {
     try {
-      // 1. Validamos el Dealer (Prioridad: Perfil de usuario o Payload)
-      const dealerName = userProfile?.dealerName || vehicleData.dealerName;
+        const dealerName = userProfile?.dealerName || vehicleData.dealerName;
 
-      if (!dealerName) {
-        showToast("Error: No se detectó el nombre del Dealer", "error");
-        console.error("❌ Error Multi-Tenant: Falta dealerName");
-        return;
-      }
+        if (!dealerName) {
+            showToast("Error Multi-Tenant: Falta dealerName", "error");
+            console.error("❌ Error Multi-Tenant: Falta dealerName");
+            return;
+        }
 
-      // 2. Definimos la ruta dinámica: Dealers > {NombreDealer} > Inventario
-      // Nota: El SDK modular usa collection(db, "camino", "a", "subcoleccion")
-      const existingId = vehicleData.id;
+        // 1. OBTENER LOS ÚLTIMOS 4 DEL CHASIS
+        const chasis = vehicleData.vin || vehicleData.chassis || "0000";
+        const ultimos4 = chasis.slice(-4);
 
-      if (existingId) {
-        const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", existingId);
-        const { id: _removedId, ...dataToUpdate } = vehicleData;
-        await updateDoc(vehicleRef, {
-          ...dataToUpdate,
-          updatedAt: new Date().toISOString()
-        });
-        showToast("Vehículo actualizado en tu inventario privado");
-      } else {
-        const newVehicle = {
-          ...vehicleData,
-          dealerId: userProfile?.dealerId || "",
-          dealerName: dealerName,
-          creadoPor: userProfile?.name || "Sistema",
-          createdAt: new Date().toISOString(),
-          status: vehicleData.status || 'available'
+        // 2. CONSTRUIR EL ID (Incluyendo Edición)
+        const idBonito = `${vehicleData.year || '0000'}_${vehicleData.make || 'GENERIC'}_${vehicleData.model || 'MODEL'}_${vehicleData.edition || 'Base'}_${vehicleData.color || 'COLOR'}_${ultimos4}`
+            .replace(/\s+/g, '_') // Quita espacios y pone guiones bajos
+            .toUpperCase();       // Todo mayúsculas
+
+        // 3. GUARDAR (Usamos setDoc para escribir en el ID específico)
+        const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", idBonito);
+
+        const dataToSave = {
+            ...vehicleData,
+            dealerId: userProfile?.dealerId || "",
+            dealerName: dealerName,
+            creadoPor: userProfile?.name || "Sistema",
+            createdAt: vehicleData.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: vehicleData.status || 'available',
+            idPersonalizado: idBonito
         };
-        await addDoc(collection(db, "Dealers", dealerName, "Inventario"), newVehicle);
-        showToast("Vehículo agregado correctamente a tu inventario privado");
-      }
 
-      console.log(`✅ Vehículo guardado en: Dealers/${dealerName}/Inventario`);
+        delete dataToSave.id;
+
+        await setDoc(vehicleRef, dataToSave, { merge: true });
+
+        console.log(`✅ Vehículo guardado en: Dealers/${dealerName}/Inventario/${idBonito}`);
+        showToast(`Vehículo guardado: ${idBonito}`);
 
     } catch (error) {
-      console.error("❌ Error al guardar vehículo:", error);
-      showToast("Hubo un error al guardar.", "error");
+        console.error("❌ Error al guardar vehículo:", error);
+        showToast("Hubo un error al guardar.", "error");
     }
-  };
+};
 
   // 4. SOFT DELETE (Enviar a Papelera)
   const handleDeleteVehicle = async (id) => {
