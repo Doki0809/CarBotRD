@@ -1117,7 +1117,34 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
 };
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
-  const recentContracts = contracts.slice(0, 3);
+  // --- CALCULOS REALES PARA WIDGETS ---
+  const now = new Date();
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // 1. Nuevos este mes (Creados en los últimos 30 días o este mes calendario)
+  const newThisMonth = inventory.filter(v => {
+    if (!v.createdAt) return false;
+    return new Date(v.createdAt) >= firstDayOfMonth;
+  }).length;
+
+  // 2. Vendidos este mes
+  const soldThisMonth = contracts.filter(c => {
+    if (!c.createdAt) return false;
+    return new Date(c.createdAt) >= firstDayOfMonth;
+  }).length;
+
+  // 3. Valor Total / Ganancias (Separado por moneda)
+  const profitDOP = inventory
+    .filter(v => v.status === 'available')
+    .reduce((acc, v) => acc + (Number(v.price_dop) || 0), 0);
+
+  const profitUSD = inventory
+    .filter(v => v.status === 'available')
+    .reduce((acc, v) => acc + (Number(v.price) || 0), 0);
+
+  // Formateadores
+  const fmt = (val) => new Intl.NumberFormat('es-DO').format(val);
+  const fmtM = (val) => (val / 1000000).toFixed(1) + 'M';
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -1162,60 +1189,88 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-red-400/10 rounded-full -ml-24 -mb-24 blur-2xl"></div>
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {[
-          {
-            label: 'Total Inventario',
-            value: inventory.filter(v => v.status === 'available').length,
-            icon: Box,
-            badge: '+12 NUEVOS',
-            badgeColor: 'bg-emerald-50 text-emerald-600',
-            iconColor: 'text-blue-600',
-            iconBg: 'bg-blue-50'
-          },
-          {
-            label: 'Total Vendidos',
-            value: inventory.filter(v => v.status === 'sold').length,
-            icon: DollarSign,
-            badge: 'EN CRECIMIENTO',
-            badgeColor: 'bg-emerald-50 text-emerald-600',
-            iconColor: 'text-emerald-600',
-            iconBg: 'bg-emerald-50'
-          },
-          {
-            label: 'Valor Total',
-            value: `RD$ ${(inventory.filter(v => v.status === 'available').reduce((acc, v) => acc + (v.p_venta || 0), 0) / 1000000).toFixed(1)}M`,
-            icon: TrendingUp,
-            badge: '+5.4% MES',
-            badgeColor: 'bg-orange-50 text-orange-600',
-            iconColor: 'text-orange-600',
-            iconBg: 'bg-orange-50'
-          },
-        ].map((stat, idx) => (
-          <Card key={idx} className="relative overflow-hidden group hover:shadow-xl transition-all duration-500 border-none shadow-sm p-8">
-            <div className="flex flex-col h-full">
-              <div className="flex items-start justify-between mb-8">
-                <div className={`w-14 h-14 rounded-[22px] ${stat.iconBg} flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 shadow-inner`}>
-                  <stat.icon size={26} className={stat.iconColor} />
+      {/* Stats Widgets Section */}
+      <div className="flex flex-col gap-6">
+        {/* Row 1: Small Widgets (Mobile: Side by Side) */}
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-4 sm:gap-6">
+          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+            <div className="flex flex-col h-full relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Box size={20} className="sm:hidden" />
+                  <Box size={26} className="hidden sm:block" />
                 </div>
-                <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm ${stat.badgeColor}`}>
-                  {stat.badge}
+                {newThisMonth > 0 && (
+                  <span className="text-[8px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                    +{newThisMonth} NUEVOS
+                  </span>
+                )}
+              </div>
+              <p className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Inventario</p>
+              <h3 className="text-xl sm:text-4xl font-black text-slate-900 leading-none">
+                {inventory.filter(v => v.status === 'available').length}
+              </h3>
+            </div>
+            <Box className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.03] w-24 h-24 group-hover:scale-110 transition-transform duration-700" />
+          </Card>
+
+          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+            <div className="flex flex-col h-full relative z-10">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-emerald-50 flex items-center justify-center text-emerald-600">
+                  <DollarSign size={20} className="sm:hidden" />
+                  <DollarSign size={26} className="hidden sm:block" />
+                </div>
+                <span className="text-[8px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                  {soldThisMonth > 0 ? 'EN CRECIMIENTO' : 'ACTIVO'}
                 </span>
               </div>
+              <p className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Vendidos</p>
+              <h3 className="text-xl sm:text-4xl font-black text-slate-900 leading-none">
+                {inventory.filter(v => v.status === 'sold').length}
+              </h3>
+            </div>
+            <DollarSign className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.03] w-24 h-24 group-hover:scale-110 transition-transform duration-700" />
+          </Card>
+        </div>
 
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
-                <h4 className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</h4>
+        {/* Row 2: Large Widget (Full Width) */}
+        <Card className="p-6 sm:p-10 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group relative">
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-[24px] bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner">
+                  <TrendingUp size={28} />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Valor Total Inventario</p>
+                  <h3 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">Cifras Globales</h3>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-2xl text-[10px] font-black uppercase tracking-widest">
+                <TrendingUp size={14} /> +5.4% ESTE MES
               </div>
             </div>
 
-            {/* Subtle card background pattern */}
-            <div className="absolute bottom-0 right-0 opacity-[0.03] scale-150 rotate-12 pointer-events-none transition-transform duration-700 group-hover:scale-[1.7] group-hover:rotate-6">
-              <stat.icon size={120} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-slate-50">
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">En Pesos Dominicanos</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl sm:text-3xl font-black text-slate-900">RD$ {fmtM(profitDOP)}</span>
+                  <span className="text-[10px] font-bold text-slate-400">({fmt(profitDOP)})</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">En Dólares USD</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl sm:text-3xl font-black text-red-600">US$ {fmtM(profitUSD)}</span>
+                  <span className="text-[10px] font-bold text-slate-400">(${fmt(profitUSD)})</span>
+                </div>
+              </div>
             </div>
-          </Card>
-        ))}
+          </div>
+          <TrendingUp className="absolute -right-8 -bottom-8 text-slate-50 opacity-[0.03] w-48 h-48 group-hover:scale-105 transition-transform duration-1000" />
+        </Card>
       </div>
 
       {/* Bottom Section: Recent Contracts & Activity */}
