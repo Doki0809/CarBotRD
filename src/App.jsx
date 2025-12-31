@@ -240,6 +240,74 @@ const PromptModal = ({ isOpen, onClose, onConfirm, title, message, defaultValue 
   );
 };
 
+const WelcomeModal = ({ isOpen, onConfirm, dealerName }) => {
+  const [name, setName] = useState('');
+  const [position, setPosition] = useState('');
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md transition-all duration-500">
+      <div className="w-full max-w-md animate-in zoom-in-95 duration-500">
+        <Card className="rounded-[40px] p-10 border-none shadow-2xl overflow-hidden relative bg-white">
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="w-20 h-20 rounded-3xl bg-red-600 flex items-center justify-center mb-8 shadow-xl shadow-red-600/20 rotate-3 hover:rotate-0 transition-transform duration-300">
+              <AppLogo size={48} className="brightness-0 invert" />
+            </div>
+
+            <div className="text-center mb-10">
+              <h2 className="text-sm font-black text-red-600 uppercase tracking-[0.2em] mb-3">Primer Acceso</h2>
+              <h1 className="text-3xl font-black text-slate-900 leading-tight uppercase tracking-tighter">
+                ¡Hola, Bienvenido al <br /> CarBot System para <span className="text-red-600">{dealerName || 'tu Dealer'}</span>!
+              </h1>
+              <p className="text-sm font-bold text-slate-400 mt-4 leading-relaxed">
+                Completa tu perfil profesional para empezar a gestionar tu inventario y contratos.
+              </p>
+            </div>
+
+            <div className="w-full space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Nombre Completo</label>
+                <input
+                  type="text"
+                  autoFocus
+                  className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 placeholder:text-slate-300"
+                  placeholder="Ej. Juan Pérez"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Puesto de Trabajo</label>
+                <input
+                  type="text"
+                  className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 placeholder:text-slate-300"
+                  placeholder="Ej. Gerente de Ventas"
+                  value={position}
+                  onChange={(e) => setPosition(e.target.value)}
+                />
+              </div>
+
+              <button
+                onClick={() => name.trim() && position.trim() && onConfirm(name, position)}
+                disabled={!name.trim() || !position.trim()}
+                className="w-full mt-4 py-5 rounded-[24px] text-xs font-black bg-red-600 text-white uppercase tracking-[0.2em] shadow-xl shadow-red-600/20 hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Comenzar Ahora
+              </button>
+            </div>
+          </div>
+
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600/5 rounded-full -ml-32 -mb-32 blur-3xl"></div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   if (!isOpen) return null;
   return (
@@ -1203,40 +1271,133 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 
 
-const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
+const TrashView = ({ trashInventory, trashDocuments, onRestore, onPermanentDelete, onEmptyTrash }) => {
+  const [currentTab, setCurrentTab] = useState('vehicles'); // 'vehicles' | 'documents'
+  const [showExpiring, setShowExpiring] = useState(false);
+
+  const filterByExpiration = (items) => {
+    if (!showExpiring) return items;
+    return items.filter(item => {
+      const deleteDate = new Date(item.deletedAt);
+      const diffDays = (new Date().getTime() - deleteDate.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays > 12; // Proximos a eliminar (>12 dias)
+    });
+  };
+
+  const activeItems = currentTab === 'vehicles' ? filterByExpiration(trashInventory) : filterByExpiration(trashDocuments);
+
+  const getDaysRemaining = (deletedAt) => {
+    if (!deletedAt) return 15;
+    const diff = new Date().getTime() - new Date(deletedAt).getTime();
+    const remaining = Math.max(0, 15 - Math.floor(diff / (1000 * 60 * 60 * 24)));
+    return remaining;
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1><p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p></div>
-        {trash.length > 0 && (
-          <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none">Vaciar Papelera</Button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">PAPELERA SEGURA</h1>
+          <p className="text-slate-500 text-sm font-bold mt-1">Gestión de ítems eliminados temporalmente (15 días de gracia).</p>
+        </div>
+        {(trashInventory.length > 0 || trashDocuments.length > 0) && (
+          <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-50 text-red-600 hover:bg-red-100 border-none shadow-none text-xs font-black uppercase tracking-widest px-6">
+            Vaciar Todo
+          </Button>
         )}
       </div>
 
-      {trash.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
-          <Trash2 size={48} className="mb-4 text-slate-300" /><p className="text-lg font-medium">La papelera está vacía.</p>
+      {/* Tabs and Filters */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex w-full sm:w-auto p-1 bg-slate-50 rounded-xl">
+          <button
+            onClick={() => setCurrentTab('vehicles')}
+            className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${currentTab === 'vehicles' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Vehículos ({trashInventory.length})
+          </button>
+          <button
+            onClick={() => setCurrentTab('documents')}
+            className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${currentTab === 'documents' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Documentos ({trashDocuments.length})
+          </button>
+        </div>
+
+        <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
+
+        <button
+          onClick={() => setShowExpiring(!showExpiring)}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${showExpiring ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+        >
+          {showExpiring ? 'Viendo: Próximos a eliminar' : 'Ver Próximos a eliminar'}
+        </button>
+      </div>
+
+      {activeItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-slate-300 bg-white rounded-[32px] border-2 border-dashed border-slate-100 grayscale opacity-60">
+          <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-6">
+            <Trash2 size={40} />
+          </div>
+          <p className="text-xl font-black uppercase tracking-widest">Sección Vacía</p>
+          <p className="text-sm font-bold mt-2">No hay elementos {showExpiring ? 'próximos a caducar' : ''} en esta categoría.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {trash.map(item => (
-            <div key={item.id} className="relative group opacity-80 hover:opacity-100 transition-opacity">
-              <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30">
-                <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
-                  <img src={item.image} alt={item.model} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-red-900/10 mix-blend-multiply"></div>
-                </div>
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
-                  <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
-                  <div className="mt-auto grid grid-cols-2 gap-3">
-                    <Button variant="secondary" onClick={() => onRestore(item.id)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1"><Undo size={14} /> RESTAURAR</Button>
-                    <Button variant="secondary" onClick={() => onPermanentDelete(item.id)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1"><X size={14} /> BORRAR</Button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {activeItems.map(item => {
+            const daysLeft = getDaysRemaining(item.deletedAt);
+            const isExpiring = daysLeft <= 3;
+
+            return (
+              <div key={item.id} className="relative group animate-in zoom-in-95 duration-300">
+                <Card noPadding className={`flex flex-col h-full overflow-hidden border-none shadow-xl transition-all hover:scale-[1.02] ${isExpiring ? 'ring-2 ring-amber-400/50' : ''}`}>
+                  {/* Visual Header */}
+                  <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
+                    {currentTab === 'vehicles' ? (
+                      <img src={item.image} alt={item.model} className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-200/50">
+                        <FileText size={48} className="text-slate-300" />
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-4">
+                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border backdrop-blur-md ${isExpiring ? 'bg-amber-500 text-white border-amber-400' : 'bg-white/80 text-slate-600 border-white'}`}>
+                        {daysLeft} días restantes
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            </div>
-          ))}
+
+                  {/* Body */}
+                  <div className="p-6 flex flex-col flex-1 bg-white">
+                    <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1 truncate">
+                      {currentTab === 'vehicles' ? `${item.make} ${item.model}` : (item.name ? `${item.name} ${item.lastname}` : 'Documento Sin Nombre')}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-6">
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Desconocido'}
+                      </p>
+                    </div>
+
+                    <div className="mt-auto grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => onRestore(item.id, currentTab === 'vehicles' ? 'vehicle' : (item.vehicleId ? 'contract' : 'quote'))}
+                        className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-green-50 text-green-600 hover:bg-green-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Undo size={14} /> Restaurar
+                      </button>
+                      <button
+                        onClick={() => onPermanentDelete(item.id, currentTab === 'vehicles' ? 'vehicle' : (item.vehicleId ? 'contract' : 'quote'))}
+                        className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-600 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <X size={14} /> Borrar
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1385,15 +1546,23 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
               <div className="space-y-1 sm:space-y-2">
                 <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">En Pesos Dominicanos</p>
                 <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2">
-                  <span className="text-xl sm:text-3xl font-black text-slate-900">RD$ {fmtM(profitDOP)}</span>
-                  <span className="text-[10px] font-bold text-slate-400">({fmt(profitDOP)})</span>
+                  <span className="text-xl sm:text-3xl font-black text-slate-900">
+                    RD$ {profitDOP >= 1000000 ? fmtM(profitDOP) : fmt(profitDOP)}
+                  </span>
+                  {profitDOP >= 1000000 && (
+                    <span className="text-[10px] font-bold text-slate-400">({fmt(profitDOP)})</span>
+                  )}
                 </div>
               </div>
               <div className="space-y-1 sm:space-y-2">
                 <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">En Dólares USD</p>
                 <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2">
-                  <span className="text-xl sm:text-3xl font-black text-red-600">US$ {fmtM(profitUSD)}</span>
-                  <span className="text-[10px] font-bold text-slate-400">(${fmt(profitUSD)})</span>
+                  <span className="text-xl sm:text-3xl font-black text-red-600">
+                    US$ {profitUSD >= 1000000 ? fmtM(profitUSD) : fmt(profitUSD)}
+                  </span>
+                  {profitUSD >= 1000000 && (
+                    <span className="text-[10px] font-bold text-slate-400">(${fmt(profitUSD)})</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -2510,6 +2679,21 @@ export default function CarbotApp() {
   const [user, setUser] = useState(null); // Firebase User
   const [initializing, setInitializing] = useState(true);
 
+  // --- Onboarding Dialog State ---
+  const [onboardingDialog, setOnboardingDialog] = useState({
+    isOpen: false,
+    dealerName: '',
+    onConfirm: () => { }
+  });
+
+  const showOnboarding = (dealerName, onConfirm) => {
+    setOnboardingDialog({
+      isOpen: true,
+      dealerName,
+      onConfirm
+    });
+  };
+
   // --- Confirm Dialog State (Hoisted for Stability) ---
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -2671,33 +2855,21 @@ export default function CarbotApp() {
         // USUARIO NUEVO
         if (!isGHL || (isGHL && realEmployeeName === userId)) {
           setInitializing(false);
-          showPrompt({
-            title: '¡Bienvenido a CarBot!',
-            message: 'Por favor dinos tu nombre para personalizar tu experiencia.',
-            placeholder: 'Tu nombre completo',
-            defaultValue: realEmployeeName !== userId ? realEmployeeName : '',
-            onConfirm: (finalName) => {
-              showPrompt({
-                title: 'Nombre de tu Dealer',
-                message: '¿Bajo qué nombre comercial trabajas?',
-                placeholder: 'Nombre del Dealer / Almacén',
-                defaultValue: realDealerName,
-                onConfirm: async (finalDealer) => {
-                  const newProfile = {
-                    email: userId,
-                    name: finalName,
-                    dealerId: isGHL ? dealerId : "",
-                    dealerName: finalDealer,
-                    role: 'sales',
-                    createdAt: new Date().toISOString()
-                  };
-                  await setDoc(userDocRef, newProfile);
-                  setUserProfile(newProfile);
-                  setIsLoggedIn(true);
-                  showToast("¡Perfil creado con éxito!");
-                }
-              });
-            }
+          showOnboarding(realDealerName, async (finalName, finalPosition) => {
+            const newProfile = {
+              email: userId,
+              name: finalName,
+              position: finalPosition,
+              dealerId: isGHL ? dealerId : "",
+              dealerName: realDealerName,
+              role: 'sales',
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(userDocRef, newProfile);
+            setUserProfile(newProfile);
+            setIsLoggedIn(true);
+            showToast(`¡Bienvenido ${finalName}!`);
+            setOnboardingDialog(prev => ({ ...prev, isOpen: false }));
           });
           return;
         }
@@ -2778,8 +2950,14 @@ export default function CarbotApp() {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setInventory(data);
 
-      // AUTO-LIMPIEZA: Revisar ítems en basura viejos (>15 días)
-      const now = new Date();
+      // AUTO-LIMPIEZA PRO: Revisar ítems en basura viejos (>15 días) de todas las colecciones
+      const collectionsToClean = ['vehicles', 'contracts', 'quotes'];
+      collectionsToClean.forEach(async (collName) => {
+        const q = query(collection(db, collName), where("dealerId", "==", currentDealerId), where("status", "==", "trash"));
+        const snap = await getDoc(doc(db, collName, "dummy")).then(() => { }); // Dummy to wake up
+        // Note: Better to do this in the snapshots or a dedicated effect to avoid loops
+      });
+
       data.forEach(async (v) => {
         if (v.status === 'trash' && v.deletedAt) {
           const deleteDate = new Date(v.deletedAt);
@@ -2787,7 +2965,7 @@ export default function CarbotApp() {
           if (diffDays > 15) {
             try {
               await deleteDoc(doc(db, "vehicles", v.id));
-              console.log(`Auto-eliminado vehículo trash ${v.id} (>15 días)`);
+              console.log(`Auto-eliminado ${v.id} (>15 días)`);
             } catch (e) { console.error("Error auto-limpieza", e); }
           }
         }
@@ -2803,6 +2981,15 @@ export default function CarbotApp() {
     const unsubscribeContracts = onSnapshot(qContracts, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setContracts(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+
+      // Auto-limpieza de contratos en papelera
+      const now = new Date();
+      data.forEach(async (c) => {
+        if (c.status === 'trash' && c.deletedAt) {
+          const diffDays = (now.getTime() - new Date(c.deletedAt).getTime()) / (1000 * 60 * 60 * 24);
+          if (diffDays > 15) await deleteDoc(doc(db, "contracts", c.id));
+        }
+      });
     });
 
     // 3. Cargar SOLO mis Cotizaciones
@@ -2814,6 +3001,15 @@ export default function CarbotApp() {
     const unsubscribeQuotes = onSnapshot(qQuotes, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setQuotes(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+
+      // Auto-limpieza de cotizaciones en papelera
+      const now = new Date();
+      data.forEach(async (q) => {
+        if (q.status === 'trash' && q.deletedAt) {
+          const diffDays = (now.getTime() - new Date(q.deletedAt).getTime()) / (1000 * 60 * 60 * 24);
+          if (diffDays > 15) await deleteDoc(doc(db, "quotes", q.id));
+        }
+      });
     });
 
     return () => {
@@ -2889,29 +3085,32 @@ export default function CarbotApp() {
     }
   };
 
-  const handleRestoreVehicle = async (id) => {
+  const handleRestore = async (id, type) => {
     try {
-      const vehicleRef = doc(db, "vehicles", id);
-      await updateDoc(vehicleRef, {
-        status: 'available',
-        deletedAt: null
+      const coll = type === 'vehicle' ? 'vehicles' : (type === 'contract' ? 'contracts' : 'quotes');
+      const docRef = doc(db, coll, id);
+      await updateDoc(docRef, {
+        status: type === 'vehicle' ? 'available' : 'active',
+        deletedAt: null,
+        updatedAt: new Date().toISOString()
       });
-      showToast("Vehículo restaurado al inventario");
-    } catch (e) {
-      console.error("Error al restaurar:", e);
+      showToast(`${type === 'vehicle' ? 'Vehículo' : 'Documento'} restaurado con éxito`);
+    } catch (error) {
+      console.error("Error al restaurar:", error);
       showToast("Error al restaurar", "error");
     }
   };
 
-  const handlePermanentDelete = async (id) => {
+  const handlePermanentDelete = async (id, type) => {
     showConfirm({
-      title: 'Eliminar para Siempre',
-      message: '¿ESTAS SEGURO? Esto eliminará el vehículo PARA SIEMPRE. No se puede deshacer.',
+      title: 'Borrado Definitivo',
+      message: '¿Estás completamente seguro? Esta acción borrará el dato para siempre.',
       isDestructive: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, "vehicles", id));
-          showToast("Vehículo eliminado permanentemente");
+          const coll = type === 'vehicle' ? 'vehicles' : (type === 'contract' ? 'contracts' : 'quotes');
+          await deleteDoc(doc(db, coll, id));
+          showToast("Eliminado para siempre");
         } catch (error) {
           console.error("Error al eliminar:", error);
           showToast("Error al eliminar", "error");
@@ -2923,14 +3122,27 @@ export default function CarbotApp() {
   const handleEmptyTrash = async () => {
     showConfirm({
       title: 'Vaciar Papelera',
-      message: '¿Vaciar TODA la papelera? Se perderán todos los datos definitivamente.',
+      message: 'Esto eliminará TODO el contenido de la papelera permanentemente.',
       isDestructive: true,
       onConfirm: async () => {
-        const trashItems = inventory.filter(i => i.status === 'trash');
-        for (const item of trashItems) {
-          await deleteDoc(doc(db, "vehicles", item.id));
+        try {
+          // Vaciar vehículos
+          const trashV = inventory.filter(i => i.status === 'trash');
+          for (const item of trashV) await deleteDoc(doc(db, "vehicles", item.id));
+
+          // Vaciar contratos
+          const trashC = contracts.filter(i => i && i.status === 'trash');
+          for (const item of trashC) await deleteDoc(doc(db, "contracts", item.id));
+
+          // Vaciar cotizaciones
+          const trashQ = quotes.filter(i => i && i.status === 'trash');
+          for (const item of trashQ) await deleteDoc(doc(db, "quotes", item.id));
+
+          showToast("Papelera vaciada por completo");
+        } catch (err) {
+          console.error(err);
+          showToast("Error al vaciar", "error");
         }
-        showToast("Papelera vaciada");
       }
     });
   };
@@ -3001,24 +3213,20 @@ export default function CarbotApp() {
   };
 
   const handleDeleteContract = async (id) => {
-    try {
-      await deleteDoc(doc(db, "contracts", id));
-      showToast("Contrato eliminado permanentemente");
-    } catch (error) {
-    }
+    await updateDoc(doc(db, "contracts", id), {
+      status: 'trash',
+      deletedAt: new Date().toISOString()
+    });
+    showToast("Contrato movido a la papelera (15 días)");
   };
 
   const handleDeleteQuote = async (id) => {
-    try {
-      await deleteDoc(doc(db, "quotes", id));
-      showToast("Cotización eliminada");
-    } catch (error) {
-      console.error("Error al eliminar cotización:", error);
-      showToast("Error al eliminar", "error");
-    }
+    await updateDoc(doc(db, "quotes", id), {
+      status: 'trash',
+      deletedAt: new Date().toISOString()
+    });
+    showToast("Cotización movida a la papelera (15 días)");
   };
-
-
 
   const handleVehicleSelect = (vehicle) => {
     setSelectedVehicle(vehicle);
@@ -3029,15 +3237,6 @@ export default function CarbotApp() {
     setActiveTab(tab);
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
-
-
-
-
-
-
-  // Filtros Globales
-  const activeInventory = (inventory || []).filter(i => i && i.status !== 'trash');
-  const trashInventory = (inventory || []).filter(i => i && i.status === 'trash');
 
   const handleUpdateProfile = async (data) => {
     try {
@@ -3067,13 +3266,22 @@ export default function CarbotApp() {
         />
       );
     }
+
+    // Filtros Globales
+    const activeInventory = (inventory || []).filter(i => i && i.status !== 'trash');
+    const trashInventory = (inventory || []).filter(v => v && v.status === 'trash');
+    const trashDocuments = [
+      ...(contracts || []).filter(c => c && c.status === 'trash').map(c => ({ ...c, type: 'contract' })),
+      ...(quotes || []).filter(q => q && q.status === 'trash').map(q => ({ ...q, type: 'quote' }))
+    ];
+
     switch (activeTab) {
-      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
+      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />;
+      case 'contracts': return <ContractsView contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={(quotes || []).filter(q => q && q.status !== 'trash')} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />;
       case 'settings': return <SettingsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />;
-      case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
-      default: return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
+      case 'trash': return <TrashView trashInventory={trashInventory} trashDocuments={trashDocuments} onRestore={handleRestore} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
+      default: return <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
   };
 
@@ -3105,6 +3313,11 @@ export default function CarbotApp() {
         message={promptDialog.message}
         defaultValue={promptDialog.defaultValue}
         placeholder={promptDialog.placeholder}
+      />
+      <WelcomeModal
+        isOpen={onboardingDialog.isOpen}
+        dealerName={onboardingDialog.dealerName}
+        onConfirm={onboardingDialog.onConfirm}
       />
       {toast && (
         <Toast
