@@ -336,7 +336,7 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   );
 };
 
-const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
+const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile }) => { // Recibe userProfile
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [photos, setPhotos] = useState([]); // { url, file, isExisting }
@@ -373,7 +373,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
 
     if (files.length > 0) {
       const newItems = files.map(file => ({
-        url: URL.createObjectURL(file),
+        url: URL.createObjectURL(file), // Preview local
         file: file,
         isExisting: false
       }));
@@ -388,15 +388,18 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Ya no es obligatorio tener fotos
-    const hasPhotos = photos.length > 0;
+    const dealerName = userProfile?.dealerName;
+    if (!dealerName) {
+      alert("Error: No se pudo identificar el Dealer para subir las fotos.");
+      return;
+    }
 
     setLoading(true);
 
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
-    // Convertir números
+    // Convertir números y precios
     const priceValue = Number(data.price_unified);
     if (currency === 'USD') {
       data.price = priceValue;
@@ -415,9 +418,10 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       const filesToUpload = photos.filter(p => !p.isExisting && p.file);
       const existingUrls = photos.filter(p => p.isExisting).map(p => p.url);
 
+      // Conservar las existentes
       uploadedUrls = [...existingUrls];
 
-      // SUBIR ARCHIVOS NUEVOS
+      // SUBIR ARCHIVOS NUEVOS A FIRBASE STORAGE
       if (filesToUpload.length > 0) {
         setUploadProgress(`Preparando ${filesToUpload.length} imágenes...`);
 
@@ -426,15 +430,21 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
           setUploadProgress(`Subiendo foto ${i + 1} de ${filesToUpload.length}...`);
 
           try {
-            // Sanitizar nombre de archivo: solo letras, números y puntos
+            // Sanitizar nombre
             const cleanName = (item.file.name || 'image.jpg').replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase();
-            const storagePath = `vehicles/${Date.now()}_${cleanName}`;
+
+            // RUTA CORRECTA: Dealers/{dealerName}/Vehicles/{nombre_archivo}
+            // Usamos Date.now() para evitar colisiones si suben el mismo archivo 2 veces
+            const storagePath = `Dealers/${dealerName}/Vehicles/${Date.now()}_${cleanName}`;
+
             const storageRef = ref(storage, storagePath);
 
-            // Timeout de 30 segundos por imagen
+            // Subir
             const uploadTask = uploadBytes(storageRef, item.file);
+
+            // Timeout safety
             const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('TIMEOUT')), 30000)
+              setTimeout(() => reject(new Error('TIMEOUT')), 45000) // 45s timeout
             );
 
             const snapshot = await Promise.race([uploadTask, timeoutPromise]);
@@ -446,16 +456,17 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
           } catch (err) {
             console.error(`Error al subir la imagen ${i + 1}:`, err);
             const errorMsg = err.message === 'TIMEOUT' ? 'Tiempo de espera excedido' : 'Error de conexión';
-            setUploadProgress(`⚠️ Error en foto ${i + 1}: ${errorMsg}. Continuando...`);
-            // Esperar un momento para que el usuario vea el error
-            await new Promise(r => setTimeout(r, 2000));
+            setUploadProgress(`⚠️ Error en foto ${i + 1}: ${errorMsg}.`);
+            await new Promise(r => setTimeout(r, 1500));
           }
         }
         setUploadProgress('¡Carga finalizada!');
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 500));
       }
 
+      // Asignar URLs al objeto data
       data.images = uploadedUrls;
+      // La primera imagen es la portada
       data.image = uploadedUrls[0] || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
       delete data.image_url_hidden;
 
@@ -463,7 +474,9 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
         data.id = initialData.id;
       }
 
+      // Guardar en Firestore (usa la funcion handleSaveVehicle que ya tiene la logica del ID)
       await onSave(data);
+
       setLoading(false);
       setUploadProgress('');
       onClose();
@@ -471,7 +484,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       console.error("Error crítico al guardar:", error);
       showConfirm({
         title: 'Error de Guardado',
-        message: 'Error al procesar el guardado. Revisa tu conexión.',
+        message: 'Error al procesar. Intenta nuevamente.',
         showCancel: false,
         confirmText: 'Cerrar'
       });
@@ -1979,7 +1992,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
         </div>
       </div>
 
-      <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} />
+      <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />
       <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
       <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} />
       <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} />
