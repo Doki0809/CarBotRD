@@ -2037,8 +2037,8 @@ const LoginScreen = ({ onLogin }) => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
       <Card className="max-w-md w-full p-8 sm:p-10 border-none shadow-2xl">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-red-600 shadow-xl shadow-red-600/20 mb-6 group transition-transform hover:scale-105 duration-500">
-            <AppLogo size={100} className="brightness-0 invert opacity-95 group-hover:scale-110 transition-transform" />
+          <div className="inline-flex items-center justify-center mb-6 group transition-transform hover:scale-105 duration-500">
+            <AppLogo size={100} className="group-hover:scale-110 transition-transform" />
           </div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">CarBot <span className="text-red-600">System</span></h1>
           <p className="text-slate-500 mt-2 font-medium">Gestión inteligente de inventario</p>
@@ -2107,8 +2107,8 @@ const LoginScreen = ({ onLogin }) => {
         </form>
 
         <p className="text-center mt-10 text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-loose">
-          Reservado para <span className="text-red-600 opacity-80">CarBot Dealers</span><br />
-          v2.5.0 • © 2024
+          RESERVADO PARA <span className="text-red-600 opacity-80">CARBOT RD</span><br />
+          V2.5.0 • © 2025
         </p>
       </Card>
     </div>
