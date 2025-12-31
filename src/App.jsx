@@ -1148,7 +1148,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const fmtM = (val) => (val / 1000000).toFixed(1) + 'M';
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
       {/* Hero Banner Section */}
       <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-red-600 to-red-700 p-8 sm:p-12 shadow-2xl shadow-red-600/20 mb-8 border border-red-500/50">
@@ -1193,59 +1193,60 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       {/* Stats Widgets Section */}
       <div className="flex flex-col gap-6">
         {/* Row 1: Small Widgets (Mobile: Side by Side) */}
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-4 sm:gap-6">
-          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
             <div className="flex flex-col h-full relative z-10">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm">
                   <Box size={20} className="sm:hidden" />
                   <Box size={26} className="hidden sm:block" />
                 </div>
                 {newThisMonth > 0 && (
-                  <span className="text-[8px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                    +{newThisMonth} NUEVOS
+                  <span className="text-[9px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+                    +{newThisMonth}
                   </span>
                 )}
               </div>
-              <p className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Inventario</p>
-              <h3 className="text-xl sm:text-4xl font-black text-slate-900 leading-none">
+              <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Inventario</p>
+              <h3 className="text-2xl sm:text-4xl font-black text-slate-900 leading-none">
                 {inventory.filter(v => v.status === 'available').length}
               </h3>
             </div>
-            <Box className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.03] w-24 h-24 group-hover:scale-110 transition-transform duration-700" />
+            <Box className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.05] w-20 h-20 group-hover:scale-110 transition-transform duration-700" />
           </Card>
 
-          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
             <div className="flex flex-col h-full relative z-10">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-emerald-50 flex items-center justify-center text-emerald-600">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm">
                   <DollarSign size={20} className="sm:hidden" />
                   <DollarSign size={26} className="hidden sm:block" />
                 </div>
-                <span className="text-[8px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                  {soldThisMonth > 0 ? 'EN CRECIMIENTO' : 'ACTIVO'}
+                <span className="text-[9px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+                  {soldThisMonth > 0 ? 'SUBIENDO' : 'OK'}
                 </span>
               </div>
-              <p className="text-[8px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Vendidos</p>
-              <h3 className="text-xl sm:text-4xl font-black text-slate-900 leading-none">
+              <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Vendidos</p>
+              <h3 className="text-2xl sm:text-4xl font-black text-slate-900 leading-none">
                 {inventory.filter(v => v.status === 'sold').length}
               </h3>
             </div>
-            <DollarSign className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.03] w-24 h-24 group-hover:scale-110 transition-transform duration-700" />
+            <DollarSign className="absolute -right-4 -bottom-4 text-slate-50 opacity-[0.05] w-20 h-20 group-hover:scale-110 transition-transform duration-700" />
           </Card>
         </div>
 
         {/* Row 2: Large Widget (Full Width) */}
-        <Card className="p-6 sm:p-10 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group relative">
+        <Card className="p-5 sm:p-10 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group relative bg-white">
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-[24px] bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner">
-                  <TrendingUp size={28} />
+            <div className="flex items-center justify-between mb-4 sm:mb-8">
+              <div className="flex items-center gap-3 sm:gap-5">
+                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[24px] bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner">
+                  <TrendingUp size={22} className="sm:hidden" />
+                  <TrendingUp size={30} className="hidden sm:block" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Valor Total Inventario</p>
-                  <h3 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">Cifras Globales</h3>
+                  <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">Valor Total</p>
+                  <h3 className="text-xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">Cifras Globales</h3>
                 </div>
               </div>
               <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-2xl text-[10px] font-black uppercase tracking-widest">
@@ -1253,24 +1254,24 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-slate-50">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">En Pesos Dominicanos</p>
-                <div className="flex items-baseline gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-10 pt-5 sm:pt-8 border-t border-slate-50">
+              <div className="space-y-1 sm:space-y-2">
+                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">En Pesos Dominicanos</p>
+                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2">
                   <span className="text-xl sm:text-3xl font-black text-slate-900">RD$ {fmtM(profitDOP)}</span>
                   <span className="text-[10px] font-bold text-slate-400">({fmt(profitDOP)})</span>
                 </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">En Dólares USD</p>
-                <div className="flex items-baseline gap-2">
+              <div className="space-y-1 sm:space-y-2">
+                <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">En Dólares USD</p>
+                <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2">
                   <span className="text-xl sm:text-3xl font-black text-red-600">US$ {fmtM(profitUSD)}</span>
                   <span className="text-[10px] font-bold text-slate-400">(${fmt(profitUSD)})</span>
                 </div>
               </div>
             </div>
           </div>
-          <TrendingUp className="absolute -right-8 -bottom-8 text-slate-50 opacity-[0.03] w-48 h-48 group-hover:scale-105 transition-transform duration-1000" />
+          <TrendingUp className="absolute -right-8 -bottom-8 text-slate-50 opacity-[0.05] w-40 h-40 group-hover:scale-110 transition-transform duration-1000" />
         </Card>
       </div>
 
