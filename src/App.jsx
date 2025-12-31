@@ -24,7 +24,7 @@ import {
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
-  CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
+  CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
   Box, AlertTriangle, TrendingUp, History, Bell, Calendar
 } from 'lucide-react';
 
@@ -1074,95 +1074,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 // --- VISTAS PRINCIPALES ---
 
-const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast }) => {
-  const [editingName, setEditingName] = useState(false);
-  const [newName, setNewName] = useState(userProfile?.name || '');
 
-  const handleUpdateName = async () => {
-    if (!newName.trim()) return;
-    try {
-      await onUpdateProfile({ ...userProfile, name: newName.trim() });
-      setEditingName(false);
-      showToast("Nombre actualizado correctamente");
-    } catch (e) {
-      showToast("Error al actualizar nombre", "error");
-    }
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white">Ajustes</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Gestiona tu perfil y preferencias del sistema.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Profile Card */}
-        <Card className="dark:bg-slate-900 dark:border-slate-800">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 text-2xl font-black">
-              {userProfile?.name?.charAt(0) || 'U'}
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Información Personal</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{userProfile?.role === 'admin' ? 'Administrador' : 'Vendedor'}</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tu Nombre</label>
-              {editingName ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                  />
-                  <Button onClick={handleUpdateName} className="px-4 py-2">Guardar</Button>
-                  <Button variant="ghost" onClick={() => setEditingName(false)}>Cancelar</Button>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{userProfile?.name}</span>
-                  <button onClick={() => setEditingName(true)} className="text-red-600 hover:text-red-700 p-1">
-                    <Edit size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dealer</label>
-              <div className="p-3 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 opacity-70">
-                <span className="font-bold text-slate-600 dark:text-slate-400">{userProfile?.dealerName || 'No asignado'}</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Account Card */}
-        <Card>
-          <h3 className="text-lg font-bold text-slate-900 mb-6">Cuenta</h3>
-
-          <div className="space-y-6">
-
-            <Button
-              variant="danger"
-              onClick={onLogout}
-              className="w-full py-4 border-red-200 text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center justify-center gap-2 font-black uppercase tracking-widest text-xs"
-            >
-              <LogOut size={18} /> Cerrar Sesión
-            </Button>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-};
 
 const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
   return (
@@ -1920,7 +1832,6 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventario', icon: Box },
     { id: 'contracts', label: 'Contratos', icon: FileText },
-    { id: 'settings', label: 'Ajustes', icon: Settings },
   ];
 
   return (
@@ -1939,14 +1850,14 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
           </div>
 
           {/* Center: Main Nav Items (Hidden on Mobile) */}
-          <nav className="hidden sm:flex items-center gap-1 bg-slate-50 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-100 dark:border-slate-700">
+          <nav className="hidden sm:flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
             {menuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all duration-300 ${activeTab === item.id
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white'
                   }`}
               >
                 <item.icon size={18} />
@@ -1979,23 +1890,22 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             </button>
 
             {/* User Profile Info */}
-            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-black text-slate-900 dark:text-white leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
+                <p className="text-sm font-black text-slate-900 leading-tight">{userProfile?.name?.split(' ')[0] || 'Jean C.'}</p>
                 <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">{userProfile?.dealerName || 'Almacén'}</p>
               </div>
               <div
-                onClick={() => setActiveTab('settings')}
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 dark:from-red-900 dark:to-red-800 flex items-center justify-center text-red-600 dark:text-red-100 text-xs sm:text-base font-black border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-red-100 dark:ring-red-900/30 cursor-pointer hover:scale-105 transition-transform"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100"
               >
                 {userProfile?.name?.charAt(0) || 'J'}
               </div>
               <button
-                onClick={() => setActiveTab('settings')}
-                className={`p-1 sm:p-2 transition-colors ${activeTab === 'settings' ? 'text-red-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white'}`}
-                title="Ajustes"
+                onClick={onLogout}
+                className="p-1 sm:p-2 text-slate-300 hover:text-red-600 transition-colors"
+                title="Cerrar Sesión"
               >
-                <Settings size={18} className="sm:w-[20px] sm:h-[20px]" />
+                <LogOut size={18} className="sm:w-[20px] sm:h-[20px]" />
               </button>
             </div>
           </div>
@@ -2056,25 +1966,25 @@ const LoginScreen = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
-      <Card className="max-w-md w-full p-8 sm:p-10 border-none shadow-2xl dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
+      <Card className="max-w-md w-full p-8 sm:p-10 border-none shadow-2xl">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-red-600 shadow-xl shadow-red-600/20 mb-6 group transition-transform hover:scale-105 duration-500">
             <AppLogo size={100} className="brightness-0 invert opacity-95 group-hover:scale-110 transition-transform" />
           </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">CarBot <span className="text-red-600">Pro</span></h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Gestión inteligente de inventario</p>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">CarBot <span className="text-red-600">Pro</span></h1>
+          <p className="text-slate-500 mt-2 font-medium">Gestión inteligente de inventario</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Correo Electrónico</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Correo Electrónico</label>
             <div className="relative group">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors" size={18} />
               <input
                 type="email"
                 required
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 dark:text-white"
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900"
                 placeholder="tu@correo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -2083,13 +1993,13 @@ const LoginScreen = ({ onLogin }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Contraseña</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Contraseña</label>
             <div className="relative group">
               <LogOut className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors rotate-90" size={18} />
               <input
                 type="password"
                 required
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 dark:text-white"
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -2098,7 +2008,7 @@ const LoginScreen = ({ onLogin }) => {
           </div>
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake">
+            <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake">
               <AlertTriangle size={16} /> {error}
             </div>
           )}
@@ -2113,7 +2023,7 @@ const LoginScreen = ({ onLogin }) => {
           </Button>
         </form>
 
-        <p className="text-center mt-10 text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest leading-loose">
+        <p className="text-center mt-10 text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-loose">
           Reservado para <span className="text-red-600 opacity-80">CarBot Dealers</span><br />
           v2.5.0 • © 2024
         </p>
@@ -2122,98 +2032,6 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-const ProfileOnboardingScreen = ({ onComplete, pendingData }) => {
-  const [dealerName, setDealerName] = useState(pendingData?.dealerName || '');
-  const [name, setName] = useState(pendingData?.name || '');
-  const [role, setRole] = useState('Vendedor');
-  const [loading, setLoading] = useState(false);
-
-  const roles = [
-    { id: 'owner', label: 'Dueño' },
-    { id: 'manager', label: 'Gerente' },
-    { id: 'sales', label: 'Vendedor' },
-  ];
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    await onComplete({ ...pendingData, dealerName, name, role });
-    setLoading(false);
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-6 transition-colors duration-300">
-      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl p-8 sm:p-12 animate-in fade-in zoom-in duration-700">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-[24px] bg-red-50 dark:bg-red-900/10 mb-6">
-            <AppLogo size={100} className="dark:brightness-110" />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white leading-tight">¡Hola! 👋</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">Configuremos tu perfil profesional.</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-              <span>🏢</span> ¿En qué Dealer trabajas?
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:outline-none transition-all font-bold text-slate-900 dark:text-white"
-              placeholder="Ej. Toyota Center"
-              value={dealerName}
-              onChange={(e) => setDealerName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-              <span>👤</span> ¿Cuál es tu Nombre y Apellido?
-            </label>
-            <input
-              type="text"
-              required
-              className="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 focus:ring-4 focus:ring-red-500/10 focus:border-red-500 focus:outline-none transition-all font-bold text-slate-900 dark:text-white"
-              placeholder="Ej. Laura García"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-              <span>💼</span> ¿Cuál es tu cargo?
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {roles.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setRole(r.label)}
-                  className={`px-6 py-3 rounded-full text-sm font-bold transition-all border ${role === r.label
-                    ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 scale-105'
-                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-5 rounded-[20px] transition-all shadow-xl shadow-red-500/20 flex justify-center items-center mt-8 text-lg hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="animate-spin" /> : "Empezar a usar CarBot"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 // --- LOGICA PRINCIPAL (CEREBRO) ---
 export default function CarbotApp() {
@@ -2222,8 +2040,6 @@ export default function CarbotApp() {
 
   const [userProfile, setUserProfile] = useState(null);
   const [initializing, setInitializing] = useState(true);
-  const [showProfileOnboarding, setShowProfileOnboarding] = useState(false);
-  const [pendingUserData, setPendingUserData] = useState(null);
 
   // Asegurar que el modo oscuro esté desactivado al iniciar
   useEffect(() => {
@@ -2308,16 +2124,6 @@ export default function CarbotApp() {
       if (userDocSnap.exists()) {
         profileData = userDocSnap.data();
 
-        // DETECTOR DE NOMBRES FEOS O PERFIL INCOMPLETO
-        // Si no tiene nombre real o no tiene un rol/cargo definido, pedimos completar
-        const isUglyName = profileData.name === userId || profileData.name === emailOrId || profileData.name.includes('_');
-        if (isUglyName || !profileData.role || !profileData.dealerName || profileData.dealerName === "Mi Dealer") {
-          setPendingUserData({ ...profileData, email: userId });
-          setShowProfileOnboarding(true);
-          setInitializing(false);
-          return;
-        }
-
         // Si vienes de GHL, actualizamos tu perfil viejo para que tenga el dealerId nuevo
         if (isGHL) {
           await updateDoc(userDocRef, {
@@ -2329,23 +2135,23 @@ export default function CarbotApp() {
           profileData.dealerName = realDealerName;
         }
       } else {
-        // USUARIO NUEVO
+        // USUARIO NUEVO - LEGACY STYLE CON PROMPT
+        let finalName = realEmployeeName;
+        let finalDealer = realDealerName;
+
+        if (!isGHL || (isGHL && realEmployeeName === userId)) {
+          finalName = prompt("¿Cuál es tu nombre?") || userId;
+          finalDealer = prompt("¿Cómo se llama tu Dealer?") || "Mi Dealer";
+        }
+
         const newProfile = {
           email: userId,
-          name: realEmployeeName,
-          dealerId: isGHL ? dealerId : "", // Vacío si es manual para que lo pida
-          dealerName: realDealerName,
+          name: finalName,
+          dealerId: isGHL ? dealerId : "",
+          dealerName: finalDealer,
           role: 'sales',
           createdAt: new Date().toISOString()
         };
-
-        if (!isGHL || (isGHL && realEmployeeName === userId)) {
-          // Si es manual o GHL sin nombre, pedimos completar
-          setPendingUserData(newProfile);
-          setShowProfileOnboarding(true);
-          setInitializing(false);
-          return;
-        }
 
         await setDoc(userDocRef, newProfile);
         profileData = newProfile;
@@ -2363,24 +2169,6 @@ export default function CarbotApp() {
     }
   };
 
-  const handleOnboardingComplete = async (finalProfile) => {
-    try {
-      const userDocRef = doc(db, "users", finalProfile.email);
-      await setDoc(userDocRef, {
-        ...finalProfile,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      setUserProfile(finalProfile);
-      setShowProfileOnboarding(false);
-      setIsLoggedIn(true);
-      localStorage.setItem('carbot_user_email', finalProfile.email);
-      showToast("¡Perfil completado con éxito!", "success");
-    } catch (error) {
-      console.error("Error al guardar perfil:", error);
-      showToast("Error al guardar los datos", "error");
-    }
-  };
 
   // 3. HANDLERS LOGIN / LOGOUT
   const handleLogin = (emailId) => {
@@ -2477,9 +2265,6 @@ export default function CarbotApp() {
   }
 
   if (!isLoggedIn || !userProfile) {
-    if (showProfileOnboarding && pendingUserData) {
-      return <ProfileOnboardingScreen pendingData={pendingUserData} onComplete={handleOnboardingComplete} />;
-    }
     return <LoginScreen onLogin={handleLogin} />;
   }
 
@@ -2663,16 +2448,6 @@ export default function CarbotApp() {
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
 
-  const handleUpdateProfile = async (newProfile) => {
-    try {
-      const userDocRef = doc(db, "users", newProfile.email);
-      await updateDoc(userDocRef, { name: newProfile.name });
-      setUserProfile(newProfile);
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      throw error;
-    }
-  };
 
 
 
@@ -2699,14 +2474,6 @@ export default function CarbotApp() {
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
-      case 'settings': return (
-        <SettingsView
-          userProfile={userProfile}
-          onLogout={handleLogout}
-          onUpdateProfile={handleUpdateProfile}
-          showToast={showToast}
-        />
-      );
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
   };
