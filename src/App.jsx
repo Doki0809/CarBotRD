@@ -25,7 +25,7 @@ import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
-  Box, AlertTriangle, TrendingUp, History, Bell, Calendar, Settings, Shield
+  Package, TriangleAlert, TrendingUp, History, Bell, Calendar, Settings, Shield
 } from 'lucide-react';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -146,7 +146,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestr
         <Card className="rounded-[32px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center text-center">
             <div className={`w-16 h-16 rounded-2xl ${isDestructive ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center mb-6`}>
-              {isDestructive ? <Trash2 size={32} strokeWidth={2.5} /> : <AlertTriangle size={32} strokeWidth={2.5} />}
+              {isDestructive ? <Trash2 size={32} strokeWidth={2.5} /> : <TriangleAlert size={32} strokeWidth={2.5} />}
             </div>
             <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight">{title}</h3>
             <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-2">{message}</p>
@@ -1236,8 +1236,8 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
             <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm transition-colors duration-500 group-hover:bg-blue-100">
-                  <Box size={20} className="sm:hidden transition-all duration-500 group-hover:scale-110 group-hover:rotate-12" />
-                  <Box size={26} className="hidden sm:block transition-all duration-500 group-hover:scale-110 group-hover:rotate-12" />
+                  <Package size={20} className="sm:hidden transition-all duration-500 group-hover:scale-110 group-hover:rotate-12" />
+                  <Package size={26} className="hidden sm:block transition-all duration-500 group-hover:scale-110 group-hover:rotate-12" />
                 </div>
                 {newThisMonth > 0 && (
                   <span className="text-[9px] sm:text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg uppercase tracking-widest shadow-sm">
@@ -1250,7 +1250,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                 {inventory.filter(v => v.status === 'available').length}
               </h3>
             </div>
-            <Box className="absolute -right-6 -bottom-6 text-blue-600 opacity-[0.03] w-28 h-28 group-hover:rotate-90 transition-all duration-1000 ease-out pointer-events-none" />
+            <Package className="absolute -right-6 -bottom-6 text-blue-600 opacity-[0.03] w-28 h-28 group-hover:rotate-90 transition-all duration-1000 ease-out pointer-events-none" />
           </Card>
 
           <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white relative">
@@ -1367,7 +1367,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                     <tr>
                       <td colSpan="4" className="py-20 text-center">
                         <div className="flex flex-col items-center gap-4 opacity-50">
-                          <Box className="text-slate-200" size={48} />
+                          <Package className="text-slate-200" size={48} />
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">No hay contratos recientes</p>
                         </div>
                       </td>
@@ -1655,7 +1655,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
               </div>
             </div>
           ))}
-          {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200"><Box size={48} className="mb-4 opacity-20" /><p className="text-sm font-black uppercase tracking-widest">No hay vehículos. ¡Agrega uno!</p></div>}
+          {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200"><Package size={48} className="mb-4 opacity-20" /><p className="text-sm font-black uppercase tracking-widest">No hay vehículos. ¡Agrega uno!</p></div>}
         </div>
       </div>
 
@@ -2191,7 +2191,7 @@ const SettingsView = ({ userProfile, onUpdateProfile, onLogout }) => {
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'inventory', label: 'Inventario', icon: Box },
+    { id: 'inventory', label: 'Inventario', icon: Package },
     { id: 'contracts', label: 'Contratos', icon: FileText },
     { id: 'settings', label: 'Ajustes', icon: Settings },
   ];
@@ -2388,7 +2388,7 @@ const LoginScreen = ({ onLogin }) => {
 
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake">
-              <AlertTriangle size={16} /> {error}
+              <TriangleAlert size={16} /> {error}
             </div>
           )}
 
