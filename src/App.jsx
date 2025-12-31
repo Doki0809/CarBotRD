@@ -148,35 +148,38 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestr
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md transition-all duration-300">
       <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="rounded-[40px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
+        <Card className="rounded-[45px] p-10 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center text-center">
-            <div className={`w-20 h-20 rounded-3xl ${isDestructive ? 'bg-red-600 shadow-red-600/30' : 'bg-slate-900 shadow-slate-900/30'} shadow-xl flex items-center justify-center mb-8 rotate-3 transition-transform hover:rotate-0`}>
-              <AppLogo size={40} className="brightness-0 invert" />
+            {/* Dark Logo Box like the screenshot */}
+            <div className="w-24 h-24 rounded-[30px] bg-[#111827] shadow-2xl shadow-slate-900/40 flex items-center justify-center mb-8 transition-all hover:scale-105">
+              <AppLogo size={48} className="brightness-0 invert" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight leading-tight px-4">{title}</h3>
-            <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-4">{message}</p>
 
-            <div className="flex flex-col w-full gap-3">
+            <h3 className="text-2xl font-black text-slate-900 mb-3 uppercase tracking-tight leading-tight px-2">{title}</h3>
+            <p className="text-base font-bold text-slate-500 mb-10 leading-relaxed px-4">{message}</p>
+
+            <div className="flex flex-col w-full gap-4">
               <button
                 onClick={onConfirm}
-                className={`w-full py-5 rounded-[24px] text-sm font-black uppercase tracking-widest transition-all ${isDestructive
-                  ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98]'
-                  : 'bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-950 hover:scale-[1.02] active:scale-[0.98]'
-                  }`}
+                className={`w-full py-5 rounded-[24px] text-sm font-black uppercase tracking-widest transition-all shadow-xl ${isDestructive
+                  ? 'bg-red-600 text-white shadow-red-600/30 hover:bg-red-700'
+                  : 'bg-red-600 text-white shadow-red-600/30 hover:bg-red-700'
+                  } hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {confirmText || (isDestructive ? 'Confirmar Eliminación' : 'Confirmar Acción')}
               </button>
               {showCancel && (
                 <button
                   onClick={onClose}
-                  className="w-full py-4 rounded-[24px] text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
+                  className="w-full py-4 rounded-[24px] text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-all"
                 >
                   Cancelar
                 </button>
               )}
             </div>
           </div>
-          <div className={`absolute top-0 right-0 w-32 h-32 ${isDestructive ? 'bg-red-500/5' : 'bg-slate-500/5'} rounded-full -mr-16 -mt-16 blur-3xl`}></div>
+          {/* Subtle background glow */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-red-500/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
         </Card>
       </div>
     </div>
