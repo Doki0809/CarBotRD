@@ -142,8 +142,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
                 Carrete de Imágenes ({formData.images.length})
               </h3>
               <div className="flex gap-2">
-                <button type="button" className="p-2 bg-slate-50 rounded-lg text-slate-400 hover:text-red-600 transition-all"><Share2 size={16} /></button>
-                <button type="button" className="p-2 bg-slate-50 rounded-lg text-slate-400 hover:text-red-600 transition-all"><Heart size={16} /></button>
+                {/* Botones eliminados por solicitud */}
               </div>
             </div>
             <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
@@ -178,23 +177,32 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
                   </div>
 
                   <div className="space-y-4 sm:space-y-6">
-                    <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
-                      <p className="text-lg sm:text-xl font-black">{contract?.client || 'N/A'}</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* PROPIETARIO */}
                       <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PRECIO</p>
-                        <p className="text-xs sm:text-sm font-black whitespace-nowrap">
-                          {formData.price_dop > 0 ? `RD$ ${(formData.price_dop / 1000).toFixed(0)}k` : `US$ ${(formData.price / 1000).toFixed(0)}k`}
-                        </p>
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
+                        <p className="text-lg sm:text-xl font-black leading-tight mb-1">{contract?.client || 'N/A'}</p>
+                        {contract?.cedula && <p className="text-emerald-100 text-xs font-mono tracking-wider">{contract.cedula}</p>}
                       </div>
-                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">VENTA</p>
-                        <p className="text-xs sm:text-sm font-black text-right whitespace-nowrap">
-                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${(contract.price / 1000).toFixed(0)}k` : `US$ ${(contract.price / 1000).toFixed(0)}k`) : 'N/A'}
-                        </p>
+
+                      {/* DATOS DE VENTA */}
+                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10 flex flex-col justify-center">
+                        <div className="flex justify-between items-end border-b border-emerald-400/30 pb-2 mb-2">
+                          <span className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase tracking-widest">PRECIO LISTA</span>
+                          <span className="text-xs sm:text-sm font-black opacity-80 decoration-emerald-200/50">
+                            {formData.price_dop > 0
+                              ? `RD$ ${formData.price_dop.toLocaleString()}`
+                              : `US$ ${formData.price.toLocaleString()}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                          <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest">VENTA FINAL</span>
+                          <span className="text-sm sm:text-lg font-black text-white">
+                            {contract?.price
+                              ? (formData.price_dop > 0 ? `RD$ ${Number(contract.price).toLocaleString()}` : `US$ ${Number(contract.price).toLocaleString()}`)
+                              : 'N/A'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

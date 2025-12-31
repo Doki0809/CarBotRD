@@ -3317,7 +3317,12 @@ export default function CarbotApp() {
 
         if (contractData.vehicleId) {
           const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", contractData.vehicleId);
-          await updateDoc(vehicleRef, { status: 'sold', updatedAt: new Date().toISOString() });
+          await updateDoc(vehicleRef, {
+            status: 'sold',
+            updatedAt: new Date().toISOString(),
+            salePrice: Number(contractData.price),
+            saleDate: new Date().toISOString()
+          });
         }
 
         console.log(`✅ Contrato guardado: ${idBonito}`);
