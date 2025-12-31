@@ -25,7 +25,7 @@ import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
-  Box, AlertTriangle, TrendingUp, History, Bell, Calendar
+  Box, AlertTriangle, TrendingUp, History, Bell, Calendar, Settings, Shield
 } from 'lucide-react';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -2004,12 +2004,122 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   );
 };
 
+// --- AJUSTES ---
+const SettingsView = ({ userProfile, onUpdateProfile, onLogout }) => {
+  const [name, setName] = useState(userProfile?.name || '');
+  const [role, setRole] = useState(userProfile?.role || '');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    await onUpdateProfile({ name, role });
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1 pb-10">
+      <div className="border-b border-slate-100 pb-8">
+        <h1 className="text-2xl font-black text-slate-900 mb-1">Configuración de Perfil</h1>
+        <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Administra tu información personal y cuenta</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="p-8 border-none shadow-sm bg-white">
+            <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+              <User size={20} className="text-red-600" /> Información Personal
+            </h3>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Puesto o Cargo</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Gerente de Ventas"
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto px-10 py-4"
+                icon={loading ? Loader2 : CheckCircle}
+              >
+                {loading ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </form>
+          </Card>
+
+          <Card className="p-8 border-none shadow-sm bg-white">
+            <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
+              <Shield size={20} className="text-orange-500" /> Seguridad y Cuenta
+            </h3>
+            <p className="text-sm text-slate-500 mb-6 font-medium">Gestiona el acceso a tu cuenta de CarBot.</p>
+
+            <div className="pt-6 border-t border-slate-50">
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-3 px-6 py-4 bg-red-50 hover:bg-red-100 text-red-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all w-full sm:w-auto justify-center"
+              >
+                <LogOut size={18} /> Cerrar Sesión Segura
+              </button>
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="p-8 border-none shadow-sm bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden group">
+            <div className="relative z-10">
+              <img
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name)}&background=ef4444&color=fff&size=200`}
+                alt="Profile"
+                className="w-20 h-20 rounded-3xl border-4 border-white/10 mb-6 shadow-2xl"
+              />
+              <h4 className="text-xl font-black mb-1">{userProfile?.name}</h4>
+              <p className="text-red-400 text-[10px] font-black uppercase tracking-widest mb-6">{userProfile?.role || 'Vendedor'}</p>
+
+              <div className="space-y-4 pt-6 border-t border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400">
+                    <History size={14} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Dealer</span>
+                    <span className="text-xs font-bold text-slate-200">{userProfile?.dealerName || 'General'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Settings className="absolute -right-6 -bottom-6 w-32 h-32 text-white/5 group-hover:rotate-90 transition-transform duration-1000" />
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- LAYOUT ---
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventario', icon: Box },
     { id: 'contracts', label: 'Contratos', icon: FileText },
+    { id: 'settings', label: 'Ajustes', icon: Settings },
   ];
 
   return (
@@ -2653,6 +2763,22 @@ export default function CarbotApp() {
   const activeInventory = (inventory || []).filter(i => i && i.status !== 'trash');
   const trashInventory = (inventory || []).filter(i => i && i.status === 'trash');
 
+  const handleUpdateProfile = async (data) => {
+    try {
+      const emailId = userProfile.email.replace(/\./g, '_').toLowerCase();
+      const userDocRef = doc(db, "users", emailId);
+      await updateDoc(userDocRef, {
+        ...data,
+        updatedAt: new Date().toISOString()
+      });
+      setUserProfile(prev => ({ ...prev, ...data }));
+      showToast("Perfil actualizado correctamente");
+    } catch (error) {
+      console.error("Error al actualizar perfil:", error);
+      showToast("Error al actualizar", "error");
+    }
+  };
+
   const renderContent = () => {
     if (selectedVehicle) {
       const associatedContract = contracts.find(c => c.vehicleId === selectedVehicle.id);
@@ -2669,6 +2795,7 @@ export default function CarbotApp() {
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
+      case 'settings': return <SettingsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
