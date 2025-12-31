@@ -1117,6 +1117,7 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
 };
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
+  const recentContracts = contracts.slice(0, 3);
   // --- CALCULOS REALES PARA WIDGETS ---
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
