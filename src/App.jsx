@@ -26,7 +26,7 @@ import {
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
   Package as PackageNew, TriangleAlert as TriangleAlertNew, TrendingUp, History, Bell, Calendar, Settings, Shield,
-  Box, AlertTriangle
+  Box, AlertTriangle, MoreVertical, Copy
 } from 'lucide-react';
 
 // Capa de compatibilidad para iconos (Evita crashes por versión)
@@ -1771,6 +1771,20 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
     });
   };
 
+  const handleDuplicate = (vehicle) => {
+    // Preparamos la copia
+    const copy = { ...vehicle };
+    delete copy.id; // Nuevo ID será generado
+    delete copy.createdAt; // Nueva fecha
+    delete copy.updatedAt;
+    delete copy.idPersonalizado; // Se regenerará
+
+    // Abrimos el modal con los datos pre-cargados
+    setCurrentVehicle(copy);
+    setIsModalOpen(true);
+    showToast("Modo Duplicación: Edita los datos y guarda.");
+  };
+
   const openActionModal = (vehicle) => { setCurrentVehicle(vehicle); setIsActionModalOpen(true); };
   const handleActionSelect = (action) => {
     setIsActionModalOpen(false);
@@ -1897,14 +1911,31 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
                         <div className="mt-auto flex items-center gap-2">
                           <Button
                             variant="secondary"
-                            className="flex-1 text-[10px] font-black bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border-none transition-all py-3 rounded-xl uppercase tracking-widest"
-                            onClick={(e) => { e.stopPropagation(); openActionModal(item); }}
+                            disabled={item.status === 'sold'}
+                            className={`flex-1 text-[10px] font-black transition-all py-3 rounded-xl uppercase tracking-widest border-none ${item.status === 'sold'
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'
+                              : 'bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600'
+                              }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (item.status !== 'sold') openActionModal(item);
+                            }}
                           >
-                            GENERAR
+                            {item.status === 'sold' ? 'VENDIDO' : 'GENERAR'}
                           </Button>
                           <div className="flex gap-1.5 sm:gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all"><Edit size={14} /></button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all"><Trash2 size={14} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all" title="Editar"><Edit size={14} /></button>
+                            <div className="relative group/menu">
+                              <button onClick={(e) => { e.stopPropagation(); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all"><MoreVertical size={14} /></button>
+                              <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 hidden group-hover/menu:block z-20">
+                                <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
+                                  <Copy size={12} /> Duplicar
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                                  <Trash2 size={12} /> Eliminar
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -3038,51 +3069,69 @@ export default function CarbotApp() {
   }
 
   // 3. GUARDAR VEHÍCULO (Multi-Tenant)
-const handleSaveVehicle = async (vehicleData) => {
+  const handleSaveVehicle = async (vehicleData) => {
     try {
-        const dealerName = userProfile?.dealerName || vehicleData.dealerName;
+      const dealerName = userProfile?.dealerName || vehicleData.dealerName;
 
-        if (!dealerName) {
-            showToast("Error Multi-Tenant: Falta dealerName", "error");
-            console.error("❌ Error Multi-Tenant: Falta dealerName");
-            return;
+      if (!dealerName) {
+        showToast("Error Multi-Tenant: Falta dealerName", "error");
+        console.error("❌ Error Multi-Tenant: Falta dealerName");
+        return;
+      }
+
+      // 1. OBTENER LOS ÚLTIMOS 4 DEL CHASIS
+      const chasis = vehicleData.vin || vehicleData.chassis || "0000";
+      const ultimos4 = chasis.slice(-4);
+
+      // 2. CONSTRUIR EL ID (Incluyendo Edición)
+      const idBonito = `${vehicleData.year || '0000'}_${vehicleData.make || 'GENERIC'}_${vehicleData.model || 'MODEL'}_${vehicleData.edition || 'Base'}_${vehicleData.color || 'COLOR'}_${ultimos4}`
+        .replace(/\s+/g, '_')
+        .toUpperCase();
+
+      const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", idBonito);
+
+      const dataToSave = {
+        ...vehicleData,
+        dealerId: userProfile?.dealerId || "",
+        dealerName: dealerName,
+        creadoPor: userProfile?.name || "Sistema",
+        createdAt: vehicleData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: vehicleData.status || 'available',
+        idPersonalizado: idBonito
+      };
+
+      // Guardamos el ID original antes de borrarlo del payload
+      const originalId = vehicleData.id;
+      delete dataToSave.id;
+
+      // 3. GUARDAR (Upsert)
+      await setDoc(vehicleRef, dataToSave, { merge: true });
+
+      // 4. PREVENIR DUPLICADOS AL EDITAR (Move/Rename)
+      // Si es una edición (tenemos ID original) Y el ID nuevo es diferente al original
+      if (originalId && originalId !== idBonito) {
+        console.log(`🔄 Renombrando vehículo: ${originalId} -> ${idBonito}`);
+        try {
+          // Borramos el doc con el ID viejo para no dejar duplicados
+          const oldVehicleRef = doc(db, "Dealers", dealerName, "Inventario", originalId);
+          await deleteDoc(oldVehicleRef);
+          showToast(`Vehículo actualizado y renombrado a: ${idBonito}`);
+        } catch (delError) {
+          console.error("⚠️ Error borrando ID antiguo:", delError);
+          // No fallamos toda la operación, pero avisamos
         }
-
-        // 1. OBTENER LOS ÚLTIMOS 4 DEL CHASIS
-        const chasis = vehicleData.vin || vehicleData.chassis || "0000";
-        const ultimos4 = chasis.slice(-4);
-
-        // 2. CONSTRUIR EL ID (Incluyendo Edición)
-        const idBonito = `${vehicleData.year || '0000'}_${vehicleData.make || 'GENERIC'}_${vehicleData.model || 'MODEL'}_${vehicleData.edition || 'Base'}_${vehicleData.color || 'COLOR'}_${ultimos4}`
-            .replace(/\s+/g, '_') // Quita espacios y pone guiones bajos
-            .toUpperCase();       // Todo mayúsculas
-
-        // 3. GUARDAR (Usamos setDoc para escribir en el ID específico)
-        const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", idBonito);
-
-        const dataToSave = {
-            ...vehicleData,
-            dealerId: userProfile?.dealerId || "",
-            dealerName: dealerName,
-            creadoPor: userProfile?.name || "Sistema",
-            createdAt: vehicleData.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: vehicleData.status || 'available',
-            idPersonalizado: idBonito
-        };
-
-        delete dataToSave.id;
-
-        await setDoc(vehicleRef, dataToSave, { merge: true });
-
-        console.log(`✅ Vehículo guardado en: Dealers/${dealerName}/Inventario/${idBonito}`);
+      } else {
         showToast(`Vehículo guardado: ${idBonito}`);
+      }
+
+      console.log(`✅ Operación completada: Dealers/${dealerName}/Inventario/${idBonito}`);
 
     } catch (error) {
-        console.error("❌ Error al guardar vehículo:", error);
-        showToast("Hubo un error al guardar.", "error");
+      console.error("❌ Error al guardar vehículo:", error);
+      showToast("Hubo un error al guardar.", "error");
     }
-};
+  };
 
   // 4. SOFT DELETE (Enviar a Papelera)
   const handleDeleteVehicle = async (id) => {
