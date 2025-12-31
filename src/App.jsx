@@ -1128,15 +1128,15 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
           <div className="max-w-2xl">
             <div className="flex items-center gap-2 mb-4">
               <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[10px] font-black text-red-100 uppercase tracking-widest">
-                Sistema de Control CarBot
+                sistema de inventario de carbot
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white mb-6 tracking-tight leading-[1.1]">
+            <h1 className="text-2xl sm:text-4xl font-black text-white mb-4 sm:mb-6 tracking-tight leading-tight sm:leading-[1.1]">
               Bienvenido al sistema para <br className="hidden md:block" />
-              <span className="text-red-200 decoration-red-300/40">{userProfile?.dealerName || 'tu Dealer'}</span>
+              <span className="text-red-100">{userProfile?.dealerName || 'tu Dealer'}</span>
             </h1>
             <div className="flex items-center gap-3 pl-1 border-l-2 border-red-400/30">
-              <p className="text-red-50 text-base sm:text-lg font-medium">
+              <p className="text-red-50 text-sm sm:text-lg font-medium">
                 Hola, <span className="text-white font-black">{userProfile?.name?.split(' ')[0] || 'Dealer'}</span>. Es un placer verte hoy.
               </p>
             </div>
