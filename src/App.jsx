@@ -16,6 +16,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   doc,
   query,
   where
@@ -3197,6 +3198,28 @@ export default function CarbotApp() {
     }
   };
 
+  const handleRevertSale = async (vehicleId) => {
+    try {
+      if (!userProfile?.dealerName) return;
+
+      const vehicleRef = doc(db, "Dealers", userProfile.dealerName, "Inventario", vehicleId);
+
+      await updateDoc(vehicleRef, {
+        status: 'available',
+        salePrice: deleteField(),
+        saleDate: deleteField(),
+        client: deleteField(),
+        cedula: deleteField(),
+        updatedAt: new Date().toISOString()
+      });
+
+      showToast("Venta eliminada. Vehículo disponible nuevamente.", "success");
+    } catch (error) {
+      console.error("Error revirtiendo venta:", error);
+      showToast("Error al eliminar venta", "error");
+    }
+  };
+
   const handlePermanentDelete = async (id, type) => {
     showConfirm({
       title: 'Borrado Definitivo',
@@ -3408,6 +3431,7 @@ export default function CarbotApp() {
           contract={associatedContract}
           onBack={() => setSelectedVehicle(null)}
           onSave={async (data) => { await handleSaveVehicle(data); setSelectedVehicle(null); }}
+          onRevert={handleRevertSale}
         />
       );
     }
