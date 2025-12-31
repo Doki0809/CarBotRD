@@ -1148,7 +1148,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const fmtM = (val) => (val / 1000000).toFixed(1) + 'M';
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-full overflow-x-hidden px-1">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-full px-1">
 
       {/* Hero Banner Section */}
       <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-red-600 to-red-700 p-8 sm:p-12 shadow-2xl shadow-red-600/20 mb-8 border border-red-500/50">
@@ -1191,10 +1191,10 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       </div>
 
       {/* Stats Widgets Section */}
-      <div className="flex flex-col gap-6 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col gap-6 w-full max-w-full">
         {/* Row 1: Small Widgets (Mobile: Side by Side) */}
         <div className="grid grid-cols-2 gap-4 w-full">
-          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
+          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white relative">
             <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm transition-colors duration-500 group-hover:bg-blue-100">
@@ -1212,10 +1212,10 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                 {inventory.filter(v => v.status === 'available').length}
               </h3>
             </div>
-            <Box className="absolute -right-4 -bottom-4 text-blue-600 opacity-[0.03] w-24 h-24 group-hover:scale-125 group-hover:rotate-12 transition-all duration-1000 ease-out pointer-events-none" />
+            <Box className="absolute -right-6 -bottom-6 text-blue-600 opacity-[0.03] w-28 h-28 group-hover:rotate-90 transition-all duration-1000 ease-out pointer-events-none" />
           </Card>
 
-          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white">
+          <Card className="p-4 sm:p-8 border-none shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group bg-white relative">
             <div className="flex flex-col h-full relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-[22px] bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm transition-colors duration-500 group-hover:bg-emerald-100">
@@ -1231,7 +1231,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
                 {inventory.filter(v => v.status === 'sold').length}
               </h3>
             </div>
-            <DollarSign className="absolute -right-4 -bottom-4 text-emerald-600 opacity-[0.03] w-24 h-24 group-hover:scale-125 group-hover:rotate-[-12deg] transition-all duration-1000 ease-out pointer-events-none" />
+            <DollarSign className="absolute -right-6 -bottom-6 text-emerald-600 opacity-[0.03] w-28 h-28 group-hover:rotate-90 transition-all duration-1000 ease-out pointer-events-none" />
           </Card>
         </div>
 
@@ -1271,7 +1271,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
               </div>
             </div>
           </div>
-          <TrendingUp className="absolute -right-8 -bottom-8 text-slate-50 opacity-[0.05] w-40 h-40 group-hover:scale-110 transition-transform duration-1000" />
+          <TrendingUp className="absolute -right-8 -bottom-8 text-slate-500 opacity-[0.03] w-40 h-40 group-hover:rotate-90 transition-all duration-1000 ease-out pointer-events-none" />
         </Card>
       </div>
 
@@ -1497,7 +1497,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full px-1">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
         <div>
@@ -1826,7 +1826,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   const totalItems = Object.values(filteredData).flat().length;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full px-1">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -2042,7 +2042,7 @@ const SettingsView = ({ userProfile, onUpdateProfile, onLogout }) => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full overflow-x-hidden px-1 pb-10">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full px-1 pb-10">
       <div className="border-b border-slate-100 pb-8">
         <h1 className="text-2xl font-black text-slate-900 mb-1">Configuración de Perfil</h1>
         <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Administra tu información personal y cuenta</p>
@@ -2147,7 +2147,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-32 sm:pb-0 transition-colors duration-300 max-w-full overflow-x-hidden">
+    <div className="min-h-screen min-h-[100dvh] bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-24 sm:pb-0 transition-colors duration-300 max-w-full">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm px-4 sm:px-6 py-2 sm:py-3 mx-auto w-full">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
@@ -2231,7 +2231,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90 transition-colors">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 pb-safe flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90 transition-colors">
         {menuItems.map(item => {
           const isActive = activeTab === item.id;
           return (
