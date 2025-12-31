@@ -609,6 +609,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   const [loading, setLoading] = useState(false);
   const [bankName, setBankName] = useState('');
   const [cedula, setCedula] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
 
   if (!isOpen) return null;
 
@@ -645,7 +646,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
     params.append("fuel", vehicle.fuel);           // Combustible
     params.append("transmission", vehicle.transmission); // Transmisión
     params.append("mileage", vehicle.mileage);     // Millaje
-    params.append("price", vehicle.price);         // Precio
+    params.append("price", customPrice || vehicle.price);         // Precio
     params.append("availability", vehicle.status); // Disponibilidad
 
     // Metadatos extra
@@ -698,6 +699,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
               <Input name="cedula" label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} required />
             </div>
             <Input label="A quien va dirigida (Banco/Persona)" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Ej. Banco Popular" className="mb-4" />
+            <Input label="Precio a Cotizar/Financiar (Opcional)" type="number" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} placeholder={`Precio lista: ${vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price}`} className="mb-4" />
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
               <Button type="submit" disabled={loading}>{loading ? "Enviando..." : "Enviar Cotización"}</Button>
@@ -716,6 +718,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   const [phone, setPhone] = useState('');
   const [cedula, setCedula] = useState('');
   const [bank, setBank] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -748,7 +751,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
     params.append("fuel", vehicle.fuel);
     params.append("transmission", vehicle.transmission);
     params.append("mileage", vehicle.mileage);
-    params.append("price", vehicle.price);
+    params.append("price", customPrice || vehicle.price);
     params.append("availability", vehicle.status);
 
     params.append("source", "CarBot Manual");
@@ -799,6 +802,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
                 <Input label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} />
               </div>
               <Input label="A quien va dirigida" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej. Banco Popular" />
+              <Input label="Precio a Cotizar/Financiar" type="number" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} placeholder="Dejar vacio para usar precio de lista" />
             </div>
             <div className="pt-4 flex justify-end gap-3"><Button variant="ghost" onClick={onClose} type="button">Cancelar</Button><Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">Guardar</Button></div>
           </form>
@@ -814,6 +818,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   const [clientName, setClientName] = useState('');
   const [clientLastName, setClientLastName] = useState('');
   const [clientCedula, setClientCedula] = useState('');
+  const [salePrice, setSalePrice] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -827,8 +832,10 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
       setClientCedula(initialVehicle.cedula || '');
       const template = CONTRACT_TEMPLATES.find(t => t.name === initialVehicle.template);
       if (template) setSelectedTemplate(template.id);
+      // Pre-llenar precio si existe
+      setSalePrice(initialVehicle.price_dop > 0 ? initialVehicle.price_dop : initialVehicle.price);
     } else {
-      setSelectedTemplate(''); setSelectedVehicleId(''); setClientName(''); setClientLastName(''); setClientCedula('');
+      setSelectedTemplate(''); setSelectedVehicleId(''); setClientName(''); setClientLastName(''); setClientCedula(''); setSalePrice('');
     }
   }, [initialVehicle, isOpen]);
 
@@ -863,7 +870,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
     params.append("fuel", vehicle.fuel);
     params.append("transmission", vehicle.transmission);
     params.append("mileage", vehicle.mileage);
-    params.append("price", vehicle.price);
+    params.append("price", salePrice || vehicle.price);
     params.append("availability", "Vendido"); // Al hacer contrato, se vende
 
     params.append("source", "CarBot Contratos");
@@ -879,7 +886,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         cedula: clientCedula,
         vehicle: `${vehicle.make} ${vehicle.model}`,
         vehicleId: vehicle.id,
-        price: vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price,
+        price: salePrice ? Number(salePrice) : (vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price),
         template: template.name,
         status: 'pending',
         date: new Date().toISOString().split('T')[0],
@@ -922,7 +929,10 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
                 <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
                 <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} required />
               </div>
-              <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
+                <Input label="Precio Venta / Financiamiento" type="number" placeholder="Monto acordado" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} required />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">3. Elige una Plantilla</label>

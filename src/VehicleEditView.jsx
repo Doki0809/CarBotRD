@@ -176,33 +176,31 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave }) {
                     </div>
                   </div>
 
-                  <div className="space-y-4 sm:space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* PROPIETARIO */}
-                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
-                        <p className="text-lg sm:text-xl font-black leading-tight mb-1">{contract?.client || 'N/A'}</p>
-                        {contract?.cedula && <p className="text-emerald-100 text-xs font-mono tracking-wider">{contract.cedula}</p>}
-                      </div>
+                  <div className="space-y-6">
+                    {/* PROPIETARIO - AHORA ARRIBA Y MÁS GRANDE */}
+                    <div className="p-6 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10 text-center">
+                      <p className="text-xs font-black text-emerald-100 uppercase mb-2 tracking-[0.2em] opacity-80">Propietario Actual</p>
+                      <p className="text-3xl sm:text-4xl font-black leading-tight mb-2 tracking-tight">{contract?.client || 'N/A'}</p>
+                      {contract?.cedula && <p className="text-emerald-100 text-lg sm:text-xl font-mono tracking-widest opacity-90">{contract.cedula}</p>}
+                    </div>
 
-                      {/* DATOS DE VENTA */}
-                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10 flex flex-col justify-center">
-                        <div className="flex justify-between items-end border-b border-emerald-400/30 pb-2 mb-2">
-                          <span className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase tracking-widest">PRECIO LISTA</span>
-                          <span className="text-xs sm:text-sm font-black opacity-80 decoration-emerald-200/50">
-                            {formData.price_dop > 0
-                              ? `RD$ ${formData.price_dop.toLocaleString()}`
-                              : `US$ ${formData.price.toLocaleString()}`}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-end">
-                          <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-widest">VENTA FINAL</span>
-                          <span className="text-sm sm:text-lg font-black text-white">
-                            {contract?.price
-                              ? (formData.price_dop > 0 ? `RD$ ${Number(contract.price).toLocaleString()}` : `US$ ${Number(contract.price).toLocaleString()}`)
-                              : 'N/A'}
-                          </span>
-                        </div>
+                    {/* DATOS DE VENTA - ABAJO */}
+                    <div className="p-5 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                      <div className="flex justify-between items-end border-b border-emerald-400/30 pb-3 mb-3">
+                        <span className="text-[10px] font-black text-emerald-100 uppercase tracking-widest opacity-80">Precio Lista</span>
+                        <span className="text-sm font-black opacity-60 decoration-emerald-200/50 line-through">
+                          {formData.price_dop > 0
+                            ? `RD$ ${formData.price_dop.toLocaleString()}`
+                            : `US$ ${formData.price.toLocaleString()}`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-end">
+                        <span className="text-xs font-black text-white uppercase tracking-widest">Venta Final</span>
+                        <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                          {contract?.price
+                            ? (formData.price_dop > 0 ? `RD$ ${Number(contract.price).toLocaleString()}` : `US$ ${Number(contract.price).toLocaleString()}`)
+                            : 'N/A'}
+                        </span>
                       </div>
                     </div>
                   </div>
