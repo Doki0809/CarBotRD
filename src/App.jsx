@@ -432,21 +432,27 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
           setUploadProgress(`Subiendo foto ${i + 1} de ${filesToUpload.length}...`);
 
           try {
-            // Sanitizar nombre
-            const cleanName = (item.file.name || 'image.jpg').replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase();
+            // 1. LIMPIAR LOS DATOS (Quitar espacios y poner mayúsculas)
+            const marca = (data.make || "Marca").toUpperCase().trim();
+            const modelo = (data.model || "Modelo").toUpperCase().trim();
+            const anio = (data.year || "0000").toString();
+            const edicion = (data.edition || "Base").toUpperCase().trim(); // Ej: PLUS
+            const color = (data.color || "Color").toUpperCase().trim();
 
-            // ESTUCTURA DE CARPETAS ORGANIZADA AUTOMÁTICA 📂
-            const make = (data.make || "Genérico").replace(/\s+/g, '');
-            const model = (data.model || "Modelo").replace(/\s+/g, '');
-            const yearStr = data.year || "0000";
-            const color = (data.color || "Color").replace(/\s+/g, '');
-            const vinLast4 = (data.vin || "0000").slice(-4);
+            // Sacar los últimos 4 del chasis
+            const vin = data.vin || "0000";
+            const ultimos4 = vin.slice(-4);
 
-            // Ej: 2020_Blanco_9921
-            const vehicleFolder = `${yearStr}_${color}_${vinLast4}`;
+            // 2. CREAR EL NOMBRE DE LA CARPETA EXACTO
+            // Formato: 2019_SOUL_PLUS_ROJO_1301
+            // Usamos replace para cambiar espacios por guiones bajos (_)
+            const nombreCarpeta = `${anio}_${modelo}_${edicion}_${color}_${ultimos4}`.replace(/\s+/g, '_');
 
-            // Ruta: Dealers/JeanCars/Vehicles/Honda/Civic/2020_Blanco_9921/foto.jpg
-            const storagePath = `Dealers/${dealerName}/Vehicles/${make}/${model}/${vehicleFolder}/${cleanName}`;
+            // 3. CONSTRUIR LA RUTA COMPLETA 📍
+            // Dealers / Duran... / Vehiculos / KIA / 2019_SOUL... / foto.jpg
+            const storagePath = `Dealers/${dealerName}/Vehiculos/${marca}/${nombreCarpeta}/${item.file.name}`;
+
+            console.log("📂 Guardando en:", storagePath);
 
             const storageRef = ref(storage, storagePath);
 
