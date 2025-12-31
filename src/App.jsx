@@ -146,37 +146,37 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive = false, showCancel = true, confirmText = null }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md transition-all duration-300">
       <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="rounded-[32px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
+        <Card className="rounded-[40px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center text-center">
-            <div className={`w-16 h-16 rounded-2xl ${isDestructive ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center mb-6`}>
-              {isDestructive ? <Trash2 size={32} strokeWidth={2.5} /> : <TriangleAlert size={32} strokeWidth={2.5} />}
+            <div className={`w-20 h-20 rounded-3xl ${isDestructive ? 'bg-red-600 shadow-red-600/30' : 'bg-slate-900 shadow-slate-900/30'} shadow-xl flex items-center justify-center mb-8 rotate-3 transition-transform hover:rotate-0`}>
+              <AppLogo size={40} className="brightness-0 invert" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight">{title}</h3>
-            <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-2">{message}</p>
+            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight leading-tight px-4">{title}</h3>
+            <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-4">{message}</p>
 
             <div className="flex flex-col w-full gap-3">
               <button
                 onClick={onConfirm}
-                className={`w-full py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${isDestructive
+                className={`w-full py-5 rounded-[24px] text-sm font-black uppercase tracking-widest transition-all ${isDestructive
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98]'
-                  : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98]'
+                  : 'bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:bg-slate-950 hover:scale-[1.02] active:scale-[0.98]'
                   }`}
               >
-                {confirmText || (isDestructive ? 'Eliminar Definitivamente' : 'Confirmar Acción')}
+                {confirmText || (isDestructive ? 'Confirmar Eliminación' : 'Confirmar Acción')}
               </button>
               {showCancel && (
                 <button
                   onClick={onClose}
-                  className="w-full py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
+                  className="w-full py-4 rounded-[24px] text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
                 >
                   Cancelar
                 </button>
               )}
             </div>
           </div>
-          <div className={`absolute top-0 right-0 w-32 h-32 ${isDestructive ? 'bg-red-500/5' : 'bg-blue-500/5'} rounded-full -mr-16 -mt-16 blur-2xl`}></div>
+          <div className={`absolute top-0 right-0 w-32 h-32 ${isDestructive ? 'bg-red-500/5' : 'bg-slate-500/5'} rounded-full -mr-16 -mt-16 blur-3xl`}></div>
         </Card>
       </div>
     </div>
@@ -193,47 +193,49 @@ const PromptModal = ({ isOpen, onClose, onConfirm, title, message, defaultValue 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md transition-all duration-300">
       <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="rounded-[32px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
+        <Card className="rounded-[40px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
           <div className="relative z-10 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-6">
-              <User size={32} strokeWidth={2.5} />
+            <div className="w-20 h-20 rounded-3xl bg-red-600 shadow-xl shadow-red-600/30 flex items-center justify-center mb-8 rotate-3">
+              <AppLogo size={40} className="brightness-0 invert" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight text-center">{title}</h3>
-            <p className="text-sm font-bold text-slate-500 mb-6 leading-relaxed px-2 text-center">{message}</p>
+            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight text-center px-4 leading-tight">{title}</h3>
+            <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-4 text-center">{message}</p>
 
             <div className="w-full space-y-4">
-              <input
-                type="text"
-                autoFocus
-                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900"
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && value.trim()) onConfirm(value);
-                }}
-              />
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  autoFocus
+                  className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-[20px] focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900 placeholder:text-slate-300"
+                  placeholder={placeholder}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && value.trim()) onConfirm(value);
+                  }}
+                />
+              </div>
 
               <div className="flex flex-col w-full gap-3">
                 <button
                   onClick={() => value.trim() && onConfirm(value)}
                   disabled={!value.trim()}
-                  className="w-full py-4 rounded-2xl text-xs font-black bg-red-600 text-white uppercase tracking-widest shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-5 rounded-[24px] text-xs font-black bg-red-600 text-white uppercase tracking-widest shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continuar
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-full py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
+                  className="w-full py-4 rounded-[24px] text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
                 >
                   Omitir / Cancelar
                 </button>
               </div>
             </div>
           </div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
         </Card>
       </div>
     </div>
@@ -1296,9 +1298,14 @@ const TrashView = ({ trashInventory, trashDocuments, onRestore, onPermanentDelet
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">PAPELERA SEGURA</h1>
-          <p className="text-slate-500 text-sm font-bold mt-1">Gestión de ítems eliminados temporalmente (15 días de gracia).</p>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-900/20 rotate-3">
+            <AppLogo size={32} className="brightness-0 invert" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">PAPELERA SEGURA</h1>
+            <p className="text-slate-500 text-sm font-bold mt-1">Gestión de ítems eliminados temporalmente (15 días de gracia).</p>
+          </div>
         </div>
         {(trashInventory.length > 0 || trashDocuments.length > 0) && (
           <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-50 text-red-600 hover:bg-red-100 border-none shadow-none text-xs font-black uppercase tracking-widest px-6">
@@ -1528,9 +1535,8 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4 sm:mb-8">
               <div className="flex items-center gap-3 sm:gap-5">
-                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[24px] bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner">
-                  <TrendingUp size={22} className="sm:hidden" />
-                  <TrendingUp size={30} className="hidden sm:block" />
+                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[24px] bg-red-600 flex items-center justify-center text-white shadow-xl shadow-red-600/30 rotate-3 group-hover:rotate-0 transition-transform duration-500">
+                  <AppLogo size={32} className="brightness-0 invert" />
                 </div>
                 <div>
                   <p className="text-[9px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">Valor Total</p>
@@ -2866,6 +2872,14 @@ export default function CarbotApp() {
               createdAt: new Date().toISOString()
             };
             await setDoc(userDocRef, newProfile);
+
+            // Persistir para Multi-Tenant
+            localStorage.setItem('carbot_app_user_v1', JSON.stringify({
+              dealer: realDealerName,
+              name: finalName,
+              email: userId
+            }));
+
             setUserProfile(newProfile);
             setIsLoggedIn(true);
             showToast(`¡Bienvenido ${finalName}!`);
@@ -2886,6 +2900,13 @@ export default function CarbotApp() {
         await setDoc(userDocRef, newProfile);
         profileData = newProfile;
       }
+
+      // Persistir para Multi-Tenant
+      localStorage.setItem('carbot_app_user_v1', JSON.stringify({
+        dealer: profileData.dealerName,
+        name: profileData.name,
+        email: profileData.email
+      }));
 
       setUserProfile(profileData);
       setIsLoggedIn(true);
@@ -2915,10 +2936,13 @@ export default function CarbotApp() {
           await signOut(auth);
           localStorage.removeItem('carbot_user_email');
           localStorage.removeItem('activeTab');
+          localStorage.removeItem('carbot_app_user_v1');
           setUser(null);
           setUserProfile(null);
           setIsLoggedIn(false);
           setInventory([]);
+          setContracts([]);
+          setQuotes([]);
         } catch (err) {
           showToast("Error al cerrar sesión", "error");
         }
@@ -2930,42 +2954,32 @@ export default function CarbotApp() {
 
   useEffect(() => {
     // Si no hay usuario logueado o no tiene dealerId, no cargamos nada (Seguridad)
-    if (!userProfile || !userProfile.dealerId) {
+    if (!isLoggedIn || !userProfile || !userProfile.dealerName) {
       setInventory([]);
       setContracts([]);
       setQuotes([]);
       return;
     }
 
-    const currentDealerId = userProfile.dealerId;
-    console.log("🔒 Cargando datos seguros para Dealer:", currentDealerId);
+    const dealerName = userProfile.dealerName;
+    console.log("🔒 Cargando datos seguros para Dealer (Rutas Privadas):", dealerName);
 
     // 1. Cargar SOLO mi Inventario (Vehículos)
-    const qInventory = query(
-      collection(db, "vehicles"),
-      where("dealerId", "==", currentDealerId)
-    );
+    const qInventory = collection(db, "Dealers", dealerName, "Inventario");
 
     const unsubscribeInventory = onSnapshot(qInventory, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setInventory(data);
 
-      // AUTO-LIMPIEZA PRO: Revisar ítems en basura viejos (>15 días) de todas las colecciones
-      const collectionsToClean = ['vehicles', 'contracts', 'quotes'];
-      collectionsToClean.forEach(async (collName) => {
-        const q = query(collection(db, collName), where("dealerId", "==", currentDealerId), where("status", "==", "trash"));
-        const snap = await getDoc(doc(db, collName, "dummy")).then(() => { }); // Dummy to wake up
-        // Note: Better to do this in the snapshots or a dedicated effect to avoid loops
-      });
-
+      const now = new Date();
       data.forEach(async (v) => {
         if (v.status === 'trash' && v.deletedAt) {
           const deleteDate = new Date(v.deletedAt);
           const diffDays = (now.getTime() - deleteDate.getTime()) / (1000 * 60 * 60 * 24);
           if (diffDays > 15) {
             try {
-              await deleteDoc(doc(db, "vehicles", v.id));
-              console.log(`Auto-eliminado ${v.id} (>15 días)`);
+              await deleteDoc(doc(db, "Dealers", dealerName, "Inventario", v.id));
+              console.log(`Auto-eliminado ${v.id} de Inventario (>15 días)`);
             } catch (e) { console.error("Error auto-limpieza", e); }
           }
         }
@@ -2973,41 +2987,33 @@ export default function CarbotApp() {
     });
 
     // 2. Cargar SOLO mis Contratos
-    const qContracts = query(
-      collection(db, "contracts"),
-      where("dealerId", "==", currentDealerId)
-    );
+    const qContracts = collection(db, "Dealers", dealerName, "Contratos");
 
     const unsubscribeContracts = onSnapshot(qContracts, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setContracts(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 
-      // Auto-limpieza de contratos en papelera
       const now = new Date();
       data.forEach(async (c) => {
         if (c.status === 'trash' && c.deletedAt) {
           const diffDays = (now.getTime() - new Date(c.deletedAt).getTime()) / (1000 * 60 * 60 * 24);
-          if (diffDays > 15) await deleteDoc(doc(db, "contracts", c.id));
+          if (diffDays > 15) await deleteDoc(doc(db, "Dealers", dealerName, "Contratos", c.id));
         }
       });
     });
 
     // 3. Cargar SOLO mis Cotizaciones
-    const qQuotes = query(
-      collection(db, "quotes"),
-      where("dealerId", "==", currentDealerId)
-    );
+    const qQuotes = collection(db, "Dealers", dealerName, "Cotizaciones");
 
     const unsubscribeQuotes = onSnapshot(qQuotes, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setQuotes(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 
-      // Auto-limpieza de cotizaciones en papelera
       const now = new Date();
       data.forEach(async (q) => {
         if (q.status === 'trash' && q.deletedAt) {
           const diffDays = (now.getTime() - new Date(q.deletedAt).getTime()) / (1000 * 60 * 60 * 24);
-          if (diffDays > 15) await deleteDoc(doc(db, "quotes", q.id));
+          if (diffDays > 15) await deleteDoc(doc(db, "Dealers", dealerName, "Cotizaciones", q.id));
         }
       });
     });
@@ -3036,59 +3042,58 @@ export default function CarbotApp() {
 
   // 3. GUARDAR (Crear o Editar en Firebase)
   const handleSaveVehicle = async (vehicleData) => {
-    console.log("Intentando guardar vehículo:", vehicleData.id ? `Editando ID: ${vehicleData.id}` : "Creando nuevo (SIN ID)");
+    const dealerName = userProfile.dealerName;
+    if (!dealerName) return showToast("Error: No se encontró el Dealer", "error");
 
-    // Asegurar que si hay ID, se use updateDoc
     const existingId = vehicleData.id;
     try {
       if (existingId) {
-        // Editar existente
-        const vehicleRef = doc(db, "vehicles", existingId);
+        const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", existingId);
         const { id: _removedId, ...dataToUpdate } = vehicleData;
-        console.log("Actualizando documento Firestore:", existingId);
         await updateDoc(vehicleRef, {
           ...dataToUpdate,
           updatedAt: new Date().toISOString()
         });
         showToast("Vehículo actualizado con éxito");
       } else {
-        // Crear nuevo
         const newVehicle = {
           ...vehicleData,
           dealerId: userProfile.dealerId,
           dealerName: userProfile.dealerName,
+          creadoPor: userProfile.name,
           createdAt: new Date().toISOString(),
           status: vehicleData.status || 'available'
         };
-        await addDoc(collection(db, "vehicles"), newVehicle);
-        showToast("Vehículo guardado con éxito");
+        await addDoc(collection(db, "Dealers", dealerName, "Inventario"), newVehicle);
+        showToast("Vehículo guardado en Inventario");
       }
     } catch (error) {
-      console.error("Error detallado al guardar:", error);
-      showToast("Error al guardar en la base de datos", "error");
+      console.error("Error al guardar:", error);
+      showToast("Error al guardar", "error");
     }
   };
 
   // 4. SOFT DELETE (Enviar a Papelera)
   const handleDeleteVehicle = async (id) => {
-    // Soft Delete: update status to 'trash'
     try {
-      const vehicleRef = doc(db, "vehicles", id);
+      const dealerName = userProfile.dealerName;
+      const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", id);
       await updateDoc(vehicleRef, {
         status: 'trash',
         deletedAt: new Date().toISOString()
       });
-      showToast("Vehículo movido a la papelera (se borrará en 15 días)");
+      showToast("Vehículo movido a la papelera");
     } catch (error) {
       console.error(error);
-      showToast("Error al mover a papelera", "error");
+      showToast("Error al eliminar", "error");
     }
   };
 
   const handleRestore = async (id, type) => {
     try {
-      const coll = type === 'vehicle' ? 'vehicles' : (type === 'contract' ? 'contracts' : 'quotes');
-      const docRef = doc(db, coll, id);
+      const dealerName = userProfile.dealerName;
+      const coll = type === 'vehicle' ? 'Inventario' : (type === 'contract' ? 'Contratos' : 'Cotizaciones');
+      const docRef = doc(db, "Dealers", dealerName, coll, id);
       await updateDoc(docRef, {
         status: type === 'vehicle' ? 'available' : 'active',
         deletedAt: null,
@@ -3108,8 +3113,9 @@ export default function CarbotApp() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const coll = type === 'vehicle' ? 'vehicles' : (type === 'contract' ? 'contracts' : 'quotes');
-          await deleteDoc(doc(db, coll, id));
+          const dealerName = userProfile.dealerName;
+          const coll = type === 'vehicle' ? 'Inventario' : (type === 'contract' ? 'Contratos' : 'Cotizaciones');
+          await deleteDoc(doc(db, "Dealers", dealerName, coll, id));
           showToast("Eliminado para siempre");
         } catch (error) {
           console.error("Error al eliminar:", error);
@@ -3126,17 +3132,19 @@ export default function CarbotApp() {
       isDestructive: true,
       onConfirm: async () => {
         try {
+          const dealerName = userProfile.dealerName;
+
           // Vaciar vehículos
           const trashV = inventory.filter(i => i.status === 'trash');
-          for (const item of trashV) await deleteDoc(doc(db, "vehicles", item.id));
+          for (const item of trashV) await deleteDoc(doc(db, "Dealers", dealerName, "Inventario", item.id));
 
           // Vaciar contratos
           const trashC = contracts.filter(i => i && i.status === 'trash');
-          for (const item of trashC) await deleteDoc(doc(db, "contracts", item.id));
+          for (const item of trashC) await deleteDoc(doc(db, "Dealers", dealerName, "Contratos", item.id));
 
           // Vaciar cotizaciones
           const trashQ = quotes.filter(i => i && i.status === 'trash');
-          for (const item of trashQ) await deleteDoc(doc(db, "quotes", item.id));
+          for (const item of trashQ) await deleteDoc(doc(db, "Dealers", dealerName, "Cotizaciones", item.id));
 
           showToast("Papelera vaciada por completo");
         } catch (err) {
@@ -3150,25 +3158,24 @@ export default function CarbotApp() {
   // Funciones locales (Contratos, etc.)
   const handleQuoteSent = async (quoteData) => {
     try {
+      const dealerName = userProfile.dealerName;
       const vId = quoteData.vehicleId || selectedVehicle?.id;
       const vName = quoteData.vehicle || (selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : 'Vehículo Desconocido');
 
-      // 1. Guardar en la colección de cotizaciones
       const newQuote = {
         ...quoteData,
         vehicleId: vId,
         vehicle: vName,
         dealerId: userProfile.dealerId,
-        dealerName: userProfile.dealerName,
+        dealerName: dealerName,
         status: 'active',
         date: new Date().toISOString(),
         createdAt: new Date().toISOString()
       };
-      await addDoc(collection(db, "quotes"), newQuote);
+      await addDoc(collection(db, "Dealers", dealerName, "Cotizaciones"), newQuote);
 
-      // 2. Actualizar estado del vehículo
       if (vId) {
-        const vehicleRef = doc(db, "vehicles", vId);
+        const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", vId);
         await updateDoc(vehicleRef, { status: 'quoted', updatedAt: new Date().toISOString() });
       }
       showToast("Cotización guardada");
@@ -3180,31 +3187,29 @@ export default function CarbotApp() {
 
   const handleGenerateContract = async (contractData) => {
     try {
+      const dealerName = userProfile.dealerName;
       const { id, ...data } = contractData;
       if (id) {
-        // Editar existente
-        const contractRef = doc(db, "contracts", id);
+        const contractRef = doc(db, "Dealers", dealerName, "Contratos", id);
         await updateDoc(contractRef, {
           ...data,
           updatedAt: new Date().toISOString()
         });
         showToast("Contrato actualizado con éxito");
       } else {
-        // Crear nuevo
         const newContract = {
           ...data,
           dealerId: userProfile.dealerId,
-          dealerName: userProfile.dealerName,
+          dealerName: dealerName,
           createdAt: new Date().toISOString()
         };
-        await addDoc(collection(db, "contracts"), newContract);
+        await addDoc(collection(db, "Dealers", dealerName, "Contratos"), newContract);
 
-        // 2. Si hay un vehículo asociado, marcarlo como vendido
         if (contractData.vehicleId) {
-          const vehicleRef = doc(db, "vehicles", contractData.vehicleId);
+          const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", contractData.vehicleId);
           await updateDoc(vehicleRef, { status: 'sold', updatedAt: new Date().toISOString() });
         }
-        showToast("Contrato generado y vehículo marcado como vendido");
+        showToast("Contrato generado con éxito");
       }
     } catch (error) {
       console.error("Error al procesar contrato:", error);
@@ -3213,19 +3218,21 @@ export default function CarbotApp() {
   };
 
   const handleDeleteContract = async (id) => {
-    await updateDoc(doc(db, "contracts", id), {
+    const dealerName = userProfile.dealerName;
+    await updateDoc(doc(db, "Dealers", dealerName, "Contratos", id), {
       status: 'trash',
       deletedAt: new Date().toISOString()
     });
-    showToast("Contrato movido a la papelera (15 días)");
+    showToast("Contrato movido a la papelera");
   };
 
   const handleDeleteQuote = async (id) => {
-    await updateDoc(doc(db, "quotes", id), {
+    const dealerName = userProfile.dealerName;
+    await updateDoc(doc(db, "Dealers", dealerName, "Cotizaciones", id), {
       status: 'trash',
       deletedAt: new Date().toISOString()
     });
-    showToast("Cotización movida a la papelera (15 días)");
+    showToast("Cotización movida a la papelera");
   };
 
   const handleVehicleSelect = (vehicle) => {
@@ -3246,7 +3253,16 @@ export default function CarbotApp() {
         ...data,
         updatedAt: new Date().toISOString()
       });
-      setUserProfile(prev => ({ ...prev, ...data }));
+      const newProfile = { ...userProfile, ...data };
+      setUserProfile(newProfile);
+
+      // Sincronizar localStorage para Multi-Tenant
+      localStorage.setItem('carbot_app_user_v1', JSON.stringify({
+        dealer: newProfile.dealerName,
+        name: newProfile.name,
+        email: newProfile.email
+      }));
+
       showToast("Perfil actualizado correctamente");
     } catch (error) {
       console.error("Error al actualizar perfil:", error);
