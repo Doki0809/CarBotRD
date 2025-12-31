@@ -2009,6 +2009,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true); // Default highly permissive for dealers
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -2022,7 +2023,7 @@ const LoginScreen = ({ onLogin }) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       const emailId = email.replace(/\./g, '_').toLowerCase();
-      await onLogin(emailId);
+      await onLogin(emailId, rememberMe);
     } catch (err) {
       console.error("Error de login:", err);
       if (err.code === 'auth/wrong-password') setError("Contraseña incorrecta.");
@@ -2072,6 +2073,21 @@ const LoginScreen = ({ onLogin }) => {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between px-1">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-200 transition-all checked:bg-red-600 checked:border-red-600 hover:border-red-300"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <CheckCircle className="absolute w-5 h-5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity p-0.5" />
+              </div>
+              <span className="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Mantener sesión abierta</span>
+            </label>
           </div>
 
           {error && (
@@ -2162,7 +2178,7 @@ export default function CarbotApp() {
   }, []);
 
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
-  const loadUserProfile = async (emailOrId, isGHL = false, ghlName = null, ghlUser = null) => {
+  const loadUserProfile = async (emailOrId, isGHL = false, ghlName = null, ghlUser = null, rememberMe = false) => {
     try {
       let userId = emailOrId.replace(/\./g, '_').toLowerCase(); // ID por defecto
       let dealerId = '';
@@ -2227,7 +2243,7 @@ export default function CarbotApp() {
 
       setUserProfile(profileData);
       setIsLoggedIn(true);
-      if (!isGHL) localStorage.setItem('carbot_user_email', emailOrId);
+      if (!isGHL && rememberMe) localStorage.setItem('carbot_user_email', emailOrId);
 
     } catch (error) {
       console.error("Error cargando perfil:", error);
@@ -2239,9 +2255,9 @@ export default function CarbotApp() {
 
 
   // 3. HANDLERS LOGIN / LOGOUT
-  const handleLogin = (emailId) => {
+  const handleLogin = (emailId, rememberMe) => {
     setInitializing(true); // Mostrar carga mientras buscamos
-    loadUserProfile(emailId);
+    loadUserProfile(emailId, false, "", null, rememberMe);
   };
 
   const handleLogout = async () => {
