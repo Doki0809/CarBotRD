@@ -22,7 +22,7 @@ import {
 } from 'firebase/firestore';
 
 import {
-  LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
+  LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Edit2, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
   Box, AlertTriangle, TrendingUp, History, Bell, Calendar
