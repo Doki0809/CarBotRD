@@ -77,7 +77,7 @@ const Button = ({ children, variant = 'primary', className = '', icon: Icon, onC
 const Card = ({ children, className = '', noPadding = false }) => {
   const hasBg = className.includes('bg-');
   return (
-    <div className={`${hasBg ? '' : 'bg-white dark:bg-slate-900'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 dark:border-slate-800 overflow-hidden transition-all duration-300 ${className}`}>
+    <div className={`${hasBg ? '' : 'bg-white'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
       <div className={noPadding ? '' : 'p-6'}>{children}</div>
     </div>
   );
@@ -85,11 +85,11 @@ const Card = ({ children, className = '', noPadding = false }) => {
 
 const Badge = ({ status }) => {
   const styles = {
-    available: "bg-emerald-50 text-emerald-700 border-emerald-100 ring-1 ring-emerald-600/10 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800",
-    quoted: "bg-amber-50 text-amber-700 border-amber-100 ring-1 ring-amber-600/10 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
-    sold: "bg-slate-100 text-slate-600 border-slate-200 ring-1 ring-slate-600/10 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
-    pending: "bg-red-50 text-red-700 border-red-100 ring-1 ring-red-600/10 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
-    signed: "bg-green-50 text-green-700 border-green-100 ring-1 ring-green-600/10 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
+    available: "bg-emerald-50 text-emerald-700 border-emerald-100 ring-1 ring-emerald-600/10",
+    quoted: "bg-amber-50 text-amber-700 border-amber-100 ring-1 ring-amber-600/10",
+    sold: "bg-slate-100 text-slate-600 border-slate-200 ring-1 ring-slate-600/10",
+    pending: "bg-red-50 text-red-700 border-red-100 ring-1 ring-red-600/10",
+    signed: "bg-green-50 text-green-700 border-green-100 ring-1 ring-green-600/10",
   };
   const labels = { available: "Disponible", quoted: "Cotizado", sold: "Vendido", pending: "Pendiente Firma", signed: "Firmado" };
   return (
@@ -1117,36 +1117,10 @@ const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
 };
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
-  const stats = [
-    { label: 'TOTAL INVENTARIO', value: inventory.length.toLocaleString(), icon: Car, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', badge: '+12 nuevos', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', action: () => onNavigate('inventory', 'all') },
-    { label: 'TOTAL VENDIDOS', value: inventory.filter(i => i.status === 'sold').length, icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', badge: 'En crecimiento', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', action: () => onNavigate('inventory', 'sold') },
-    { label: 'VALOR TOTAL', value: `$${(inventory.reduce((acc, current) => acc + (current.price || 0), 0) / 1000).toFixed(1)}k`, icon: TrendingUp, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', badge: '+5.4% mes', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', action: () => onNavigate('inventory', 'sold') },
-  ];
-
   const recentContracts = contracts.slice(0, 3);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Dashboard Header / Greeting */}
-      <Card className="relative overflow-hidden border-none bg-red-600 text-white shadow-xl shadow-red-600/20">
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="text-3xl font-black flex items-center gap-3">
-              Gestión de Inventario 📦
-            </h1>
-            <p className="text-red-50 mt-2 text-lg">
-              Bienvenido, <span className="font-bold">{userProfile?.name?.split(' ')[0] || 'Usuario'}</span>.
-              Listo para vender y gestionar tu inventario hoy.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="secondary" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => onNavigate('contracts')}>Ver Reporte</Button>
-            <Button className="bg-white !text-red-600 hover:bg-red-50 shadow-xl" onClick={() => onNavigate('inventory')} icon={Plus}>Agregar Vehículo</Button>
-          </div>
-        </div>
-        {/* Subtle background decoration */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
-      </Card>
 
       {/* Hero Banner Section */}
       <div className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-red-600 to-red-700 p-8 sm:p-12 shadow-2xl shadow-red-600/20 mb-8 border border-red-500/50">
@@ -1931,10 +1905,10 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
           {/* Left: Logo & Brand */}
           <div className="flex-1 flex items-center">
             <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-              <AppLogo size={42} className="sm:h-[50px] dark:brightness-110" />
+              <AppLogo size={42} className="sm:h-[50px]" />
               <div className="flex flex-col">
                 <span className="text-sm font-black text-red-600 tracking-tight leading-none uppercase">Inventario</span>
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">CarBot</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">CarBot</span>
               </div>
             </div>
           </div>
@@ -2134,6 +2108,7 @@ export default function CarbotApp() {
   // Asegurar que el modo oscuro esté desactivado al iniciar
   useEffect(() => {
     document.documentElement.classList.remove('dark');
+    document.body.classList.remove('dark');
     localStorage.removeItem('carbot_theme');
   }, []);
 
