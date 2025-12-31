@@ -143,7 +143,7 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 
 // --- MODALES ---
 
-const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive = false }) => {
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive = false, showCancel = true, confirmText = null }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
@@ -164,17 +164,76 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestr
                   : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98]'
                   }`}
               >
-                {isDestructive ? 'Eliminar Definitivamente' : 'Confirmar Acción'}
+                {confirmText || (isDestructive ? 'Eliminar Definitivamente' : 'Confirmar Acción')}
               </button>
-              <button
-                onClick={onClose}
-                className="w-full py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
-              >
-                Cancelar
-              </button>
+              {showCancel && (
+                <button
+                  onClick={onClose}
+                  className="w-full py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+              )}
             </div>
           </div>
           <div className={`absolute top-0 right-0 w-32 h-32 ${isDestructive ? 'bg-red-500/5' : 'bg-blue-500/5'} rounded-full -mr-16 -mt-16 blur-2xl`}></div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+const PromptModal = ({ isOpen, onClose, onConfirm, title, message, defaultValue = '', placeholder = '' }) => {
+  const [value, setValue] = useState(defaultValue);
+
+  useEffect(() => {
+    if (isOpen) setValue(defaultValue);
+  }, [isOpen, defaultValue]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
+        <Card className="rounded-[32px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-6">
+              <User size={32} strokeWidth={2.5} />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight text-center">{title}</h3>
+            <p className="text-sm font-bold text-slate-500 mb-6 leading-relaxed px-2 text-center">{message}</p>
+
+            <div className="w-full space-y-4">
+              <input
+                type="text"
+                autoFocus
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-900"
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && value.trim()) onConfirm(value);
+                }}
+              />
+
+              <div className="flex flex-col w-full gap-3">
+                <button
+                  onClick={() => value.trim() && onConfirm(value)}
+                  disabled={!value.trim()}
+                  className="w-full py-4 rounded-2xl text-xs font-black bg-red-600 text-white uppercase tracking-widest shadow-lg shadow-red-600/20 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continuar
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-full py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
+                >
+                  Omitir / Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
         </Card>
       </div>
     </div>
@@ -233,7 +292,12 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
     const totalCurrent = photos.length;
 
     if (totalCurrent + files.length > 10) {
-      alert(`Límite excedido. El inventario permite un máximo de 10 fotos. Actualmente tienes ${totalCurrent} y estás intentando agregar ${files.length}.`);
+      showConfirm({
+        title: 'Límite de Fotos',
+        message: `Límite excedido. El inventario permite un máximo de 10 fotos. Actualmente tienes ${totalCurrent} y estás intentando agregar ${files.length}.`,
+        showCancel: false,
+        confirmText: 'Entendido'
+      });
       return;
     }
 
@@ -335,7 +399,12 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData }) => {
       onClose();
     } catch (error) {
       console.error("Error crítico al guardar:", error);
-      alert("Error al procesar el guardado. Revisa tu conexión.");
+      showConfirm({
+        title: 'Error de Guardado',
+        message: 'Error al procesar el guardado. Revisa tu conexión.',
+        showCancel: false,
+        confirmText: 'Cerrar'
+      });
       setLoading(false);
       setUploadProgress('');
     }
@@ -528,7 +597,12 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
         vehicleId: vehicle.id,
         vehicle: `${vehicle.make} ${vehicle.model}`
       });
-      alert("¡Cotización completa enviada a GHL!");
+      showConfirm({
+        title: '¡Cotización Enviada!',
+        message: '¡Cotización completa enviada a GHL!',
+        showCancel: false,
+        confirmText: 'Genial'
+      });
       setLoading(false);
       onClose();
     }, 1000);
@@ -615,7 +689,12 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
 
     setTimeout(() => {
       onSave({ name, lastname, phone, cedula, bank, vehicle: `${vehicle.make} ${vehicle.model}`, vehicleId: vehicle.id });
-      alert("¡Cotización manual enviada a GHL!");
+      showConfirm({
+        title: '¡Envío Exitoso!',
+        message: '¡Cotización manual enviada a GHL!',
+        showCancel: false,
+        confirmText: 'Entendido'
+      });
       setLoading(false);
       onClose();
     }, 1000);
@@ -738,7 +817,12 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
         ghl_id: `ghl_${Date.now()}`,
         vin: vehicle.vin
       });
-      alert("¡Contrato generado y datos enviados a GHL!");
+      showConfirm({
+        title: 'Contrato Generado',
+        message: '¡Contrato generado y datos enviados a GHL!',
+        showCancel: false,
+        confirmText: 'Aceptar'
+      });
       setLoading(false);
       onClose();
     }, 1500);
@@ -2423,6 +2507,7 @@ export default function CarbotApp() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'dashboard');
 
   const [userProfile, setUserProfile] = useState(null);
+  const [user, setUser] = useState(null); // Firebase User
   const [initializing, setInitializing] = useState(true);
 
   // --- Confirm Dialog State (Hoisted for Stability) ---
@@ -2443,7 +2528,32 @@ export default function CarbotApp() {
         options.onConfirm();
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
-      isDestructive: options.isDestructive || false
+      isDestructive: options.isDestructive || false,
+      showCancel: options.showCancel !== undefined ? options.showCancel : true,
+      confirmText: options.confirmText || null
+    });
+  };
+
+  const [promptDialog, setPromptDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    defaultValue: '',
+    placeholder: '',
+    onConfirm: () => { }
+  });
+
+  const showPrompt = (options) => {
+    setPromptDialog({
+      isOpen: true,
+      title: options.title || 'Requiere Información',
+      message: options.message || 'Por favor completa el siguiente campo.',
+      defaultValue: options.defaultValue || '',
+      placeholder: options.placeholder || 'Escribe aquí...',
+      onConfirm: (val) => {
+        options.onConfirm(val);
+        setPromptDialog(prev => ({ ...prev, isOpen: false }));
+      }
     });
   };
 
@@ -2465,39 +2575,55 @@ export default function CarbotApp() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // 1. EFECTO: RESTAURAR SESIÓN O LOGIN AUTOMÁTICO DESDE GHL
   useEffect(() => {
-    const initSystem = async () => {
-      const params = new URLSearchParams(window.location.search);
+    // 1. Safety Timeout: Si tras 6 segundos no ha cargado, forzamos el fin para mostrar Login
+    const safetyTimer = setTimeout(() => {
+      setInitializing(prev => {
+        if (prev) console.warn("⌚ Timeout de inicialización alcanzado. Forzando UI.");
+        return false;
+      });
+    }, 6000);
 
-      // Datos de GHL
+    // 2. Escuchar cambios de Auth (Estado Real de Sesión)
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      const params = new URLSearchParams(window.location.search);
       const ghlLocationId = params.get('location_id');
-      const ghlLocationName = params.get('location_name');
-      const ghlUserId = params.get('user_id');
-      const ghlUserName = params.get('user_name');
-      const ghlUserEmail = params.get('user_email'); // <--- NUEVO
 
       try {
         if (ghlLocationId) {
-          console.log("🌎 GHL Detectado. Email:", ghlUserEmail);
-          localStorage.removeItem('carbot_user_email');
+          const ghlLocationName = params.get('location_name');
+          const ghlUserId = params.get('user_id');
+          const ghlUserName = params.get('user_name');
+          const ghlUserEmail = params.get('user_email');
+
+          console.log("🌎 GHL Detectado:", ghlUserEmail);
           await loadUserProfile(ghlLocationId, true, ghlLocationName, {
             id: ghlUserId,
             name: ghlUserName,
             email: ghlUserEmail
           });
+        } else if (firebaseUser && firebaseUser.email) {
+          // Si Firebase ya tiene sesión, cargamos el perfil
+          await loadUserProfile(firebaseUser.email);
         } else {
+          // Si no hay nada, revisamos localstorage como fallback legacy
           const savedEmail = localStorage.getItem('carbot_user_email');
           if (savedEmail) await loadUserProfile(savedEmail);
+          else setInitializing(false);
         }
       } catch (err) {
         console.error("Critical Init Error:", err);
-      } finally {
         setInitializing(false);
+      } finally {
+        clearTimeout(safetyTimer);
       }
-    };
+    });
 
-    initSystem();
+    return () => {
+      unsubscribeAuth();
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   // 2. FUNCIÓN: CARGAR PERFIL Y DETECTAR DEALER (CORE)
@@ -2542,20 +2668,45 @@ export default function CarbotApp() {
           profileData.dealerName = realDealerName;
         }
       } else {
-        // USUARIO NUEVO - LEGACY STYLE CON PROMPT
-        let finalName = realEmployeeName;
-        let finalDealer = realDealerName;
-
+        // USUARIO NUEVO
         if (!isGHL || (isGHL && realEmployeeName === userId)) {
-          finalName = prompt("¿Cuál es tu nombre?") || userId;
-          finalDealer = prompt("¿Cómo se llama tu Dealer?") || "Mi Dealer";
+          setInitializing(false);
+          showPrompt({
+            title: '¡Bienvenido a CarBot!',
+            message: 'Por favor dinos tu nombre para personalizar tu experiencia.',
+            placeholder: 'Tu nombre completo',
+            defaultValue: realEmployeeName !== userId ? realEmployeeName : '',
+            onConfirm: (finalName) => {
+              showPrompt({
+                title: 'Nombre de tu Dealer',
+                message: '¿Bajo qué nombre comercial trabajas?',
+                placeholder: 'Nombre del Dealer / Almacén',
+                defaultValue: realDealerName,
+                onConfirm: async (finalDealer) => {
+                  const newProfile = {
+                    email: userId,
+                    name: finalName,
+                    dealerId: isGHL ? dealerId : "",
+                    dealerName: finalDealer,
+                    role: 'sales',
+                    createdAt: new Date().toISOString()
+                  };
+                  await setDoc(userDocRef, newProfile);
+                  setUserProfile(newProfile);
+                  setIsLoggedIn(true);
+                  showToast("¡Perfil creado con éxito!");
+                }
+              });
+            }
+          });
+          return;
         }
 
         const newProfile = {
           email: userId,
-          name: finalName,
+          name: realEmployeeName,
           dealerId: isGHL ? dealerId : "",
-          dealerName: finalDealer,
+          dealerName: realDealerName,
           role: 'sales',
           createdAt: new Date().toISOString()
         };
@@ -2943,6 +3094,17 @@ export default function CarbotApp() {
         title={confirmDialog.title}
         message={confirmDialog.message}
         isDestructive={confirmDialog.isDestructive}
+        showCancel={confirmDialog.showCancel}
+        confirmText={confirmDialog.confirmText}
+      />
+      <PromptModal
+        isOpen={promptDialog.isOpen}
+        onClose={() => setPromptDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={promptDialog.onConfirm}
+        title={promptDialog.title}
+        message={promptDialog.message}
+        defaultValue={promptDialog.defaultValue}
+        placeholder={promptDialog.placeholder}
       />
       {toast && (
         <Toast
