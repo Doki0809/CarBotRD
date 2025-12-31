@@ -2007,8 +2007,12 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
               >
                 {userProfile?.name?.charAt(0) || 'J'}
               </div>
-              <button onClick={onLogout} className="p-1 sm:p-2 text-slate-300 dark:text-slate-600 hover:text-red-600 transition-colors">
-                <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`p-1 sm:p-2 transition-colors ${activeTab === 'settings' ? 'text-red-600' : 'text-slate-300 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white'}`}
+                title="Ajustes"
+              >
+                <Settings size={18} className="sm:w-[20px] sm:h-[20px]" />
               </button>
             </div>
           </div>
