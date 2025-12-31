@@ -5,7 +5,7 @@ import {
   X, Info, Share2, Heart, Files, CheckCircle, Lock, Trash2
 } from 'lucide-react';
 
-export default function VehicleEditView({ vehicle, contract, onBack, onSave, onRevert }) {
+export default function VehicleEditView({ vehicle, contract, onBack, onSave, onRevert, showConfirm }) {
   const [loading, setLoading] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.price_dop > 0 ? 'DOP' : 'USD');
@@ -210,9 +210,13 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, onR
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm('¿Seguro que deseas eliminar esta venta y poner el vehículo disponible?')) {
-                          onRevert(vehicle.id);
-                        }
+                        showConfirm({
+                          title: 'Eliminar Venta',
+                          message: '¿Seguro que deseas eliminar esta venta? El vehículo volverá a estar disponible y se borrarán los datos del contrato.',
+                          isDestructive: true,
+                          confirmText: 'Sí, Eliminar Venta',
+                          onConfirm: () => onRevert(vehicle.id)
+                        });
                       }}
                       className="px-4 py-2 bg-white/10 hover:bg-red-500/20 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 border border-white/20 hover:border-red-400"
                     >

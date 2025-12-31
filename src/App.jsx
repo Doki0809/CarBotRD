@@ -433,9 +433,18 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
             // Sanitizar nombre
             const cleanName = (item.file.name || 'image.jpg').replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase();
 
-            // RUTA CORRECTA: Dealers/{dealerName}/Vehicles/{nombre_archivo}
-            // Usamos Date.now() para evitar colisiones si suben el mismo archivo 2 veces
-            const storagePath = `Dealers/${dealerName}/Vehicles/${Date.now()}_${cleanName}`;
+            // ESTUCTURA DE CARPETAS ORGANIZADA AUTOMÁTICA 📂
+            const make = (data.make || "Genérico").replace(/\s+/g, '');
+            const model = (data.model || "Modelo").replace(/\s+/g, '');
+            const yearStr = data.year || "0000";
+            const color = (data.color || "Color").replace(/\s+/g, '');
+            const vinLast4 = (data.vin || "0000").slice(-4);
+
+            // Ej: 2020_Blanco_9921
+            const vehicleFolder = `${yearStr}_${color}_${vinLast4}`;
+
+            // Ruta: Dealers/JeanCars/Vehicles/Honda/Civic/2020_Blanco_9921/foto.jpg
+            const storagePath = `Dealers/${dealerName}/Vehicles/${make}/${model}/${vehicleFolder}/${cleanName}`;
 
             const storageRef = ref(storage, storagePath);
 
@@ -3445,6 +3454,7 @@ export default function CarbotApp() {
           onBack={() => setSelectedVehicle(null)}
           onSave={async (data) => { await handleSaveVehicle(data); setSelectedVehicle(null); }}
           onRevert={handleRevertSale}
+          showConfirm={showConfirm}
         />
       );
     }
