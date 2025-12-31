@@ -1707,6 +1707,14 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
   const [currentVehicle, setCurrentVehicle] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null); // Nuevo estado para controlar qué menú está abierto
+
+  // Cerrar menú al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const filteredInventory = useMemo(() => {
     let result = inventory.filter(item => {
@@ -1925,16 +1933,27 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
                           </Button>
                           <div className="flex gap-1.5 sm:gap-2">
                             <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all" title="Editar"><Edit size={14} /></button>
-                            <div className="relative group/menu">
-                              <button onClick={(e) => { e.stopPropagation(); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all"><MoreVertical size={14} /></button>
-                              <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 hidden group-hover/menu:block z-20">
-                                <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
-                                  <Copy size={12} /> Duplicar
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
-                                  <Trash2 size={12} /> Eliminar
-                                </button>
-                              </div>
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                }}
+                                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${openMenuId === item.id ? 'bg-red-50 text-red-600' : 'bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600'}`}
+                              >
+                                <MoreVertical size={14} />
+                              </button>
+
+                              {openMenuId === item.id && (
+                                <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-30 animate-in fade-in zoom-in-95 duration-200">
+                                  <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
+                                    <Copy size={12} /> Duplicar
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                                    <Trash2 size={12} /> Eliminar
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3254,7 +3273,10 @@ export default function CarbotApp() {
     try {
       const dealerName = userProfile?.dealerName;
       if (!dealerName) return;
+
       const { id, ...data } = contractData;
+
+      // SI YA VIENE CON ID (EDICION), SE MANTIENE EL FLUJO VIEJO O SE PODRIA RE-CALCULAR
       if (id) {
         const contractRef = doc(db, "Dealers", dealerName, "Contratos", id);
         await updateDoc(contractRef, {
@@ -3263,19 +3285,43 @@ export default function CarbotApp() {
         });
         showToast("Contrato actualizado con éxito");
       } else {
+        // --- LOGICA DE ID PERSONALIZADO PARA NUEVOS CONTRATOS ---
+
+        // 1. OBTENER DATOS CLAVE
+        const clienteLimpio = (contractData.client || "Cliente").replace(/\s+/g, '_').toUpperCase();
+        const vehiculoLimpio = (contractData.vehicle || "Vehiculo").replace(/\s+/g, '_').toUpperCase();
+        // Usamos la fecha actual en formato YYYY-MM-DD
+        const fechaHoy = new Date().toISOString().split('T')[0];
+
+        // 2. OBTENER LOS ÚLTIMOS 4 DEL CHASIS
+        // Esperamos que en 'contractData' o en 'contractData.vehicleData' venga el vin.
+        // Si no está directo, intentamos sacarlo de 'data'.
+        const chasis = contractData.vin || contractData.chassis || "0000";
+        const ultimos4 = chasis.slice(-4);
+
+        // 3. CONSTRUIR EL ID
+        const idBonito = `${clienteLimpio}_${vehiculoLimpio}_${fechaHoy}_${ultimos4}`;
+
         const newContract = {
           ...data,
           dealerId: userProfile?.dealerId,
           dealerName: dealerName,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          idPersonalizado: idBonito,
+          vin: chasis // Asegurar que se guarde el vin
         };
-        await addDoc(collection(db, "Dealers", dealerName, "Contratos"), newContract);
+
+        // 4. GUARDAR CON setDoc
+        await setDoc(doc(db, "Dealers", dealerName, "Contratos", idBonito), newContract);
 
         if (contractData.vehicleId) {
           const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", contractData.vehicleId);
           await updateDoc(vehicleRef, { status: 'sold', updatedAt: new Date().toISOString() });
         }
-        showToast("Contrato generado con éxito");
+
+        console.log(`✅ Contrato guardado: ${idBonito}`);
+        showToast(`Contrato generado: ${idBonito}`);
       }
     } catch (error) {
       console.error("Error al procesar contrato:", error);
