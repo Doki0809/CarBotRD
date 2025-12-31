@@ -22,7 +22,7 @@ import {
 } from 'firebase/firestore';
 
 import {
-  LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Edit2, Trash2,
+  LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
   Box, AlertTriangle, TrendingUp, History, Bell, Calendar
@@ -1628,6 +1628,7 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
 
 const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, userProfile, searchTerm }) => {
   const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
+  const [localSearch, setLocalSearch] = useState('');
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [selectedContractPreview, setSelectedContractPreview] = useState(null);
@@ -1640,7 +1641,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
 
     // 1. Filtrar por búsqueda
     const filtered = dataToFilter.filter(item => {
-      const search = searchTerm.toLowerCase();
+      const search = (localSearch || "").toLowerCase();
       if (activeView === 'contracts') {
         return (item?.client || '').toLowerCase().includes(search) ||
           (item?.vehicle || '').toLowerCase().includes(search) ||
@@ -1684,7 +1685,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
       groups[groupKey].push(item);
     });
     return groups;
-  }, [contracts, quotes, activeView, searchTerm, sortConfig]);
+  }, [contracts, quotes, activeView, localSearch, sortConfig]);
 
   const handleDeleteItem = (id) => {
     const confirmMsg = activeView === 'contracts'
@@ -1833,8 +1834,8 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             type="text"
             placeholder={`Filtrar ${activeView === 'contracts' ? 'contratos' : 'cotizaciones'}...`}
             className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/5 focus:border-red-500/30 focus:bg-white transition-all font-bold text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
           />
         </div>
 
@@ -1927,7 +1928,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                       }}
                       className="flex items-center justify-center gap-2 py-3 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-blue-100"
                     >
-                      <Edit2 size={14} /> EDITAR
+                      <Edit size={14} /> EDITAR
                     </button>
                     <button
                       onClick={() => handleDeleteItem(item.id)}
@@ -2250,24 +2251,24 @@ export default function CarbotApp() {
       const ghlUserName = params.get('user_name');
       const ghlUserEmail = params.get('user_email'); // <--- NUEVO
 
-      if (ghlLocationId) {
-        console.log("🌎 GHL Detectado. Email:", ghlUserEmail);
-
-        // Limpieza agresiva de memoria vieja
-        localStorage.removeItem('carbot_user_email');
-
-        // Cargamos perfil pasando el EMAIL como dato clave
-        await loadUserProfile(ghlLocationId, true, ghlLocationName, {
-          id: ghlUserId,
-          name: ghlUserName,
-          email: ghlUserEmail // Pasamos el email
-        });
-        return;
+      try {
+        if (ghlLocationId) {
+          console.log("🌎 GHL Detectado. Email:", ghlUserEmail);
+          localStorage.removeItem('carbot_user_email');
+          await loadUserProfile(ghlLocationId, true, ghlLocationName, {
+            id: ghlUserId,
+            name: ghlUserName,
+            email: ghlUserEmail
+          });
+        } else {
+          const savedEmail = localStorage.getItem('carbot_user_email');
+          if (savedEmail) await loadUserProfile(savedEmail);
+        }
+      } catch (err) {
+        console.error("Critical Init Error:", err);
+      } finally {
+        setInitializing(false);
       }
-
-      const savedEmail = localStorage.getItem('carbot_user_email');
-      if (savedEmail) await loadUserProfile(savedEmail);
-      else setInitializing(false);
     };
 
     initSystem();
@@ -2654,7 +2655,7 @@ export default function CarbotApp() {
       case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={userProfile} searchTerm={globalSearch} />;
       case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
-      default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={userProfile} />;
+      default: return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={userProfile} />;
     }
   };
 
