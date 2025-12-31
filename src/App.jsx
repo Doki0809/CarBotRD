@@ -2040,7 +2040,7 @@ const LoginScreen = ({ onLogin }) => {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-red-600 shadow-xl shadow-red-600/20 mb-6 group transition-transform hover:scale-105 duration-500">
             <AppLogo size={100} className="brightness-0 invert opacity-95 group-hover:scale-110 transition-transform" />
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">CarBot <span className="text-red-600">Pro</span></h1>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">CarBot <span className="text-red-600">System</span></h1>
           <p className="text-slate-500 mt-2 font-medium">Gestión inteligente de inventario</p>
         </div>
 
@@ -2099,7 +2099,7 @@ const LoginScreen = ({ onLogin }) => {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full py-5 rounded-2xl shadow-xl shadow-red-600/20 text-sm"
+            className="w-full py-5 rounded-2xl shadow-xl shadow-red-600/30 text-sm font-black bg-red-600 text-white hover:bg-red-700"
             icon={loading ? Loader2 : LogOut}
           >
             {loading ? 'Iniciando Sesión...' : 'Entrar al Sistema'}
