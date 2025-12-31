@@ -138,6 +138,44 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 
 // --- MODALES ---
 
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive = false }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-full max-w-sm animate-in zoom-in-95 duration-200">
+        <Card className="rounded-[32px] p-8 border-none shadow-2xl overflow-hidden relative bg-white">
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className={`w-16 h-16 rounded-2xl ${isDestructive ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center mb-6`}>
+              {isDestructive ? <Trash2 size={32} strokeWidth={2.5} /> : <AlertTriangle size={32} strokeWidth={2.5} />}
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2 uppercase tracking-tight">{title}</h3>
+            <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-2">{message}</p>
+
+            <div className="flex flex-col w-full gap-3">
+              <button
+                onClick={onConfirm}
+                className={`w-full py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${isDestructive
+                  ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98]'
+                  : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98]'
+                  }`}
+              >
+                {isDestructive ? 'Eliminar Definitivamente' : 'Confirmar Acción'}
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full py-4 rounded-2xl text-xs font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+          <div className={`absolute top-0 right-0 w-32 h-32 ${isDestructive ? 'bg-red-500/5' : 'bg-blue-500/5'} rounded-full -mr-16 -mt-16 blur-2xl`}></div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   if (!isOpen) return null;
   return (
@@ -1466,9 +1504,12 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
   };
 
   const handleDeleteWrapper = (id) => {
-    if (window.confirm('¿Seguro que deseas eliminar este vehículo de la Base de Datos?')) {
-      onDelete(id);
-    }
+    showConfirm({
+      title: 'Eliminar Vehículo',
+      message: '¿Seguro que deseas mover este vehículo a la papelera?',
+      isDestructive: true,
+      onConfirm: () => onDelete(id)
+    });
   };
 
   const openActionModal = (vehicle) => { setCurrentVehicle(vehicle); setIsActionModalOpen(true); };
@@ -1687,14 +1728,19 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     return groups;
   }, [contracts, quotes, activeView, localSearch, sortConfig]);
 
-  const handleDeleteItem = (id) => {
-    const confirmMsg = activeView === 'contracts'
-      ? "¿ESTÁS SEGURO? Esta acción eliminará el contrato permanentemente."
-      : "¿Seguro que deseas eliminar esta cotización?";
-    if (window.confirm(confirmMsg)) {
-      if (activeView === 'contracts') onDeleteContract(id);
-      else onDeleteQuote(id);
-    }
+  const handleDeleteItem = (item) => {
+    const isQuote = activeView === 'quotes';
+    const clientName = isQuote ? `${item.name} ${item.lastname}` : item.client;
+    const confirmMsg = `¿Eliminar permanentemente ${isQuote ? 'la cotización' : 'el contrato'} de ${clientName}?`;
+    showConfirm({
+      title: isQuote ? 'Eliminar Cotización' : 'Eliminar Contrato',
+      message: confirmMsg,
+      isDestructive: true,
+      onConfirm: () => {
+        if (isQuote) onDeleteQuote(item.id);
+        else onDeleteContract(item.id);
+      }
+    });
   };
 
   const downloadPDF = (contract, isPrint = false) => {
@@ -1731,7 +1777,9 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     }).from(tempEl);
 
     if (isPrint && printWindow) {
-      worker.output('bloburl').then(blobUrl => {
+      worker.toPdf().get('pdf').then(pdf => {
+        pdf.autoPrint();
+      }).output('bloburl').then(blobUrl => {
         printWindow.location.href = blobUrl;
       });
     } else {
@@ -1814,7 +1862,9 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     };
     const worker = html2pdf().set(opt).from(tempEl);
     if (isPrint && printWindow) {
-      worker.output('bloburl').then(blobUrl => {
+      worker.toPdf().get('pdf').then(pdf => {
+        pdf.autoPrint();
+      }).output('bloburl').then(blobUrl => {
         printWindow.location.href = blobUrl;
       });
     } else {
@@ -1970,7 +2020,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
                       <Edit size={14} /> EDITAR
                     </button>
                     <button
-                      onClick={() => handleDeleteItem(item.id)}
+                      onClick={() => handleDeleteItem(item)}
                       className="col-span-2 flex items-center justify-center gap-2 py-2 bg-white hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all mt-1"
                     >
                       <Trash2 size={12} /> Eliminar Registro
@@ -2506,12 +2556,24 @@ export default function CarbotApp() {
     loadUserProfile(emailId, false, "", null, rememberMe);
   };
 
-  const handleLogout = async () => {
-    localStorage.removeItem('carbot_user_email');
-    localStorage.removeItem('activeTab');
-    setUserProfile(null);
-    setIsLoggedIn(false);
-    setInventory([]); // Limpiamos datos por seguridad
+  const handleLogout = () => {
+    showConfirm({
+      title: 'Cerrar Sesión',
+      message: '¿Estás seguro que deseas salir del sistema?',
+      onConfirm: async () => {
+        try {
+          await signOut(auth);
+          localStorage.removeItem('carbot_user_email');
+          localStorage.removeItem('activeTab');
+          setUser(null);
+          setUserProfile(null);
+          setIsLoggedIn(false);
+          setInventory([]);
+        } catch (err) {
+          showToast("Error al cerrar sesión", "error");
+        }
+      }
+    });
   };
 
   useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
@@ -2664,23 +2726,35 @@ export default function CarbotApp() {
   };
 
   const handlePermanentDelete = async (id) => {
-    if (!window.confirm("¿ESTAS SEGURO? Esto eliminará el vehículo PARA SIEMPRE. No se puede deshacer.")) return;
-    try {
-      await deleteDoc(doc(db, "vehicles", id));
-      showToast("Vehículo eliminado permanentemente");
-    } catch (error) {
-      console.error("Error al eliminar:", error);
-      showToast("Error al eliminar", "error");
-    }
+    showConfirm({
+      title: 'Eliminar para Siempre',
+      message: '¿ESTAS SEGURO? Esto eliminará el vehículo PARA SIEMPRE. No se puede deshacer.',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "vehicles", id));
+          showToast("Vehículo eliminado permanentemente");
+        } catch (error) {
+          console.error("Error al eliminar:", error);
+          showToast("Error al eliminar", "error");
+        }
+      }
+    });
   };
 
   const handleEmptyTrash = async () => {
-    if (!window.confirm("¿Vaciar TODA la papelera? Se perderán todos los datos.")) return;
-    const trashItems = inventory.filter(i => i.status === 'trash');
-    for (const item of trashItems) {
-      await deleteDoc(doc(db, "vehicles", item.id));
-    }
-    showToast("Papelera vaciada");
+    showConfirm({
+      title: 'Vaciar Papelera',
+      message: '¿Vaciar TODA la papelera? Se perderán todos los datos definitivamente.',
+      isDestructive: true,
+      onConfirm: async () => {
+        const trashItems = inventory.filter(i => i.status === 'trash');
+        for (const item of trashItems) {
+          await deleteDoc(doc(db, "vehicles", item.id));
+        }
+        showToast("Papelera vaciada");
+      }
+    });
   };
 
   // Funciones locales (Contratos, etc.)
@@ -2753,8 +2827,6 @@ export default function CarbotApp() {
       await deleteDoc(doc(db, "contracts", id));
       showToast("Contrato eliminado permanentemente");
     } catch (error) {
-      console.error("Error al eliminar contrato:", error);
-      showToast("Error al eliminar", "error");
     }
   };
 
@@ -2767,6 +2839,29 @@ export default function CarbotApp() {
       showToast("Error al eliminar", "error");
     }
   };
+
+  // --- Confirm Dialog State ---
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    isDestructive: false
+  });
+
+  const showConfirm = (options) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: options.title || '¿Estás seguro?',
+      message: options.message || 'Esta acción no se puede deshacer.',
+      onConfirm: () => {
+        options.onConfirm();
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+      isDestructive: options.isDestructive || false
+    });
+  };
+
 
   const handleVehicleSelect = (vehicle) => {
     setSelectedVehicle(vehicle);
@@ -2835,6 +2930,14 @@ export default function CarbotApp() {
       onSearchChange={setGlobalSearch}
     >
       {renderContent()}
+      <ConfirmationModal
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        isDestructive={confirmDialog.isDestructive}
+      />
     </AppLayout>
   );
 }
