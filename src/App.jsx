@@ -1811,27 +1811,31 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
             <h3 className="text-xl font-black text-slate-900 border-b-4 border-red-600 inline-block pb-1">Actividad Reciente</h3>
           </div>
           <div className="space-y-8 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-50">
-            {activityFeed.map((item, idx) => {
-              const Icon = getActivityIcon(item.type);
+            {/* SAFEGUARD: Activity Feed temporarily simplified for debugging */}
+            {activityFeed && activityFeed.length > 0 ? activityFeed.map((item, idx) => {
+              // Ensure item exists
+              if (!item) return null;
+
+              const Icon = getActivityIcon(item.type) || Info; // Fallback to Info
               const colorClass = getActivityColor(item.type);
               let title = '';
               let subtitle = '';
 
               if (item.type === 'sold') {
                 title = 'Vehículo Vendido';
-                subtitle = `${item.make} ${item.model} • Cliente: ${item.comprador}`;
+                subtitle = `${item.make || ''} ${item.model || ''} • Cliente: ${item.comprador || '?'}`;
               } else if (item.type === 'deleted') {
                 title = 'Registro Eliminado';
-                subtitle = `${item.make ? item.make + ' ' + item.model : (item.client || item.name || 'Documento')}`;
+                subtitle = `${item.make ? (item.make + ' ' + item.model) : (item.client || item.name || 'Documento')}`;
               } else if (item.type === 'contract') {
                 title = 'Nuevo Contrato';
-                subtitle = `${item.vehicle} • ${item.client}`;
+                subtitle = `${item.vehicle || ''} • ${item.client || ''}`;
               } else if (item.type === 'quote') {
                 title = 'Nueva Cotización';
-                subtitle = `${item.vehicle} • ${item.name} ${item.lastname}`;
+                subtitle = `${item.vehicle || ''} • ${item.name || ''} ${item.lastname || ''}`;
               } else if (item.type === 'new_vehicle') {
                 title = 'Nuevo Ingreso';
-                subtitle = `${item.make} ${item.model} ${item.year}`;
+                subtitle = `${item.make || ''} ${item.model || ''} ${item.year || ''}`;
               }
 
               return (
@@ -1848,9 +1852,7 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
                   </div>
                 </div>
               );
-            })}
-
-            {activityFeed.length === 0 && (
+            }) : (
               <div className="flex gap-4 relative z-10 grayscale opacity-50">
                 <div className="w-4 h-4 bg-slate-100 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200"></div>
                 <div>
