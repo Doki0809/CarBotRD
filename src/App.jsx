@@ -1460,8 +1460,92 @@ const TrashView = ({ trashInventory, trashDocuments, onRestore, onPermanentDelet
   );
 };
 
-const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
+const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }) => {
   const recentContracts = contracts.slice(0, 3);
+  const [activityFeed, setActivityFeed] = useState([]);
+
+  // FETCH ACTIVITY DATA
+  useEffect(() => {
+    const fetchExtraActivity = async () => {
+      if (!userProfile?.dealerName) return;
+      const dealerName = userProfile.dealerName;
+
+      try {
+        // 1. Fetch Sold Vehicles
+        const qSold = query(collection(db, "Dealers", dealerName, "VehiculosVendidos"), orderBy("fechaVenta", "desc"), limit(5));
+        const soldSnaps = await getDocs(qSold);
+        const soldItems = soldSnaps.docs.map(d => ({
+          type: 'sold',
+          date: d.data().fechaVenta || d.data().createdAt,
+          ...d.data()
+        }));
+
+        // 2. Fetch Trash (Deleted)
+        const qTrash = query(collection(db, "Dealers", dealerName, "Papelera"), orderBy("deletedAt", "desc"), limit(5));
+        const trashSnaps = await getDocs(qTrash);
+        const trashItems = trashSnaps.docs.map(d => ({
+          type: 'deleted',
+          date: d.data().deletedAt,
+          ...d.data()
+        }));
+
+        // 3. Process Live Data (Inventory, Contracts, Quotes)
+        // Inventory (New vehicles)
+        const newVehicles = inventory.slice(0, 5).map(v => ({
+          type: 'new_vehicle',
+          date: v.createdAt,
+          ...v
+        }));
+
+        // Contracts
+        const newContracts = contracts.slice(0, 5).map(c => ({
+          type: 'contract',
+          date: c.createdAt,
+          ...c
+        }));
+
+        // Quotes
+        const newQuotes = (quotes || []).slice(0, 5).map(q => ({
+          type: 'quote',
+          date: q.createdAt,
+          ...q
+        }));
+
+        // 4. Merge & Sort
+        const allActivity = [...soldItems, ...trashItems, ...newVehicles, ...newContracts, ...newQuotes];
+        allActivity.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+        setActivityFeed(allActivity.slice(0, 10)); // Keep top 10
+
+      } catch (e) {
+        console.error("Error fetching activity:", e);
+      }
+    };
+
+    fetchExtraActivity();
+  }, [userProfile, inventory, contracts, quotes]);
+
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'sold': return DollarSign;
+      case 'deleted': return Trash2;
+      case 'contract': return FileSignature;
+      case 'quote': return FileText;
+      case 'new_vehicle': return Car;
+      default: return Info;
+    }
+  };
+
+  const getActivityColor = (type) => {
+    switch (type) {
+      case 'sold': return 'text-emerald-600 bg-emerald-50 ring-emerald-100';
+      case 'deleted': return 'text-red-600 bg-red-50 ring-red-100';
+      case 'contract': return 'text-blue-600 bg-blue-50 ring-blue-100';
+      case 'quote': return 'text-amber-600 bg-amber-50 ring-amber-100';
+      case 'new_vehicle': return 'text-slate-600 bg-slate-100 ring-slate-200';
+      default: return 'text-slate-400 bg-slate-50 ring-slate-100';
+    }
+  };
   // --- CALCULOS REALES PARA WIDGETS ---
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1722,25 +1806,56 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         {/* Activity Feed Card */}
         <Card className="shadow-sm border-none bg-white p-8">
           <div className="mb-10">
-            <h3 className="text-xl font-black text-slate-900 border-b-4 border-red-600 inline-block pb-1">Actividad</h3>
+            <h3 className="text-xl font-black text-slate-900 border-b-4 border-red-600 inline-block pb-1">Actividad Reciente</h3>
           </div>
           <div className="space-y-8 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-50">
-            <div className="flex gap-4 relative z-10">
-              <div className="relative">
-                <div className="w-4 h-4 bg-red-600 rounded-full ring-4 ring-red-50 shadow-lg shadow-red-200"></div>
+            {activityFeed.map((item, idx) => {
+              const Icon = getActivityIcon(item.type);
+              const colorClass = getActivityColor(item.type);
+              let title = '';
+              let subtitle = '';
+
+              if (item.type === 'sold') {
+                title = 'Vehículo Vendido';
+                subtitle = `${item.make} ${item.model} • Cliente: ${item.comprador}`;
+              } else if (item.type === 'deleted') {
+                title = 'Registro Eliminado';
+                subtitle = `${item.make ? item.make + ' ' + item.model : (item.client || item.name || 'Documento')}`;
+              } else if (item.type === 'contract') {
+                title = 'Nuevo Contrato';
+                subtitle = `${item.vehicle} • ${item.client}`;
+              } else if (item.type === 'quote') {
+                title = 'Nueva Cotización';
+                subtitle = `${item.vehicle} • ${item.name} ${item.lastname}`;
+              } else if (item.type === 'new_vehicle') {
+                title = 'Nuevo Ingreso';
+                subtitle = `${item.make} ${item.model} ${item.year}`;
+              }
+
+              return (
+                <div key={idx} className="flex gap-4 relative z-10 group">
+                  <div className="relative">
+                    <div className={`w-4 h-4 rounded-full ring-4 shadow-lg transition-all group-hover:scale-110 ${colorClass}`}>
+                      <Icon size={10} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-900">{title}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{subtitle}</p>
+                    <p className="text-[9px] text-slate-300 font-bold mt-1">{new Date(item.date).toLocaleDateString()} {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                </div>
+              );
+            })}
+
+            {activityFeed.length === 0 && (
+              <div className="flex gap-4 relative z-10 grayscale opacity-50">
+                <div className="w-4 h-4 bg-slate-100 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200"></div>
+                <div>
+                  <p className="text-sm font-bold text-slate-400">Sin actividad reciente</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-black text-slate-900">Base de datos conectada</p>
-                <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mt-1">Sincronizado con Firebase</p>
-              </div>
-            </div>
-            <div className="flex gap-4 relative z-10 grayscale opacity-50">
-              <div className="w-4 h-4 bg-slate-100 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200"></div>
-              <div>
-                <p className="text-sm font-bold text-slate-400">Próximos reportes</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Programado para mañana</p>
-              </div>
-            </div>
+            )}
           </div>
         </Card>
       </div>
@@ -1748,7 +1863,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   );
 };
 
-const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, showConfirm }) => {
+const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, showConfirm, onDuplicate }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('date_desc'); // New sorting state
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -1764,7 +1879,15 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
     const handleClickOutside = () => setOpenMenuId(null);
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // CAMBIO AUTOMÁTICO DE ORDEN AL CAMBIAR DE TAB
+  useEffect(() => {
+    if (activeTab === 'available') setSortConfig('brand_asc');
+    else if (activeTab === 'sold') setSortConfig('date_desc');
+    else setSortConfig('date_desc'); // Quoted default
+  }, [activeTab]);
 
   const filteredInventory = useMemo(() => {
     let result = inventory.filter(item => {
@@ -1796,21 +1919,61 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
     return result;
   }, [inventory, searchTerm, localSearch, activeTab, sortConfig]);
 
+  // FILTRO COTIZACIONES (Nuevo Tab)
+  const filteredQuotes = useMemo(() => {
+    if (activeTab !== 'quoted') return [];
+    const search = localSearch.toLowerCase();
+    return (quotes || []).filter(q => {
+      const matchName = (q.name + ' ' + q.lastname).toLowerCase().includes(search);
+      const matchVehicle = (q.vehicle || '').toLowerCase().includes(search);
+      return matchName || matchVehicle;
+    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [quotes, activeTab, localSearch]);
+
   const groupedInventory = useMemo(() => {
     const groups = {};
     const isBrandSort = sortConfig === 'brand_asc';
+    const isSoldTab = activeTab === 'sold';
 
     filteredInventory.forEach(item => {
-      const groupKey = isBrandSort ? item.make : "RESULTADOS";
+      let groupKey = "RESULTADOS";
+
+      if (isSoldTab) {
+        // Agrupar por Mes de Venta (o Creación si no tiene venta)
+        const dateVal = item.fechaVenta || item.createdAt;
+        if (dateVal) {
+          const d = new Date(dateVal);
+          // "ENERO 2024"
+          groupKey = d.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
+          // Añadir prefijo numérico oculto para ordenamiento fácil si se quisiera, 
+          // pero usaremos sortedBrands logic.
+        }
+      } else if (isBrandSort) {
+        groupKey = item.make || "OTRAS";
+      }
+
       if (!groups[groupKey]) groups[groupKey] = [];
       groups[groupKey].push(item);
     });
     return groups;
-  }, [filteredInventory, sortConfig]);
+  }, [filteredInventory, sortConfig, activeTab]);
 
-  const sortedBrands = sortConfig === 'brand_asc'
-    ? Object.keys(groupedInventory).sort()
-    : Object.keys(groupedInventory);
+  const sortedBrands = useMemo(() => {
+    const keys = Object.keys(groupedInventory);
+    if (activeTab === 'sold') {
+      // Ordenar Meses Cronológicamente (Descendiente)
+      return keys.sort((a, b) => {
+        // Hack para extraer fecha de un item del grupo
+        const itemA = groupedInventory[a][0];
+        const itemB = groupedInventory[b][0];
+        const dateA = new Date(itemA.fechaVenta || itemA.createdAt || 0);
+        const dateB = new Date(itemB.fechaVenta || itemB.createdAt || 0);
+        return dateB - dateA;
+      });
+    }
+    // Brand Sort o Default
+    return keys.sort();
+  }, [groupedInventory, activeTab]);
 
   const handleCreate = () => { setCurrentVehicle(null); setIsModalOpen(true); };
 
@@ -1895,8 +2058,8 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full sm:w-auto shadow-inner">
             {[
               { id: 'available', label: 'Disponibles' },
-              { id: 'sold', label: 'Vendidos' },
-              { id: 'all', label: 'Todos' }
+              { id: 'quoted', label: 'Cotizados' },
+              { id: 'sold', label: 'Vendidos' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1942,79 +2105,140 @@ const InventoryView = ({ inventory, showToast, onGenerateContract, onGenerateQuo
         </div>
 
         <div className="space-y-6 sm:space-y-10 mt-4">
-          {sortedBrands.map(brand => (
-            <div key={brand}>
-              <div className="flex items-center mb-3 sm:mb-4">
-                <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
-                <div className="h-px flex-1 bg-slate-100"></div>
-                <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                {groupedInventory[brand].map(item => (
-                  <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
-                    <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
-                      <div className="relative aspect-[16/10] bg-slate-50 overflow-hidden">
-                        <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-                        <div className="absolute top-3 right-3 shadow-sm"><Badge status={item.status} /></div>
+          {activeTab === 'quoted' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredQuotes.length > 0 ? filteredQuotes.map(quote => (
+                <Card key={quote.id} noPadding className="flex flex-col group hover:-translate-y-1 transition-all border-l-4 border-l-amber-400">
+                  <div className="p-6 flex flex-col h-full relative">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Cotización Activa</p>
+                        <h3 className="text-lg font-black text-slate-900 uppercase">{quote.vehicle}</h3>
                       </div>
-                      <div className="p-5 flex flex-col flex-1">
-                        <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">{item.make} {item.model}</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
-                        <div className="mt-3 mb-5">
-                          <p className="text-xl font-black text-red-600">
-                            {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase tracking-widest font-black">Precio de Venta</span>}
-                            {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
-                          </p>
-                        </div>
-                        <div className="mt-auto flex items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            disabled={item.status === 'sold'}
-                            className={`flex-1 text-[10px] font-black transition-all py-3 rounded-xl uppercase tracking-widest border-none ${item.status === 'sold'
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'
-                              : 'bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600'
-                              }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (item.status !== 'sold') openActionModal(item);
-                            }}
-                          >
-                            {item.status === 'sold' ? 'VENDIDO' : 'GENERAR'}
-                          </Button>
-                          <div className="flex gap-1.5 sm:gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all" title="Editar"><Edit size={14} /></button>
-                            <div className="relative">
-                              <button
+                      <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
+                        <FileText size={20} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 mb-6 bg-slate-50 p-4 rounded-xl">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</p>
+                        <p className="text-sm font-bold text-slate-800">{quote.name} {quote.lastname}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Banco / Financiera</p>
+                        <p className="text-sm font-bold text-blue-700 flex items-center gap-1">
+                          {quote.bank || 'No especificado'}
+                          {quote.bank && <CheckCircle size={12} />}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financiamiento</p>
+                        <p className="text-base font-black text-slate-900">
+                          {quote.financedAmount ? `$${Number(quote.financedAmount).toLocaleString()}` : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                      <p className="text-[10px] font-bold text-slate-400">
+                        {new Date(quote.createdAt).toLocaleDateString()}
+                      </p>
+                      <button
+                        onClick={() => {
+                          // En un futuro: Abrir detalle de cotizacion
+                          showToast("Detalle de cotización en desarrollo");
+                        }}
+                        className="text-xs font-black text-red-600 uppercase tracking-widest hover:underline"
+                      >
+                        Ver Ficha
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              )) : (
+                <div className="col-span-full py-20 text-center text-slate-400 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                  <p className="font-black uppercase tracking-widest">No hay cotizaciones activas</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {sortedBrands.map(brand => (
+                <div key={brand}>
+                  <div className="flex items-center mb-3 sm:mb-4">
+                    <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
+                    <div className="h-px flex-1 bg-slate-100"></div>
+                    <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                    {groupedInventory[brand].map(item => (
+                      <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
+                        <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
+                          <div className="relative aspect-[16/10] bg-slate-50 overflow-hidden">
+                            <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
+                            <div className="absolute top-3 right-3 shadow-sm"><Badge status={item.status} /></div>
+                          </div>
+                          <div className="p-5 flex flex-col flex-1">
+                            <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">{item.make} {item.model}</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
+                            <div className="mt-3 mb-5">
+                              <p className="text-xl font-black text-red-600">
+                                {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase tracking-widest font-black">Precio de Venta</span>}
+                                {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
+                              </p>
+                            </div>
+                            <div className="mt-auto flex items-center gap-2">
+                              <Button
+                                variant="secondary"
+                                disabled={item.status === 'sold'}
+                                className={`flex-1 text-[10px] font-black transition-all py-3 rounded-xl uppercase tracking-widest border-none ${item.status === 'sold'
+                                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'
+                                  : 'bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600'
+                                  }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                  if (item.status !== 'sold') openActionModal(item);
                                 }}
-                                className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${openMenuId === item.id ? 'bg-red-50 text-red-600' : 'bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600'}`}
                               >
-                                <MoreVertical size={14} />
-                              </button>
+                                {item.status === 'sold' ? 'VENDIDO' : 'GENERAR'}
+                              </Button>
+                              <div className="flex gap-1.5 sm:gap-2">
+                                <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all" title="Editar"><Edit size={14} /></button>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                    }}
+                                    className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${openMenuId === item.id ? 'bg-red-50 text-red-600' : 'bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600'}`}
+                                  >
+                                    <MoreVertical size={14} />
+                                  </button>
 
-                              {openMenuId === item.id && (
-                                <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-30 animate-in fade-in zoom-in-95 duration-200">
-                                  <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
-                                    <Copy size={12} /> Duplicar
-                                  </button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
-                                    <Trash2 size={12} /> Eliminar
-                                  </button>
+                                  {openMenuId === item.id && (
+                                    <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-30 animate-in fade-in zoom-in-95 duration-200">
+                                      <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
+                                        <Copy size={12} /> Duplicar
+                                      </button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                                        <Trash2 size={12} /> Eliminar
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        </Card>
                       </div>
-                    </Card>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200"><Package size={48} className="mb-4 opacity-20" /><p className="text-sm font-black uppercase tracking-widest">No hay vehículos. ¡Agrega uno!</p></div>}
+                </div>
+              ))}
+              {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200"><Package size={48} className="mb-4 opacity-20" /><p className="text-sm font-black uppercase tracking-widest">No hay vehículos. ¡Agrega uno!</p></div>}
+            </>
+          )}
         </div>
       </div>
 
@@ -3566,8 +3790,8 @@ export default function CarbotApp() {
     ];
 
     switch (activeTab) {
-      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} onNavigate={handleNavigate} userProfile={userProfile} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />;
+      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={quotes} onNavigate={handleNavigate} userProfile={userProfile} />;
+      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} onDuplicate={handleDuplicate} />;
       case 'contracts': return <ContractsView contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={(quotes || []).filter(q => q && q.status !== 'trash')} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />;
       case 'settings': return <SettingsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />;
       case 'trash': return <TrashView trashInventory={trashInventory} trashDocuments={trashDocuments} onRestore={handleRestore} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
