@@ -1752,7 +1752,9 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
                         <p className="text-sm font-bold text-slate-700">{contract.client}</p>
                       </td>
                       <td className="py-6">
-                        <p className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg inline-block uppercase">{new Date(contract.createdAt).toLocaleDateString()}</p>
+                        <p className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg inline-block uppercase">
+                          {(() => { const d = new Date(contract.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : 'N/A'; })()}
+                        </p>
                       </td>
                       <td className="py-6 text-right">
                         <span className="text-sm font-black text-slate-900 group-hover:text-red-600 transition-colors">
@@ -1794,7 +1796,9 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
                       <p className="text-sm font-black text-red-700">
                         {contract.price > 0 ? `RD$ ${contract.price.toLocaleString()}` : 'N/A'}
                       </p>
-                      <p className="text-[9px] font-bold text-slate-400">{new Date(contract.createdAt).toLocaleDateString()}</p>
+                      <p className="text-[9px] font-bold text-slate-400">
+                        {(() => { const d = new Date(contract.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : 'N/A'; })()}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1848,7 +1852,14 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
                   <div>
                     <p className="text-sm font-black text-slate-900">{title}</p>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">{subtitle}</p>
-                    <p className="text-[9px] text-slate-300 font-bold mt-1">{new Date(item.date).toLocaleDateString()} {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[9px] text-slate-300 font-bold mt-1">
+                      {(() => {
+                        const d = new Date(item.date);
+                        return !isNaN(d.getTime())
+                          ? `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                          : 'Fecha N/A';
+                      })()}
+                    </p>
                   </div>
                 </div>
               );
@@ -2150,7 +2161,7 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
                     <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
                       <p className="text-[10px] font-bold text-slate-400">
                         {/* SAFEGUARD DATE */}
-                        {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : 'Fecha N/A'}
+                        {(() => { const d = new Date(quote.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Fecha N/A'; })()}
                       </p>
                       <button
                         onClick={() => {
