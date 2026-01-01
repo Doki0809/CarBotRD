@@ -1945,9 +1945,12 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
         const dateVal = item.fechaVenta || item.createdAt;
         if (dateVal) {
           const d = new Date(dateVal);
-          // "ENERO 2024"
-          groupKey = d.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
-          // Añadir prefijo numérico oculto para ordenamiento fácil si se quisiera, 
+          // Validar que la fecha sea válida antes de formatear
+          if (!isNaN(d.getTime())) {
+            groupKey = d.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
+          } else {
+            groupKey = "FECHA DESCONOCIDA";
+          }
           // pero usaremos sortedBrands logic.
         }
       } else if (isBrandSort) {
