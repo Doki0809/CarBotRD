@@ -3458,12 +3458,6 @@ export default function CarbotApp() {
             <AppLogo size={80} />
           </div>
           <p className="text-slate-400 font-medium mb-4">Cargando sesión...</p>
-          <button
-            onClick={() => setInitializing(false)}
-            className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline border border-red-100 px-4 py-2 rounded-xl bg-red-50"
-          >
-            Cancelar Carga (Forzar Entrada)
-          </button>
         </div>
       </div>
     );
@@ -3859,7 +3853,7 @@ export default function CarbotApp() {
       );
       case 'inventory': return (
         <ErrorBoundary>
-          <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab === 'quoted' ? 'available' : inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />
+          <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />
         </ErrorBoundary>
       );
       case 'contracts': return (
