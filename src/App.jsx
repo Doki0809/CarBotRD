@@ -21,7 +21,9 @@ import {
   query,
   where,
   writeBatch,
-  getDocs
+  getDocs,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 
 import {
