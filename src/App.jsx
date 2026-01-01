@@ -38,6 +38,44 @@ import {
 const TriangleAlert = TriangleAlertNew || AlertTriangle;
 const Package = PackageNew || Box;
 
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({ error, errorInfo });
+    console.error("Uncaught Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-8 bg-red-50 text-red-900 font-mono text-sm whitespace-pre-wrap flex-col">
+          <h1 className="text-3xl font-black mb-4">¡Algo salió mal! 😵</h1>
+          <div className="bg-white p-6 rounded-2xl shadow-xl border border-red-200 max-w-4xl overflow-auto w-full">
+            <h2 className="text-xl font-bold mb-2 text-red-600">{this.state.error?.toString()}</h2>
+            <p className="opacity-70">{this.state.errorInfo?.componentStack}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-8 px-8 py-3 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl hover:bg-red-700 shadow-lg"
+          >
+            Recargar Página
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
 // o directamente ya que es una SPA de Vite.
 import html2pdf from 'html2pdf.js';
