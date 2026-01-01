@@ -1916,7 +1916,7 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
   );
 };
 
-const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, showConfirm, onDuplicate }) => {
+const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, showConfirm }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('date_desc'); // New sorting state
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -3800,7 +3800,7 @@ export default function CarbotApp() {
       );
       case 'inventory': return (
         <ErrorBoundary>
-          <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab === 'quoted' ? 'available' : inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} onDuplicate={handleDuplicate} />
+          <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab === 'quoted' ? 'available' : inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />
         </ErrorBoundary>
       );
       case 'contracts': return (
