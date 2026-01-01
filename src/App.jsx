@@ -80,6 +80,92 @@ class ErrorBoundary extends React.Component {
 // o directamente ya que es una SPA de Vite.
 import html2pdf from 'html2pdf.js';
 
+// --- UTILS ---
+const downloadQuotePDF = (quote, userProfile, isPrint = false) => {
+  let printWindow = null;
+  if (isPrint) {
+    printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write('<p style="font-family:sans-serif; text-align:center; margin-top:50px;">Generando cotización...</p>');
+    }
+  }
+
+  const tempEl = document.createElement('div');
+  tempEl.innerHTML = `
+    <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+        <div>
+          <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+          <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+        </div>
+        <div style="text-align: right;">
+          <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
+          <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
+            <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+            <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+        <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+        <div style="margin-top: 15px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px;">
+          <div style="padding: 10px; background: #fff1f2; border-radius: 8px; text-align: center;">
+            <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+            <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+          </div>
+        </div>
+      </div>
+
+      ${quote.bank ? `
+        <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
+            <table style="width: 100%;">
+              <tr>
+                <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold;">INSTITUCIÓN:</td>
+                <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
+              </tr>
+            </table>
+        </div>
+        ` : ''}
+
+      <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+        <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile?.dealerName}.<br />
+          Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+      </div>
+    </div>
+    `;
+  const opt = {
+    margin: 10,
+    filename: `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  const worker = html2pdf().set(opt).from(tempEl);
+  if (isPrint && printWindow) {
+    worker.toPdf().get('pdf').then(pdf => {
+      pdf.autoPrint();
+    }).output('bloburl').then(blobUrl => {
+      printWindow.location.href = blobUrl;
+    });
+  } else {
+    worker.save();
+  }
+};
+
 /**
  * CARBOT - B2B SaaS para Dealers
  * VERSIÓN: ONLINE (FIREBASE)
@@ -782,15 +868,36 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   );
 };
 
-const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
-  const [name, setName] = useState('');
-  const [lastname, setLastname] = useState('');
-  const [phone, setPhone] = useState('');
-  const [cedula, setCedula] = useState('');
-  const [bank, setBank] = useState('');
-  const [customPrice, setCustomPrice] = useState('');
+const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, editingQuote, userProfile }) => {
+  const [selectedVehicleId, setSelectedVehicleId] = useState(editingQuote?.vehicleId || '');
+  const [name, setName] = useState(editingQuote?.name || '');
+  const [lastname, setLastname] = useState(editingQuote?.lastname || '');
+  const [phone, setPhone] = useState(editingQuote?.phone || '');
+  const [cedula, setCedula] = useState(editingQuote?.cedula || '');
+  const [bank, setBank] = useState(editingQuote?.bank || '');
+  const [customPrice, setCustomPrice] = useState(editingQuote?.financedAmount || '');
   const [loading, setLoading] = useState(false);
+
+  // Sincronizar si cambia el quote a editar
+  useEffect(() => {
+    if (editingQuote) {
+      setSelectedVehicleId(editingQuote.vehicleId || '');
+      setName(editingQuote.name || '');
+      setLastname(editingQuote.lastname || '');
+      setPhone(editingQuote.phone || '');
+      setCedula(editingQuote.cedula || '');
+      setBank(editingQuote.bank || '');
+      setCustomPrice(editingQuote.financedAmount || '');
+    } else {
+      setSelectedVehicleId('');
+      setName('');
+      setLastname('');
+      setPhone('');
+      setCedula('');
+      setBank('');
+      setCustomPrice('');
+    }
+  }, [editingQuote, isOpen]);
 
   if (!isOpen) return null;
   const availableVehicles = inventory.filter(v => v.status !== 'sold');
@@ -803,44 +910,40 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
     const vehicle = inventory.find(v => v.id === selectedVehicleId);
     const baseUrl = "https://services.leadconnectorhq.com/hooks/5YBWavjywU0Ay0Y85R9p/webhook-trigger/e5c205a4-ec9f-4183-9cc5-673";
 
-    // EMPAQUETAR DATOS COMPLETOS
-    const params = new URLSearchParams();
-    params.append("firstName", name);
-    params.append("lastName", lastname);
-    params.append("phone", phone);
-    params.append("cedula", cedula);
-    params.append("addressedTo", bank); // "A quien va dirigida"
-
-    // Especificaciones del Auto
-    params.append("make", vehicle.make);
-    params.append("model", vehicle.model);
-    params.append("year", vehicle.year);
-    params.append("color", vehicle.color);
-    params.append("vin", vehicle.vin);
-    params.append("edition", vehicle.edition || "");
-    params.append("traction", vehicle.traction);
-    params.append("fuel", vehicle.fuel);
-    params.append("transmission", vehicle.transmission);
-    params.append("mileage", vehicle.mileage);
-    params.append("price", customPrice || vehicle.price);
-    params.append("availability", vehicle.status);
-
-    params.append("source", "CarBot Manual");
-    params.append("type", "Cotizacion");
-
-    new Image().src = `${baseUrl}?${params.toString()}`;
+    // SOLO ENVIAR A GHL SI ES NUEVO (O si el usuario quiere re-enviar, pero por ahora solo nuevos para evitar spam)
+    if (!editingQuote) {
+      const params = new URLSearchParams();
+      params.append("firstName", name);
+      params.append("lastName", lastname);
+      params.append("phone", phone);
+      params.append("cedula", cedula);
+      params.append("addressedTo", bank);
+      params.append("make", vehicle.make);
+      params.append("model", vehicle.model);
+      params.append("year", vehicle.year);
+      params.append("vin", vehicle.vin);
+      params.append("price", customPrice || vehicle.price);
+      params.append("source", "CarBot Manual");
+      params.append("type", "Cotizacion");
+      new Image().src = `${baseUrl}?${params.toString()}`;
+    }
 
     setTimeout(() => {
-      onSave({ name, lastname, phone, cedula, bank, vehicle: `${vehicle.make} ${vehicle.model}`, vehicleId: vehicle.id });
-      showConfirm({
-        title: '¡Envío Exitoso!',
-        message: '¡Cotización manual enviada a GHL!',
-        showCancel: false,
-        confirmText: 'Entendido'
+      onSave({
+        id: editingQuote?.id, // Pasar ID si es edición
+        name,
+        lastname,
+        phone,
+        cedula,
+        bank,
+        financedAmount: customPrice,
+        vehicle: `${vehicle.make} ${vehicle.model}`,
+        vehicleId: vehicle.id
       });
+
       setLoading(false);
       onClose();
-    }, 1000);
+    }, 800);
   };
 
   return (
@@ -1916,7 +2019,7 @@ const DashboardView = ({ inventory, contracts, quotes, onNavigate, userProfile }
   );
 };
 
-const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, showConfirm }) => {
+const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, showConfirm, onPrintQuote, onDownloadQuote, onEditQuote }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('date_desc'); // New sorting state
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -2122,8 +2225,8 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab.id
-                  ? 'bg-white text-slate-900 shadow-md scale-105'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-red-600 text-white shadow-md scale-105'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
                   }`}
               >
                 {tab.label}
@@ -2203,10 +2306,9 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
                         {(() => { const d = new Date(quote.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Fecha N/A'; })()}
                       </p>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => showToast("Ver ficha...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Ver"><Eye size={14} /></button>
-                        <button onClick={() => showToast("Imprimiendo...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Imprimir"><Printer size={14} /></button>
-                        <button onClick={() => showToast("Descargando...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Descargar"><Download size={14} /></button>
-                        <button onClick={() => showToast("Editando...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Editar"><Edit size={14} /></button>
+                        <button onClick={() => onPrintQuote(quote)} className="p-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-all shadow-sm" title="Ver / Imprimir"><Printer size={14} /></button>
+                        <button onClick={() => onDownloadQuote(quote)} className="p-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-all shadow-sm" title="Descargar PDF"><Download size={14} /></button>
+                        <button onClick={() => onEditQuote(quote)} className="p-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-all shadow-sm" title="Editar"><Edit size={14} /></button>
                       </div>
                     </div>
                   </div>
@@ -2426,90 +2528,6 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     }
   };
 
-  const downloadQuotePDF = (quote, isPrint = false) => {
-    let printWindow = null;
-    if (isPrint) {
-      printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write('<p style="font-family:sans-serif; text-align:center; margin-top:50px;">Generando cotización...</p>');
-      }
-    }
-
-    const tempEl = document.createElement('div');
-    tempEl.innerHTML = `
-      <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
-          <div>
-            <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
-            <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
-          </div>
-          <div style="text-align: right;">
-            <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
-            <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-          <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
-              <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
-            </tr>
-            <tr>
-              <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
-              <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
-            </tr>
-          </table>
-        </div>
-
-        <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-          <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
-          <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
-          <div style="margin-top: 15px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px;">
-            <div style="padding: 10px; background: #fff1f2; border-radius: 8px; text-align: center;">
-              <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
-              <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
-            </div>
-          </div>
-        </div>
-
-        ${quote.bank ? `
-          <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
-              <table style="width: 100%;">
-                <tr>
-                  <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold;">INSTITUCIÓN:</td>
-                  <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
-                </tr>
-              </table>
-          </div>
-          ` : ''}
-
-        <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
-          <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br />
-            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
-        </div>
-      </div>
-      `;
-    const opt = {
-      margin: 10,
-      filename: `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    const worker = html2pdf().set(opt).from(tempEl);
-    if (isPrint && printWindow) {
-      worker.toPdf().get('pdf').then(pdf => {
-        pdf.autoPrint();
-      }).output('bloburl').then(blobUrl => {
-        printWindow.location.href = blobUrl;
-      });
-    } else {
-      worker.save();
-    }
-  };
 
 
   const totalItems = Object.values(filteredData).flat().length;
@@ -3125,6 +3143,8 @@ export default function CarbotApp() {
   const [quotes, setQuotes] = useState([]);
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [editingQuote, setEditingQuote] = useState(null);
+  const [isQuoteGeneratorOpen, setIsQuoteGeneratorOpen] = useState(false);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -3681,11 +3701,22 @@ export default function CarbotApp() {
         vehicle: vName,
         dealerId: userProfile?.dealerId,
         dealerName: dealerName,
-        status: 'active',
-        date: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        status: quoteData.status || 'active',
+        updatedAt: new Date().toISOString()
       };
-      await addDoc(collection(db, "Dealers", dealerName, "Cotizaciones"), newQuote);
+
+      if (quoteData.id) {
+        // EDICIÓN
+        const quoteRef = doc(db, "Dealers", dealerName, "Cotizaciones", quoteData.id);
+        const { id, ...dataToUpdate } = newQuote;
+        await updateDoc(quoteRef, dataToUpdate);
+        showToast("Cotización actualizada");
+      } else {
+        // NUEVA
+        newQuote.createdAt = new Date().toISOString();
+        await addDoc(collection(db, "Dealers", dealerName, "Cotizaciones"), newQuote);
+        showToast("Cotización guardada");
+      }
 
       if (vId) {
         const vehicleRef = doc(db, "Dealers", dealerName, "Inventario", vId);
@@ -3859,7 +3890,24 @@ export default function CarbotApp() {
       );
       case 'inventory': return (
         <ErrorBoundary>
-          <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />
+          <InventoryView
+            inventory={activeInventory}
+            quotes={quotes}
+            activeTab={inventoryTab}
+            setActiveTab={setInventoryTab}
+            showToast={showToast}
+            onGenerateContract={handleGenerateContract}
+            onGenerateQuote={handleQuoteSent}
+            onVehicleSelect={handleVehicleSelect}
+            onSave={handleSaveVehicle}
+            onDelete={handleDeleteVehicle}
+            userProfile={userProfile}
+            searchTerm={globalSearch}
+            showConfirm={showConfirm}
+            onPrintQuote={(q) => downloadQuotePDF(q, userProfile, true)}
+            onDownloadQuote={(q) => downloadQuotePDF(q, userProfile, false)}
+            onEditQuote={(q) => { setEditingQuote(q); setIsQuoteGeneratorOpen(true); }}
+          />
         </ErrorBoundary>
       );
       case 'contracts': return (
@@ -3918,6 +3966,14 @@ export default function CarbotApp() {
         isOpen={onboardingDialog.isOpen}
         dealerName={onboardingDialog.dealerName}
         onConfirm={onboardingDialog.onConfirm}
+      />
+      <GenerateQuoteModal
+        isOpen={isQuoteGeneratorOpen}
+        onClose={() => { setIsQuoteGeneratorOpen(false); setEditingQuote(null); }}
+        inventory={inventory}
+        onSave={handleQuoteSent}
+        editingQuote={editingQuote}
+        userProfile={userProfile}
       />
       {toast && (
         <Toast
