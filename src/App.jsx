@@ -1150,7 +1150,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
       position: relative;
       box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
     ">
-      <div style="padding: 15mm 20mm;">
+      <div style="padding: clamp(10px, 4vw, 20mm);">
         <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
           <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
           <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
@@ -1252,19 +1252,21 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-slate-200/50 p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-4 mb-4 shadow-inner">
+          <div className="flex-1 bg-slate-200/50 p-2 sm:p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-2 sm:mx-4 mb-4 shadow-inner">
             <iframe
               srcDoc={`
                 <!DOCTYPE html>
                 <html>
                   <head>
                     <style>
-                      body { margin: 0; padding: 20px; background: #cbd5e1; display: flex; justify-content: center; }
+                      body { margin: 0; padding: clamp(5px, 2vw, 20px); background: #cbd5e1; display: flex; justify-content: center; }
                       * { box-sizing: border-box; }
-                      ::-webkit-scrollbar { width: 8px; }
-                      ::-webkit-scrollbar-track { background: #f1f1f1; }
-                      ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-                      ::-webkit-scrollbar-thumb:hover { background: #555; }
+                      #contract-content { font-size: 14px; }
+                      @media (max-width: 600px) {
+                        #contract-content { font-size: 11px; }
+                        h1 { font-size: 1.5rem !important; }
+                        h2 { font-size: 1rem !important; }
+                      }
                     </style>
                   </head>
                   <body>
@@ -1272,15 +1274,15 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
                   </body>
                 </html>
               `}
-              className="w-full h-full border-none rounded-sm min-h-[800px]"
+              className="w-full h-full border-none rounded-sm min-h-[600px] sm:min-h-[800px]"
               title="Vista Previa del Contrato"
             />
           </div>
 
-          <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
-            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
-            <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
-            <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
+            <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">Cerrar</Button>
+            <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300 w-full sm:w-auto">Descargar (PDF)</Button>
+            <Button onClick={handlePrint} icon={Printer} className="w-full sm:w-auto">Imprimir</Button>
           </div>
         </Card>
       </div>
@@ -1304,8 +1306,8 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
       position: relative;
       box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
     ">
-      <div style="padding: 15mm 20mm;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+      <div style="padding: clamp(15px, 5vw, 20mm);">
+          <div class="quote-header" style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px; gap: 20px;">
               <div>
                 <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
                 <p style="margin: 5px 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
@@ -1415,19 +1417,21 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-slate-200/50 p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-4 mb-4 shadow-inner">
+          <div className="flex-1 bg-slate-200/50 p-2 sm:p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-2 sm:mx-4 mb-4 shadow-inner">
             <iframe
               srcDoc={`
           <!DOCTYPE html>
           <html>
             <head>
               <style>
-                body {margin: 0; padding: 20px; background: #cbd5e1; display: flex; justify-content: center; }
-                * {box - sizing: border-box; }
-                ::-webkit-scrollbar {width: 8px; }
-                ::-webkit-scrollbar-track {background: #f1f1f1; }
-                ::-webkit-scrollbar-thumb {background: #888; border-radius: 10px; }
-                ::-webkit-scrollbar-thumb:hover {background: #555; }
+                body { margin: 0; padding: clamp(5px, 2vw, 20px); background: #cbd5e1; display: flex; justify-content: center; }
+                * { box-sizing: border-box; }
+                @media (max-width: 600px) {
+                  .quote-header { flex-direction: column !important; gap: 10px !important; }
+                  .quote-header > div:last-child { text-align: left !important; }
+                  h1 { font-size: 1.4rem !important; }
+                  #quote-content { font-size: 14px; }
+                }
               </style>
             </head>
             <body>
@@ -1435,15 +1439,15 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
             </body>
           </html>
               `}
-              className="w-full h-full border-none rounded-sm min-h-[800px]"
+              className="w-full h-full border-none rounded-sm min-h-[600px] sm:min-h-[800px]"
               title="Vista Previa de la Cotización"
             />
           </div>
 
-          <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
-            <Button variant="ghost" onClick={onClose}>Cerrar</Button>
-            <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
-            <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
+            <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">Cerrar</Button>
+            <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300 w-full sm:w-auto">Descargar (PDF)</Button>
+            <Button onClick={handlePrint} icon={Printer} className="w-full sm:w-auto">Imprimir</Button>
           </div>
         </Card>
       </div>
@@ -2194,13 +2198,13 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-full px-1">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 pb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
+      <div className="flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-6 border-b border-slate-100 pb-8">
+        <div className="w-full">
+          <div className="flex flex-col md:flex-row items-center md:items-start md:justify-start gap-1 mb-2">
             <h1 className="text-2xl font-black text-slate-900">Inventario:</h1>
-            <span className="text-2xl font-black text-red-600">{userProfile?.dealerName || 'General'}</span>
+            <span className="text-2xl font-black text-red-600 truncate max-w-full">{userProfile?.dealerName || 'General'}</span>
           </div>
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Organizado por marcas • {filteredInventory.length} vehículos en total</p>
+          <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest sm:tracking-[0.2em]">Organizado por marcas • {filteredInventory.length} vehículos en total</p>
         </div>
         <Button
           onClick={handleCreate}
@@ -2213,9 +2217,9 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
 
       {/* Filter Tabs & Search Controls */}
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-6">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
           {/* Status Filter Pills */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full sm:w-auto shadow-inner">
+          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full sm:w-auto overflow-x-auto no-scrollbar shadow-inner justify-center">
             {[
               { id: 'available', label: 'Disponibles' },
               { id: 'quoted', label: 'Cotizados' },
@@ -2235,12 +2239,12 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
           </div>
 
           {/* Search Input */}
-          <div className="relative flex-1 max-w-md group w-full sm:w-80">
+          <div className="relative flex-1 max-w-md group w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors" size={16} />
             <input
               type="text"
               placeholder="Filtrar en esta vista..."
-              className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/5 focus:border-red-500/30 focus:bg-white transition-all font-bold text-sm"
+              className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/5 focus:border-red-500/30 focus:bg-white transition-all font-bold text-sm text-center md:text-left"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
             />
