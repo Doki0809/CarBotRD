@@ -3149,7 +3149,7 @@ export default function CarbotApp() {
         if (prev) console.warn("⌚ Timeout de inicialización alcanzado. Forzando UI.");
         return false;
       });
-    }, 6000);
+    }, 3000);
 
     // 2. Escuchar cambios de Auth (Estado Real de Sesión)
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -3866,18 +3866,22 @@ export default function CarbotApp() {
   return (
     <>
       {(!isLoggedIn || !userProfile) ? (
-        <LoginScreen onLogin={handleLogin} />
+        <ErrorBoundary>
+          <LoginScreen onLogin={handleLogin} />
+        </ErrorBoundary>
       ) : (
-        <AppLayout
-          activeTab={activeTab}
-          setActiveTab={handleNavigate}
-          onLogout={handleLogout}
-          userProfile={userProfile}
-          searchTerm={globalSearch}
-          onSearchChange={setGlobalSearch}
-        >
-          {renderContent()}
-        </AppLayout>
+        <ErrorBoundary>
+          <AppLayout
+            activeTab={activeTab}
+            setActiveTab={handleNavigate}
+            onLogout={handleLogout}
+            userProfile={userProfile}
+            searchTerm={globalSearch}
+            onSearchChange={setGlobalSearch}
+          >
+            {renderContent()}
+          </AppLayout>
+        </ErrorBoundary>
       )}
 
       {/* Global Modals (Hoisted for visibility during Onboarding/Login) */}
