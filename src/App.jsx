@@ -31,7 +31,7 @@ import {
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, IdCard, Trash, Undo, Printer, Eye, Download,
   Package as PackageNew, TriangleAlert as TriangleAlertNew, TrendingUp, History, Bell, Calendar, Settings, Shield,
-  Box, AlertTriangle, MoreVertical, Copy
+  Box, AlertTriangle, MoreVertical, Copy, Info
 } from 'lucide-react';
 
 // Capa de compatibilidad para iconos (Evita crashes por versión)
