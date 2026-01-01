@@ -1976,6 +1976,8 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
     if (activeTab !== 'quoted') return [];
     const search = localSearch.toLowerCase();
     return (quotes || []).filter(q => {
+      // SOLO MOSTRAR COTIZACIONES ACTIVAS
+      if (q.status !== 'active') return false;
       const matchName = (q.name + ' ' + q.lastname).toLowerCase().includes(search);
       const matchVehicle = (q.vehicle || '').toLowerCase().includes(search);
       return matchName || matchVehicle;
@@ -2200,14 +2202,12 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
                         {/* SAFEGUARD DATE */}
                         {(() => { const d = new Date(quote.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Fecha N/A'; })()}
                       </p>
-                      <button
-                        onClick={() => {
-                          showToast("Detalle de cotización en desarrollo");
-                        }}
-                        className="text-xs font-black text-red-600 uppercase tracking-widest hover:underline"
-                      >
-                        Ver Ficha
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => showToast("Ver ficha...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Ver"><Eye size={14} /></button>
+                        <button onClick={() => showToast("Imprimiendo...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Imprimir"><Printer size={14} /></button>
+                        <button onClick={() => showToast("Descargando...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Descargar"><Download size={14} /></button>
+                        <button onClick={() => showToast("Editando...")} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all" title="Editar"><Edit size={14} /></button>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -2868,46 +2868,34 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             ))}
           </nav>
 
-          {/* Right Side: Search, Trash, User */}
-          <div className="flex-1 flex items-center gap-3 sm:gap-4 justify-end">
-            {/* Search Bar (Hidden on Mobile) */}
-            <div className="relative max-w-[180px] w-full hidden xl:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold"
-              />
-            </div>
-
+          {/* Right Side: Trash, User Profile */}
+          <div className="flex-1 flex items-center gap-4 sm:gap-6 justify-end">
             {/* Trash Icon */}
             <button
               onClick={() => setActiveTab('trash')}
-              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`p-2.5 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
               title="Ir a Basurero"
             >
-              <Trash2 size={18} />
+              <Trash2 size={20} />
             </button>
 
-            {/* User Profile Info */}
-            <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
-              <div className="text-right hidden md:block">
-                <p className="text-xs font-black text-slate-900 leading-tight uppercase tracking-tighter">{userProfile?.name?.split(' ')[0] || 'Jean'}</p>
-                <p className="text-[9px] font-black text-red-600 uppercase tracking-[0.1em]">{userProfile?.dealerName || 'ALMACÉN'}</p>
+            {/* User Profile Info - Expanded and More Readable */}
+            <div className="flex items-center gap-4 pl-6 border-l-2 border-slate-100">
+              <div className="text-right hidden sm:flex flex-col justify-center">
+                <p className="text-sm font-black text-slate-900 leading-none uppercase tracking-tight mb-0.5">{userProfile?.name || 'Usuario CarBot'}</p>
+                <p className="text-[11px] font-black text-red-600 uppercase tracking-[0.15em] leading-none">{userProfile?.dealerName || 'DEALER NO IDENTIFICADO'}</p>
               </div>
               <div
-                className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center text-red-600 text-sm font-black border-2 border-white shadow-sm ring-1 ring-red-100/50"
+                className="w-11 h-11 rounded-full bg-gradient-to-tr from-red-600 to-red-500 flex items-center justify-center text-white text-base font-black border-2 border-white shadow-md ring-1 ring-red-100/50 transform hover:scale-110 transition-transform"
               >
-                {userProfile?.name?.charAt(0) || 'J'}
+                {userProfile?.name?.charAt(0) || 'U'}
               </div>
               <button
                 onClick={onLogout}
-                className="p-1.5 text-slate-300 hover:text-red-600 transition-colors"
+                className="p-2 text-slate-300 hover:text-red-600 transition-colors hover:bg-red-50 rounded-lg"
                 title="Cerrar Sesión"
               >
-                <LogOut size={16} />
+                <LogOut size={18} />
               </button>
             </div>
           </div>
@@ -3606,6 +3594,15 @@ export default function CarbotApp() {
       // 2. Borrar de INVENTARIO
       await deleteDoc(doc(db, "Dealers", dealerName, "Inventario", vehicle.id));
 
+      // 3. Limpiar Cotizaciones Activas de este vehículo
+      const associatedQuotes = quotes.filter(q => q.vehicleId === vehicle.id && q.status === 'active');
+      for (const quote of associatedQuotes) {
+        await updateDoc(doc(db, "Dealers", dealerName, "Cotizaciones", quote.id), {
+          status: 'sold',
+          updatedAt: new Date().toISOString()
+        });
+      }
+
       showConfirm({
         title: '¡Vehículo Vendido!',
         message: `Felicidades. El vehículo ha sido movido al historial de ventas de ${clientName}.`,
@@ -3755,6 +3752,15 @@ export default function CarbotApp() {
             salePrice: Number(contractData.price),
             saleDate: new Date().toISOString()
           });
+
+          // Limpiar Cotizaciones Activas de este vehículo
+          const associatedQuotes = quotes.filter(q => q.vehicleId === contractData.vehicleId && q.status === 'active');
+          for (const quote of associatedQuotes) {
+            await updateDoc(doc(db, "Dealers", dealerName, "Cotizaciones", quote.id), {
+              status: 'sold',
+              updatedAt: new Date().toISOString()
+            });
+          }
         }
 
         console.log(`✅ Contrato guardado: ${idBonito}`);
