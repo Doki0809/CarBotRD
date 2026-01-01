@@ -3793,9 +3793,21 @@ export default function CarbotApp() {
     ];
 
     switch (activeTab) {
-      case 'dashboard': return <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={quotes} onNavigate={handleNavigate} userProfile={userProfile} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} onDuplicate={handleDuplicate} />;
-      case 'contracts': return <ContractsView contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={(quotes || []).filter(q => q && q.status !== 'trash')} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />;
+      case 'dashboard': return (
+        <ErrorBoundary>
+          <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={quotes} onNavigate={handleNavigate} userProfile={userProfile} />
+        </ErrorBoundary>
+      );
+      case 'inventory': return (
+        <ErrorBoundary>
+          <InventoryView inventory={activeInventory} quotes={quotes} activeTab={inventoryTab === 'quoted' ? 'available' : inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} onDuplicate={handleDuplicate} />
+        </ErrorBoundary>
+      );
+      case 'contracts': return (
+        <ErrorBoundary>
+          <ContractsView contracts={(contracts || []).filter(c => c && c.status !== 'trash')} quotes={(quotes || []).filter(q => q && q.status !== 'trash')} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} userProfile={userProfile} searchTerm={globalSearch} showConfirm={showConfirm} />
+        </ErrorBoundary>
+      );
       case 'settings': return <SettingsView userProfile={userProfile} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />;
       case 'trash': return <TrashView trashInventory={trashInventory} trashDocuments={trashDocuments} onRestore={handleRestore} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={(contracts || []).filter(c => c && c.status !== 'trash')} onNavigate={handleNavigate} userProfile={userProfile} />;
