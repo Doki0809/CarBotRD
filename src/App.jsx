@@ -2149,7 +2149,8 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
 
                     <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
                       <p className="text-[10px] font-bold text-slate-400">
-                        {new Date(quote.createdAt).toLocaleDateString()}
+                        {/* SAFEGUARD DATE */}
+                        {quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : 'Fecha N/A'}
                       </p>
                       <button
                         onClick={() => {
@@ -2176,10 +2177,10 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
                   <div className="flex items-center mb-3 sm:mb-4">
                     <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
                     <div className="h-px flex-1 bg-slate-100"></div>
-                    <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
+                    <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand]?.length || 0}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                    {groupedInventory[brand].map(item => (
+                    {groupedInventory[brand] && groupedInventory[brand].map(item => (
                       <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
                         <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
                           <div className="relative aspect-[16/10] bg-slate-50 overflow-hidden">
@@ -2192,7 +2193,8 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
                             <div className="mt-3 mb-5">
                               <p className="text-xl font-black text-red-600">
                                 {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase tracking-widest font-black">Precio de Venta</span>}
-                                {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
+                                {/* SAFEGUARD PRICES */}
+                                {item.price_dop > 0 ? `RD$ ${(item.price_dop || 0).toLocaleString()}` : `US$ ${(item.price || 0).toLocaleString()}`}
                               </p>
                             </div>
                             <div className="mt-auto flex items-center gap-2">
