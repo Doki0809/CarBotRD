@@ -1417,8 +1417,17 @@ const TrashView = ({ trashInventory, trashDocuments, onRestore, onPermanentDelet
                   {/* Body */}
                   <div className="p-6 flex flex-col flex-1 bg-white">
                     <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1 truncate">
-                      {currentTab === 'vehicles' ? `${item.make} ${item.model}` : (item.name ? `${item.name} ${item.lastname}` : 'Documento Sin Nombre')}
+                      {currentTab === 'vehicles'
+                        ? `${item.make} ${item.model}`
+                        : (item.client || (item.name ? `${item.name} ${item.lastname}` : 'Cliente Desconocido'))}
                     </h3>
+
+                    {currentTab === 'documents' && item.vehicle && (
+                      <p className="text-xs font-bold text-slate-600 uppercase mb-2 flex items-center gap-1">
+                        <Car size={12} className="text-slate-400" /> {item.vehicle}
+                      </p>
+                    )}
+
                     <div className="flex items-center gap-2 mb-6">
                       <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
