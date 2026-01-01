@@ -2114,7 +2114,6 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-50 w-full sm:w-auto shadow-inner">
             {[
               { id: 'available', label: 'Disponibles' },
-              { id: 'quoted', label: 'Cotizados' },
               { id: 'sold', label: 'Vendidos' }
             ].map(tab => (
               <button
@@ -2161,142 +2160,82 @@ const InventoryView = ({ inventory, quotes, showToast, onGenerateContract, onGen
         </div>
 
         <div className="space-y-6 sm:space-y-10 mt-4">
-          {activeTab === 'quoted' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredQuotes.length > 0 ? filteredQuotes.map(quote => (
-                <Card key={quote.id} noPadding className="flex flex-col group hover:-translate-y-1 transition-all border-l-4 border-l-amber-400">
-                  <div className="p-6 flex flex-col h-full relative">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Cotización Activa</p>
-                        <h3 className="text-lg font-black text-slate-900 uppercase">{quote.vehicle}</h3>
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
-                        <FileText size={20} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 mb-6 bg-slate-50 p-4 rounded-xl">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</p>
-                        <p className="text-sm font-bold text-slate-800">{quote.name} {quote.lastname}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Banco / Financiera</p>
-                        <p className="text-sm font-bold text-blue-700 flex items-center gap-1">
-                          {quote.bank || 'No especificado'}
-                          {quote.bank && <CheckCircle size={12} />}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financiamiento</p>
-                        <p className="text-base font-black text-slate-900">
-                          {quote.financedAmount ? `$${Number(quote.financedAmount).toLocaleString()}` : 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
-                      <p className="text-[10px] font-bold text-slate-400">
-                        {/* SAFEGUARD DATE */}
-                        {(() => { const d = new Date(quote.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Fecha N/A'; })()}
-                      </p>
-                      <button
-                        onClick={() => {
-                          // En un futuro: Abrir detalle de cotizacion
-                          showToast("Detalle de cotización en desarrollo");
-                        }}
-                        className="text-xs font-black text-red-600 uppercase tracking-widest hover:underline"
-                      >
-                        Ver Ficha
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              )) : (
-                <div className="col-span-full py-20 text-center text-slate-400 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                  <p className="font-black uppercase tracking-widest">No hay cotizaciones activas</p>
+          <>
+            {sortedBrands.map(brand => (
+              <div key={brand}>
+                <div className="flex items-center mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
+                  <div className="h-px flex-1 bg-slate-100"></div>
+                  <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand]?.length || 0}</span>
                 </div>
-              )}
-            </div>
-          ) : (
-            <>
-              {sortedBrands.map(brand => (
-                <div key={brand}>
-                  <div className="flex items-center mb-3 sm:mb-4">
-                    <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
-                    <div className="h-px flex-1 bg-slate-100"></div>
-                    <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand]?.length || 0}</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                    {groupedInventory[brand] && groupedInventory[brand].map(item => (
-                      <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
-                        <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
-                          <div className="relative aspect-[16/10] bg-slate-50 overflow-hidden">
-                            <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-                            <div className="absolute top-3 right-3 shadow-sm"><Badge status={item.status} /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {groupedInventory[brand] && groupedInventory[brand].map(item => (
+                    <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
+                      <Card noPadding className="group flex flex-col h-full hover:-translate-y-1">
+                        <div className="relative aspect-[16/10] bg-slate-50 overflow-hidden">
+                          <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
+                          <div className="absolute top-3 right-3 shadow-sm"><Badge status={item.status} /></div>
+                        </div>
+                        <div className="p-5 flex flex-col flex-1">
+                          <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">{item.make} {item.model}</h3>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
+                          <div className="mt-3 mb-5">
+                            <p className="text-xl font-black text-red-600">
+                              {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase tracking-widest font-black">Precio de Venta</span>}
+                              {/* SAFEGUARD PRICES */}
+                              {item.price_dop > 0 ? `RD$ ${(item.price_dop || 0).toLocaleString()}` : `US$ ${(item.price || 0).toLocaleString()}`}
+                            </p>
                           </div>
-                          <div className="p-5 flex flex-col flex-1">
-                            <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">{item.make} {item.model}</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.year} • {item.vin ? item.vin.slice(-6) : 'N/A'}</p>
-                            <div className="mt-3 mb-5">
-                              <p className="text-xl font-black text-red-600">
-                                {item.status === 'sold' && <span className="text-[10px] block text-slate-400 uppercase tracking-widest font-black">Precio de Venta</span>}
-                                {/* SAFEGUARD PRICES */}
-                                {item.price_dop > 0 ? `RD$ ${(item.price_dop || 0).toLocaleString()}` : `US$ ${(item.price || 0).toLocaleString()}`}
-                              </p>
-                            </div>
-                            <div className="mt-auto flex items-center gap-2">
-                              <Button
-                                variant="secondary"
-                                disabled={item.status === 'sold'}
-                                className={`flex-1 text-[10px] font-black transition-all py-3 rounded-xl uppercase tracking-widest border-none ${item.status === 'sold'
-                                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'
-                                  : 'bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600'
-                                  }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (item.status !== 'sold') openActionModal(item);
-                                }}
-                              >
-                                {item.status === 'sold' ? 'VENDIDO' : 'GENERAR'}
-                              </Button>
-                              <div className="flex gap-1.5 sm:gap-2">
-                                <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all" title="Editar"><Edit size={14} /></button>
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(openMenuId === item.id ? null : item.id);
-                                    }}
-                                    className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${openMenuId === item.id ? 'bg-red-50 text-red-600' : 'bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600'}`}
-                                  >
-                                    <MoreVertical size={14} />
-                                  </button>
+                          <div className="mt-auto flex items-center gap-2">
+                            <Button
+                              variant="secondary"
+                              disabled={item.status === 'sold'}
+                              className={`flex-1 text-[10px] font-black transition-all py-3 rounded-xl uppercase tracking-widest border-none ${item.status === 'sold'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'
+                                : 'bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600'
+                                }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (item.status !== 'sold') openActionModal(item);
+                              }}
+                            >
+                              {item.status === 'sold' ? 'VENDIDO' : 'GENERAR'}
+                            </Button>
+                            <div className="flex gap-1.5 sm:gap-2">
+                              <button onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }} className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-all" title="Editar"><Edit size={14} /></button>
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                  }}
+                                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${openMenuId === item.id ? 'bg-red-50 text-red-600' : 'bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600'}`}
+                                >
+                                  <MoreVertical size={14} />
+                                </button>
 
-                                  {openMenuId === item.id && (
-                                    <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-30 animate-in fade-in zoom-in-95 duration-200">
-                                      <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
-                                        <Copy size={12} /> Duplicar
-                                      </button>
-                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
-                                        <Trash2 size={12} /> Eliminar
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
+                                {openMenuId === item.id && (
+                                  <div className="absolute bottom-full right-0 mb-2 w-32 bg-white rounded-xl shadow-xl border border-slate-100 p-1 z-30 animate-in fade-in zoom-in-95 duration-200">
+                                    <button onClick={(e) => { e.stopPropagation(); handleDuplicate(item); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 hover:text-red-600 rounded-lg flex items-center gap-2">
+                                      <Copy size={12} /> Duplicar
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                                      <Trash2 size={12} /> Eliminar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                        </Card>
-                      </div>
-                    ))}
-                  </div>
+                        </div>
+                      </Card>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200"><Package size={48} className="mb-4 opacity-20" /><p className="text-sm font-black uppercase tracking-widest">No hay vehículos. ¡Agrega uno!</p></div>}
-            </>
-          )}
+              </div>
+            ))}
+            {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200"><Package size={48} className="mb-4 opacity-20" /><p className="text-sm font-black uppercase tracking-widest">No hay vehículos. ¡Agrega uno!</p></div>}
+          </>
         </div>
       </div>
 
