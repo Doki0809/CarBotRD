@@ -3408,7 +3408,13 @@ export default function CarbotApp() {
           <div className="mb-6 animate-bounce">
             <AppLogo size={80} />
           </div>
-          <p className="text-slate-400 font-medium">Cargando sesión...</p>
+          <p className="text-slate-400 font-medium mb-4">Cargando sesión...</p>
+          <button
+            onClick={() => setInitializing(false)}
+            className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline border border-red-100 px-4 py-2 rounded-xl bg-red-50"
+          >
+            Cancelar Carga (Forzar Entrada)
+          </button>
         </div>
       </div>
     );
