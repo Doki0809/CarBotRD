@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "carbot-5d709": {
+      "hosting": {
+        "nuevo": [
+          "carbotsystem"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
