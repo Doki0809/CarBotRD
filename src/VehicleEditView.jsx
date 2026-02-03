@@ -156,6 +156,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     images: vehicle?.images || (vehicle?.image ? [vehicle.image] : []),
     photos: vehicle?.photos || [],
     documents: vehicle?.documents || [],
+    plate: vehicle?.plate || '',
     price_unified: (vehicle?.price_dop > 0 ? vehicle.price_dop : (vehicle?.price || 0)).toString(),
     initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString()
   });
@@ -166,6 +167,8 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         ...prev,
         ...vehicle,
         images: vehicle?.images || (vehicle?.image ? [vehicle.image] : []),
+        photos: vehicle?.photos || [],
+        plate: vehicle.plate || '',
         price_unified: (vehicle?.price_dop > 0 ? vehicle.price_dop : (vehicle?.price || 0)).toString(),
         initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString()
       }));
@@ -789,12 +792,11 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
                   <Settings size={14} /> Mecánica
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Select label="Condición" name="condition" value={formData.condition} onChange={handleChange} options={['Usado', 'Recién Importado', 'Nuevo', 'Certificado']} />
                   <Select label="CARFAX" name="clean_carfax" value={formData.clean_carfax || '-'} onChange={handleChange} options={['CLEAN CARFAX', '-']} />
+                  <Select label="Tipo de Vehículo" name="vehicle_type" value={formData.vehicle_type || 'Automóvil'} onChange={handleChange} options={['Automóvil', 'Jeepeta', 'Camión', 'Camioneta', 'Vehículo Pesado', 'Moto']} />
                 </div>
-                {/* NEW ROW FOR VEHICLE TYPE */}
-                <Select label="Tipo de Vehículo" name="vehicle_type" value={formData.vehicle_type || 'Automóvil'} onChange={handleChange} options={['Automóvil', 'Jeepeta', 'Camión', 'Camioneta', 'Vehículo Pesado', 'Moto', 'Autobús']} />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['Automática', 'Manual', 'CVT', 'Tiptronic']} />

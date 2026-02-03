@@ -654,7 +654,7 @@ const PreviewModal = ({ pages, images, onClose, contractData = {} }) => {
   );
 };
 
-const PlantillaEditor = ({ initialData, onSave, onCancel, contractData = {} }) => {
+const PlantillaEditor = ({ initialData, onSave, onDelete, onCancel, contractData = {} }) => {
   const [docTitle, setDocTitle] = useState(initialData?.titulo || initialData?.name || 'Documento sin título');
   const [templateName, setTemplateName] = useState(initialData?.templateName || '');
   const [templateType, setTemplateType] = useState(initialData?.templateType || 'CONTRATO');
@@ -1183,6 +1183,19 @@ const PlantillaEditor = ({ initialData, onSave, onCancel, contractData = {} }) =
             >
               CANCELAR
             </button>
+
+            {initialData?.id && onDelete && (
+              <button
+                onClick={() => {
+                  if (confirm('¿Estás seguro de eliminar esta plantilla?')) {
+                    onDelete(initialData.id);
+                  }
+                }}
+                className="px-4 py-1.5 bg-white text-red-600 border border-red-200 hover:bg-red-50 rounded-xl font-bold uppercase text-xs transition-all"
+              >
+                ELIMINAR
+              </button>
+            )}
 
             <button
               onClick={handleSave}

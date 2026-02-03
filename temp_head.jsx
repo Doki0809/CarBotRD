@@ -22,97 +22,35 @@ import {
   where,
   getDocs
 } from 'firebase/firestore';
-// import ContractTemplateEditor from './components/dashboard/ContractTemplateEditor';
-import ContractTemplateEditor from './components/dashboard/PlantillaEditor';
 
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
   PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy,
-  AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
-  ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode
+  AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera, Layout,
+  ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
+import PlantillaEditor from './components/dashboard/PlantillaEditor';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
 // o directamente ya que es una SPA de Vite.
 // import html2pdf from 'html2pdf.js';
 
-// --- SHARED STYLES FOR TEMPLATES ---
-export const SHARED_QUILL_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=Mirza:wght@400;700&family=Roboto:wght@400;700&family=Aref+Ruqaa:wght@400;700&display=swap');
+/**
+ * CARBOT - B2B SaaS para Dealers
+ * VERSIÓN: ONLINE (FIREBASE)
+ */
 
-  /* Reset */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  
-  /* Container and Base Typography */
-  body, .ql-editor { 
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #1e293b;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
+// MOCK_USER ELIMINADO
+// INITIAL_CONTRACTS ELIMINADO
 
-  /* Quill alignment classes */
-  .ql-align-center { text-align: center !important; }
-  .ql-align-right { text-align: right !important; }
-  .ql-align-left { text-align: left !important; }
-  .ql-align-justify { text-align: justify !important; }
-  
-  /* Quill indentation */
-  .ql-indent-1 { padding-left: 3em !important; }
-  .ql-indent-2 { padding-left: 6em !important; }
-  .ql-indent-3 { padding-left: 9em !important; }
-  .ql-indent-4 { padding-left: 12em !important; }
-  .ql-indent-5 { padding-left: 15em !important; }
-  
-  /* Typography */
-  h1 { font-size: 2.5em; font-weight: 800; margin-bottom: 0.5em; color: #0f172a; }
-  h2 { font-size: 1.75em; font-weight: 700; margin-bottom: 0.5em; color: #0f172a; }
-  h3 { font-size: 1.25em; font-weight: 700; margin-bottom: 0.5em; color: #0f172a; }
-  p { margin: 0; padding: 0; min-height: 1.25em; }
-  
-  /* Lists */
-  ul, ol { padding-left: 1.5em; margin: 0.75em 0; }
-  li { margin: 0.4em 0; }
-  
-  /* Images */
-  img { max-width: 100%; height: auto; display: block; margin: 15px auto; border-radius: 4px; }
-  
-  /* Quill font sizes */
-  .ql-size-small { font-size: 0.8em; }
-  .ql-size-large { font-size: 1.5em; }
-  .ql-size-huge { font-size: 2.25em; }
-  
-  /* Quill fonts */
-  .ql-font-serif { font-family: Georgia, 'Times New Roman', serif; }
-  .ql-font-monospace { font-family: Monaco, 'Courier New', monospace; }
-  .ql-font-mirza { font-family: 'Mirza', serif; }
-  .ql-font-roboto { font-family: 'Roboto', sans-serif; }
-  .ql-font-aref { font-family: 'Aref Ruqaa', serif; }
-  .ql-font-helvetica { font-family: 'Helvetica', Arial, sans-serif; }
-  .ql-font-inter { font-family: 'Inter', sans-serif; }
-  .ql-font-arial { font-family: 'Arial', sans-serif; }
-  .ql-font-calibri { font-family: 'Calibri', 'Candara', 'Segoe UI', sans-serif; }
-  .ql-font-times-new-roman { font-family: 'Times New Roman', serif; }
-  .ql-font-georgia { font-family: 'Georgia', serif; }
-  .ql-font-verdana { font-family: 'Verdana', sans-serif; }
-  
-  /* Text styles */
-  strong, b { font-weight: 700; color: #0f172a; }
-  em, i { font-style: italic; }
-  u { text-decoration: underline; }
-  s { text-decoration: line-through; }
-  
-  /* Horizontal rules */
-  hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.5em 0; }
-  
-  /* Table support */
-  table { border-collapse: collapse; width: 100%; margin: 20px 0; table-layout: fixed; }
-  td, th { border: 1px solid #cbd5e1; padding: 12px; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
-  th { background: #f8fafc; font-weight: 700; }
-`;
+const CONTRACT_TEMPLATES = [
+  { id: 't1', name: 'Venta al Contado', icon: DollarSign, desc: 'Contrato estándar de compraventa.' },
+  { id: 't2', name: 'Financiamiento', icon: CreditCard, desc: 'Acuerdo con plan de pagos y garantías.' },
+  { id: 't3', name: 'Carta de Ruta', icon: FileSignature, desc: 'Permiso provisional de circulación.' },
+];
 
 // --- UI KIT ---
 const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, ...props }) => {
@@ -126,13 +64,13 @@ const Button = ({ children, variant = 'primary', className = '', icon: Icon, onC
   const hasManualBg = className.includes('bg-');
   const hasManualText = className.includes('text-');
 
-  const baseClasses = `px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 active: scale-95`;
+  const baseClasses = `px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 active:scale-95`;
   const variantClasses = variants[variant] || variants.primary;
 
   return (
     <button
       onClick={onClick}
-      className={`${baseClasses} ${!hasManualBg && !hasManualText ? variantClasses : ''} ${className} `}
+      className={`${baseClasses} ${!hasManualBg && !hasManualText ? variantClasses : ''} ${className}`}
       {...props}
     >
       {Icon && <Icon size={18} />}
@@ -144,7 +82,7 @@ const Button = ({ children, variant = 'primary', className = '', icon: Icon, onC
 const Card = ({ children, className = '', noPadding = false }) => {
   const hasBg = className.includes('bg-');
   return (
-    <div className={`${hasBg ? '' : 'bg-white'} rounded-[24px] shadow-[0_8px_30px_rgb(0, 0, 0, 0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className} `}>
+    <div className={`${hasBg ? '' : 'bg-white'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
       <div className={noPadding ? '' : 'p-6'}>{children}</div>
     </div>
   );
@@ -160,7 +98,7 @@ const Badge = ({ status }) => {
   };
   const labels = { available: "Disponible", quoted: "Cotizado", sold: "Vendido", pending: "Pendiente Firma", signed: "Firmado" };
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || styles.sold} `}>
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || styles.sold}`}>
       {labels[status] || status}
     </span>
   );
@@ -175,7 +113,7 @@ const Input = ({ label, className = "", type = "text", ...props }) => (
     )}
     <input
       type={type}
-      className={`w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm focus:outline-none focus:bg-white focus:border-red-500 / 20 focus:ring-4 focus:ring-red-500 / 5 transition-all outline-none ${className} `}
+      className={`w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm focus:outline-none focus:bg-white focus:border-red-500/20 focus:ring-4 focus:ring-red-500/5 transition-all outline-none ${className}`}
       {...props}
     />
   </div>
@@ -222,10 +160,10 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm transition-all outline-none ${isOpen ? 'bg-white border-red-500/20 ring-4 ring-red-500/5' : 'hover:bg-slate-100'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} `}
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span className="truncate">{displayLabel}</span>
-        <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-red-500' : ''} `} />
+        <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-red-500' : ''}`} />
       </button>
 
       {isOpen && !disabled && (
@@ -245,7 +183,7 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
                   className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${isActive
                     ? 'bg-red-50 text-red-600'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-red-500'
-                    } `}
+                    }`}
                 >
                   {labelText}
                 </button>
@@ -263,7 +201,7 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
 const Toast = ({ message, type = 'success', onClose }) => {
   useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 rounded-xl shadow-2xl transform transition-all duration-500 animate -in slide -in -from-top-5 fade -in ${type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'} `}>
+    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 rounded-xl shadow-2xl transform transition-all duration-500 animate-in slide-in-from-top-5 fade-in ${type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>
       <CheckCircle size={20} className="mr-3" />
       <span className="font-medium tracking-wide">{message}</span>
     </div>
@@ -272,7 +210,7 @@ const Toast = ({ message, type = 'success', onClose }) => {
 
 const AppLogo = ({ className, size = 32, invert = false }) => {
   const [hasError, setHasError] = useState(false);
-  if (hasError) return <div className={`flex items-center justify-center ${invert ? 'text-white' : 'text-red-600'} ${className} `}><Car size={size} /></div>;
+  if (hasError) return <div className={`flex items-center justify-center ${invert ? 'text-white' : 'text-red-600'} ${className}`}><Car size={size} /></div>;
   return <img src="/logo.png" alt="Carbot" className={`${className} object-contain`} style={{ height: size, width: 'auto' }} onError={() => setHasError(true)} />;
 };
 
@@ -363,7 +301,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     const totalCurrent = photos.length;
 
     if (totalCurrent + files.length > 10) {
-      alert(`Límite excedido.Máximo 10 fotos.`);
+      alert(`Límite excedido. Máximo 10 fotos.`);
       return;
     }
 
@@ -488,8 +426,8 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
         const color = (data.color || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
         const last4Vin = (data.vin || '0000').slice(-4);
 
-        const folderName = `${year} ${make} ${model} ${color} ${last4Vin} `.trim();
-        const baseStoragePath = `dealer - ${cleanDealerName} /Marcas/${folderName} `;
+        const folderName = `${year} ${make} ${model} ${color} ${last4Vin}`.trim();
+        const baseStoragePath = `dealer-${cleanDealerName}/Marcas/${folderName}`;
 
         for (let i = 0; i < filesToUpload.length; i++) {
           const item = filesToUpload[i];
@@ -839,20 +777,16 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
             {loading ? <><Loader2 className="animate-spin mr-2" /> Guardando...</> : <><Save size={20} /> Guardar Vehículo</>}
           </Button>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 
-const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, templates = [] }) => {
+const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   const [loading, setLoading] = useState(false);
   const [bankName, setBankName] = useState('');
   const [cedula, setCedula] = useState('');
   const [price, setPrice] = useState(vehicle?.price || '');
-
-  // Get first quote template if available
-  const quoteTemplates = useMemo(() => templates.filter(t => t.category === 'quote'), [templates]);
-  const defaultTemplate = quoteTemplates[0] || null;
 
   // Reset price when vehicle changes
   useEffect(() => {
@@ -895,23 +829,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, template
       price: price,
       bank: bankName,
       vehicleId: vehicle.id,
-      vehicle: `${vehicle.make} ${vehicle.model}`,
-      // Additional vehicle fields for template replacement
-      year: vehicle.year || '',
-      color: vehicle.color || '',
-      version: vehicle.version || '',
-      vin: vehicle.vin || '',
-      mileage: vehicle.mileage || '',
-      fuel: vehicle.fuel || '',
-      transmission: vehicle.transmission || '',
-      drivetrain: vehicle.drivetrain || '',
-      passengers: vehicle.passengers || '',
-      // Template data
-      template: defaultTemplate?.name || null,
-      templateId: defaultTemplate?.id || null,
-      templateContent: defaultTemplate?.content || null,
-      category: 'quote',
-      createdAt: new Date().toISOString()
+      vehicle: `${vehicle.make} ${vehicle.model} ${vehicle.year}`
     };
 
     const finalUrl = `${baseUrl}?${params.toString()}`;
@@ -962,7 +880,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, template
   );
 };
 
-const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = [] }) => {
+const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
@@ -971,10 +889,6 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   const [bank, setBank] = useState('');
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
-
-  // Filter for quote templates
-  const quoteTemplates = useMemo(() => templates.filter(t => t.category === 'quote'), [templates]);
 
   // Auto-fill price when vehicle selected
   useEffect(() => {
@@ -987,13 +901,6 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
     }
   }, [selectedVehicleId, inventory]);
 
-  // Auto-select first quote template if available and none selected
-  useEffect(() => {
-    if (quoteTemplates.length > 0 && !selectedTemplateId) {
-      setSelectedTemplateId(quoteTemplates[0].id);
-    }
-  }, [quoteTemplates, selectedTemplateId]);
-
   if (!isOpen) return null;
 
   const availableVehicles = inventory.filter(v => v.status !== 'sold');
@@ -1004,9 +911,6 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
     setLoading(true);
     const vehicle = inventory.find(v => v.id === selectedVehicleId);
 
-    // Find selected template data
-    const templateObj = templates.find(t => t.id === selectedTemplateId);
-
     setTimeout(() => {
       onSave({
         name,
@@ -1014,24 +918,9 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
         phone,
         cedula,
         bank,
-        price,
+        price, // Enviar precio
         vehicle: `${vehicle.make} ${vehicle.model}`,
-        vehicleId: vehicle.id,
-        // Additional vehicle fields for template replacement
-        year: vehicle.year || '',
-        color: vehicle.color || '',
-        version: vehicle.version || '',
-        vin: vehicle.vin || '',
-        mileage: vehicle.mileage || '',
-        fuel: vehicle.fuel || '',
-        transmission: vehicle.transmission || '',
-        drivetrain: vehicle.drivetrain || '',
-        passengers: vehicle.passengers || '',
-        template: templateObj?.name || null,
-        templateId: templateObj?.id || null,
-        templateContent: templateObj?.content || null,
-        category: 'quote',
-        createdAt: new Date().toISOString()
+        vehicleId: vehicle.id
       });
       setLoading(false);
       onClose();
@@ -1064,25 +953,6 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
                 ))}
               </select>
             </div>
-
-            {quoteTemplates.length > 0 && (
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Plantilla de Cotización</label>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {quoteTemplates.map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setSelectedTemplateId(t.id)}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all whitespace-nowrap ${selectedTemplateId === t.id ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                    >
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div className="space-y-4">
               <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos del Prospecto</label>
               <div className="grid grid-cols-2 gap-4">
@@ -1109,14 +979,12 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   );
 };
 
-const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast }) => {
-  const [selectedTemplates, setSelectedTemplates] = useState([]); // Ahora es array
+const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initialVehicle }) => {
+  const [selectedTemplate, setSelectedTemplate] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle ? initialVehicle.vehicleId || initialVehicle.id : '');
   const [clientName, setClientName] = useState('');
   const [clientLastName, setClientLastName] = useState('');
   const [clientCedula, setClientCedula] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [bankName, setBankName] = useState('');
   const [finalPrice, setFinalPrice] = useState(''); // Estado para precio final
   const [downPayment, setDownPayment] = useState(''); // Estado para el inicial
   const [loading, setLoading] = useState(false);
@@ -1147,16 +1015,14 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       setFinalPrice(initialVehicle.price || (v ? (v.price_dop > 0 ? v.price_dop : (v.price || 0)) : 0));
       setDownPayment(initialVehicle.downPayment || initialVehicle.initial || (v ? (v.initial_dop > 0 ? v.initial_dop : (v.initial || 0)) : 0));
 
-      const template = templates.find(t => t.name === initialVehicle.template);
-      if (template) setSelectedTemplates([template.id]);
+      const template = CONTRACT_TEMPLATES.find(t => t.name === initialVehicle.template);
+      if (template) setSelectedTemplate(template.id);
     } else {
-      setSelectedTemplates([]);
+      setSelectedTemplate('');
       setSelectedVehicleId('');
       setClientName('');
       setClientLastName('');
-      setClientPhone(''); // Restore phone
       setClientCedula('');
-      setBankName(''); // Restore bank
       setFinalPrice('');
       setDownPayment('');
     }
@@ -1178,102 +1044,27 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 
   const availableVehicles = inventory.filter(v => v.status !== 'sold' || (initialVehicle && v.id === initialVehicle.id));
 
-  const toggleTemplate = (tId) => {
-    if (selectedTemplates.includes(tId)) {
-      setSelectedTemplates(prev => prev.filter(id => id !== tId));
-    } else {
-      setSelectedTemplates(prev => [...prev, tId]);
-    }
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (selectedTemplates.length === 0 || !selectedVehicleId) return;
+    if (!selectedTemplate || !selectedVehicleId) return;
     setLoading(true);
-
+    const vehicle = inventory.find(v => v.id === selectedVehicleId); // Firebase IDs son strings, quitamos parseInt
+    const template = CONTRACT_TEMPLATES.find(t => t.id === selectedTemplate);
     setTimeout(() => {
-      const vehicle = inventory.find(v => v.id === selectedVehicleId);
-
-      // Generar un array de documentos, uno por cada plantilla seleccionada
-      const documentsToGenerate = selectedTemplates.map(templateId => {
-        const templateObj = templates.find(t => t.id === templateId);
-        return {
-          id: initialVehicle?.contractId || undefined,
-          client: `${clientName} ${clientLastName}`,
-          cedula: clientCedula,
-          phone: initialVehicle?.phone || '',
-          vehicle: `${vehicle.make} ${vehicle.model}`,
-          vehicleId: vehicle.id,
-          // Additional vehicle fields for template replacement
-          // Mapping to Spanish Variables for PlantillaEditor
-          nombre: clientName,
-          apellido: clientLastName,
-          telefono: clientPhone || initialVehicle?.phone || '',
-          marca: vehicle.make,
-          modelo: vehicle.model,
-          año: vehicle.year || '',
-          ano: vehicle.year || '',
-          color: vehicle.color || '',
-          edicion: vehicle.version || vehicle.edition || '',
-          version: vehicle.version || vehicle.edition || '',
-          millaje: vehicle.mileage || '',
-          combustible: vehicle.fuel || vehicle.combustible || '',
-          transmision: vehicle.transmission || vehicle.transmision || '',
-          traccion: vehicle.drivetrain || vehicle.traccion || '',
-          carfax: vehicle.carfax || '',
-          condicion: vehicle.condition || vehicle.condicion || '',
-          asientos: vehicle.seats || vehicle.asientos || '',
-          motor: vehicle.motor || vehicle.engine || '',
-          placa: vehicle.plate || vehicle.placa || '',
-
-          precio: finalPrice || (vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price),
-          inicial: downPayment,
-          banco: bankName,
-
-          // Legacy English keys (keep for backward compatibility if needed)
-          price: finalPrice || (vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price),
-          downPayment: downPayment,
-          bank: bankName,
-          clientPhone: clientPhone || initialVehicle?.phone || '',
-          template: templateObj?.name, // Nombre de la plantilla usada
-          templateId: templateObj?.id, // ID exacto
-          templateContent: templateObj?.content || null, // Capture content (legacy)
-          // NUEVO: Clonar estructura completa de páginas para formato Carta
-          pages: templateObj?.pages ? templateObj.pages.map(p => ({
-            ...p,
-            id: crypto.randomUUID(), // Nueva ID para cada página del contrato
-            backgroundImage: p.backgroundImage || templateObj?.backgroundImage
-          })) : null,
-          // NUEVO: Clonar imágenes flotantes (firmas, logos, etc.)
-          images: templateObj?.images ? templateObj.images.map(img => ({
-            ...img,
-            id: crypto.randomUUID() // Nueva ID para cada imagen
-          })) : null,
-          // NUEVO: Fondo principal de la plantilla
-          backgroundImage: templateObj?.backgroundImage || null,
-          category: templateObj?.category || 'contract', // Categoría
-          templateType: templateObj?.templateType, // CRITICAL: Pass template type (CONTRATO/COTIZACIÓN)
-          tipo: 'CARTA_LEGAL', // Formato Carta 8.5x11
-          status: 'pending',
-          date: new Date().toISOString().split('T')[0],
-          ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`,
-          vin: vehicle.vin
-        };
+      onGenerate({
+        id: initialVehicle?.contractId || undefined, // Pass ID if editing
+        client: `${clientName} ${clientLastName}`,
+        cedula: clientCedula,
+        vehicle: `${vehicle.make} ${vehicle.model}`,
+        vehicleId: vehicle.id,
+        price: finalPrice || (vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price), // Use manual final price or vehicle default
+        downPayment: downPayment, // Pass down payment
+        template: template.name,
+        status: 'pending',
+        date: new Date().toISOString().split('T')[0],
+        ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`,
+        vin: vehicle.vin
       });
-
-      // Detectar si es single o multi
-      if (documentsToGenerate.length === 1) {
-        onGenerate(documentsToGenerate[0]);
-      } else {
-        // Si hay un handler para múltiples, idealmente lo pasaríamos.
-        // Para mantener compatibilidad con onGenerate existente, asumimos que puede recibir array o lo manejamos arriba.
-        // En este caso, App.jsx debe ser capaz de detectar array. 
-        // O mejor, pasamos una prop nueva "onGenerateMulti" pero para simplificar, 
-        // vamos a 'hackear' pasando un array si la prop lo soporta, o llamando 1 por 1 aquí dentro no es ideal por los estados.
-        // MEJOR: Modificamos onGenerate en App.jsx para aceptar array.
-        onGenerate(documentsToGenerate);
-      }
-
       setLoading(false);
       onClose();
     }, 1500);
@@ -1281,12 +1072,12 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-2xl animate-in zoom-in-95 duration-200">
         <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><FilePlus size={20} className="text-red-600" /></div>
-              Generar Nuevos Documentos
+              Generar Nuevo Contrato
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
@@ -1300,67 +1091,43 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                 ))}
               </select>
             </div>
-
-            {/* Compact Grid Layout */}
-            <div className="space-y-4">
-              {/* Row 1: Client Data (4 cols) */}
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 2. Datos del Cliente</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
-                  <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} required />
-                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
-                  <Input label="Teléfono" placeholder="809-555-5555" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
-                </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 2. Datos del Cliente</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
+                <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} required />
               </div>
+              <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
+            </div>
 
-              {/* Row 2: Financial Terms (3 cols) */}
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 3. Términos Financieros</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <Input label="Banco / Financiera" placeholder="Ej. Banco Popular" value={bankName} onChange={(e) => setBankName(e.target.value)} />
-                  <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} required />
-                  <Input label="Inicial / Avance" type="number" placeholder="Ej. 150000" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
-                </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 3. Términos Financieros</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} required />
+                <Input label="Inicial / Avance" type="number" placeholder="Ej. 150000" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">4. Elige los Documentos a Generar (Selección Múltiple)</label>
-
-              {/* Group by category if needed, or just list everything */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2">
-                {templates.filter(t => t.category !== 'quote').map(template => {
-                  const isSelected = selectedTemplates.includes(template.id);
+              <label className="block text-sm font-medium text-gray-700 mb-3">4. Elige una Plantilla</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {CONTRACT_TEMPLATES.map(template => {
+                  const Icon = template.icon;
+                  const isSelected = selectedTemplate === template.id;
                   return (
-                    <div
-                      key={template.id}
-                      onClick={() => toggleTemplate(template.id)}
-                      className={`cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 relative flex items-center gap-3 ${isSelected ? 'border-red-600 bg-red-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-gray-300'}`}
-                    >
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'bg-red-600 border-red-600' : 'border-gray-300 bg-white'}`}>
-                        {isSelected && <Check size={14} className="text-white" />}
-                      </div>
-
-                      <div className="flex-1">
-                        <h4 className={`font-bold text-sm leading-tight ${isSelected ? 'text-slate-900' : 'text-gray-600'}`}>{template.name}</h4>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500">Contrato</span>
-                      </div>
+                    <div key={template.id} onClick={() => setSelectedTemplate(template.id)} className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 relative overflow-hidden ${isSelected ? 'border-red-600 bg-red-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-gray-300'}`}>
+                      {isSelected && <div className="absolute top-2 right-2 text-red-600"><CheckCircle size={16} fill="currentColor" className="text-white" /></div>}
+                      <Icon className={`mb-3 ${isSelected ? 'text-red-600' : 'text-gray-400'}`} size={24} />
+                      <h4 className={`font-bold text-sm ${isSelected ? 'text-red-700' : 'text-gray-700'}`}>{template.name}</h4>
                     </div>
                   );
                 })}
-                {templates.length === 0 && (
-                  <div className="col-span-full p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                    No hay plantillas disponibles. Crea una primero en la pestaña "Plantilla".
-                  </div>
-                )}
               </div>
             </div>
-
-            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
               <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>Cancelar</Button>
-              <Button type="submit" disabled={loading || selectedTemplates.length === 0 || !selectedVehicleId} className="bg-slate-900 text-white hover:bg-slate-800">
-                {loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Procesando...</> : `Generar ${selectedTemplates.length} Documento(s)`}
+              <Button type="submit" disabled={loading || !selectedTemplate || !selectedVehicleId} className="bg-red-600 text-white hover:bg-red-700">
+                {loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Generando...</> : 'Generar y Guardar'}
               </Button>
             </div>
           </form>
@@ -1370,499 +1137,97 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   );
 };
 
-// --- HELPER: RENDER CONTRACT WITH DATA ---
-const renderContract = (html, data) => {
-  if (!html) return '';
-  let content = html;
-
-  // Normalizar datos para asegurar que no falte nada
-  const clientParts = (data.client || '').split(' ');
-  const clientFirstName = data.nombre || clientParts[0] || '';
-  const clientLastName = data.apellido || clientParts.slice(1).join(' ') || '';
-
-  const vehicleParts = (data.vehicle || '').split(' ');
-  const vehicleMake = data.marca || vehicleParts[0] || '';
-  const vehicleModel = data.modelo || vehicleParts.slice(1).join(' ') || '';
-
-  // 1. DICCIONARIO DE DATOS (Data Object) - Estructura exacta solicitada
-  const contratoData = {
-    // Datos del Cliente
-    'nombre': clientFirstName,
-    'apellido': clientLastName,
-    'cedula': data.cedula || '',
-    'telefono': data.telefono || data.phone || '',
-    'direccion': data.direccion || data.address || '',
-
-    // Ficha Principal
-    'marca': vehicleMake,
-    'modelo': vehicleModel,
-    'edicion': data.version || data.edicion || '', // Added edicion mapping
-    'version': data.version || '',
-    'año': data.año || data.year || '',
-    'color': data.color || '',
-    'chasis': data.chasis || data.vin || '',
-    'vin': data.vin || data.chasis || '', // Alias
-    'placa': data.placa || data.plate || '',
-
-    // Finanzas
-    'precio': data.precio || `RD$ ${Number(data.price || 0).toLocaleString()}`,
-    'inicial': data.inicial || `RD$ ${Number(data.downPayment || 0).toLocaleString()}`,
-    'banco': data.banco || data.bank || '',
-
-    // Detalles Extra
-    'millaje': data.mileage ? Number(data.mileage).toLocaleString() : '',
-    'carfax': data.carfax || '',
-    'condicion': data.condicion || data.condition || 'Excelentes condiciones',
-    'asientos': data.asientos || data.seats || '',
-    'motor': data.motor || data.details_engine || data.engineDescription || 'Motor no especificado',
-    'transmision': data.transmission || '',
-    'combustible': data.fuel || '',
-
-    // Documento
-    'fecha': data.date ? new Date(data.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-
-    // Bloques de Firma
-    'firma_cliente': `
-      <div style="width:100%; max-width:350px; margin-top:60px; text-align:center; font-family:sans-serif;">
-        <div style="border-top:2px solid #000; width:100%; margin-bottom:8px;"></div>
-        <div style="font-weight:bold; font-size:14px; text-transform:uppercase; margin-bottom:4px;">
-          ${(clientFirstName).toUpperCase()} ${(clientLastName).toUpperCase()}
-        </div>
-        <div style="font-weight:bold; font-size:11px; text-transform:uppercase;">CLIENTE/CEDULA/FECHA.</div>
-      </div>
-    `,
-    'firma_vendedor': `
-      <div style="width:100%; max-width:350px; margin-top:60px; text-align:center; font-family:sans-serif;">
-        <div style="border-top:2px solid #000; width:100%; margin-bottom:8px;"></div>
-        <div style="font-weight:bold; font-size:14px; text-transform:uppercase; margin-bottom:4px;">
-          ${(data.dealerName || 'AGENTE AUTORIZADO').toUpperCase()}
-        </div>
-        <div style="font-weight:bold; font-size:11px; text-transform:uppercase;">VENDEDOR AUTORIZADO</div>
-      </div>
-    `,
-
-    // LEGACY / COMPATIBILIDAD
-    'CLIENTE_NOMBRE': clientFirstName,
-    'CLIENTE_APELLIDO': clientLastName,
-    'CLIENTE_CEDULA': data.cedula || '',
-    'VEHICULO_MARCA': vehicleMake,
-    'VEHICULO_MODELO': vehicleModel,
-    'VEHICULO_VIN': data.chasis || data.vin || '',
-  };
-
-  // 2. FUNCIÓN DE REEMPLAZO CORREGIDA (Lógica del usuario)
-  let resultado = content;
-
-  Object.keys(contratoData).forEach(key => {
-    // Esta Regex busca {{key}} con cualquier cantidad de llaves y espacios
-    // Ej: {{nombre}}, {{{ nombre }}}, {{{{nombre}}}}
-    const regex = new RegExp(`{+\\s*${key}\\s*}+`, 'gi');
-    const valorReal = contratoData[key] !== undefined && contratoData[key] !== null ? contratoData[key] : '';
-
-    // Solo reemplazar si hay valor, o si es explícitamente vacío, pero mantener lógica de reemplazo
-    resultado = resultado.replace(regex, valorReal);
-  });
-
-  // Limpieza de estilos rojos (legacy)
-  resultado = resultado.replace(/<span[^>]*style="[^"]*color:\s*#dc2626[^"]*"[^>]*>(.*?)<\/span>/gi, '$1');
-
-  // 3. LIMPIEZA FINAL DE CUALQUIER ETIQUETA HUÉRFANA
-  // Elimina cualquier cosa que parezca un placeholder no reemplazado {{...}}
-  return resultado.replace(/{+.*?}+/g, '');
-};
-
-// Helper para limpieza quirúrgica de estilos (mismo logic que PlantillaEditor)
-const cleanHtmlStyles = (htmlContent) => {
-  if (!htmlContent) return '';
-  let processed = htmlContent;
-
-  // 1. Convert variable-chip class to inline style (optional, but keep for basic cleanup)
-  // We remove the aggressive style regex to preserve bold/italics
-  processed = processed.replace(/class=["']variable-chip["']/gi, 'style="color: #000000; display: inline;"');
-  processed = processed.replace(/contenteditable=["']false["']/gi, '');
-
-  return processed;
-};
-
-// Función de Sanitización Selectiva para PDF (DOM-based)
-const prepareElementForPDF = (originalElement) => {
-  // 1. Clonamos para no afectar el DOM visible
-  const clone = originalElement.cloneNode(true);
-
-  // 2. Buscamos variables (chips), spans con estilos, o divs con fondo de variable
-  // Ajustamos el selector para atrapar todo lo que parezca un "chip"
-  const variables = clone.querySelectorAll('span, .variable-chip, span[style*="background"], span[style*="border"]');
-
-  variables.forEach(el => {
-    // A. ELIMINAR LA CAJA (Estética de editor)
-    el.style.backgroundColor = 'transparent';
-    el.style.border = 'none';
-    el.style.boxShadow = 'none';
-    el.style.padding = '0';
-    el.style.margin = '0';
-    el.style.borderRadius = '0';
-
-    // B. FORZAR APARIENCIA DE TEXTO
-    el.style.display = 'inline';
-    el.style.color = '#000000'; // Negro puro
-
-    // C. Importante: NO tocamos font-weight ni font-style
-    // el.style.fontWeight se mantiene si estaba definido o heredado
-  });
-
-  return clone;
-};
-
-const generateContractHtml = (contract, userProfile, isPreview = false) => {
-  // Merge contract data + userProfile for the renderer
-  const fullData = {
-    ...contract,
-    dealerName: userProfile.dealerName,
-    dealerAddress: userProfile.address,
-    dealerPhone: userProfile.phone
-  };
-
-  // CSS EXTRA PARA IMÁGENES Y CAPAS
-  const EXTRA_CSS = `
-    /* Capas de imagen (mismas que en el editor) */
-    .img-behind {
-      position: absolute !important;
-      z-index: -1 !important;
-      opacity: 0.6;
-    }
-    .img-front {
-      position: absolute !important;
-      z-index: 10 !important;
-    }
-    /* Página estilo Carta */
-    .contract-page {
-      width: 215.9mm;
-      height: 279.4mm;
-      position: relative;
-      background-color: white;
-      page-break-after: always;
-      overflow: hidden;
-    }
-    .contract-page:last-child {
-      page-break-after: auto;
-    }
-    .contract-bg {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 1;
-      object-fit: fill; /* Estira el fondo al tamaño carta completo */
-    }
-    .contract-content {
-      position: absolute;
-      top: 25mm; left: 25mm; right: 25mm; bottom: 25mm;
-      z-index: 10;
-      font-family: 'Calibri', 'Carlito', sans-serif;
-      line-height: 1.15;
-      font-size: 11pt;
-      color: black;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    .contract-floating-img {
-      position: absolute;
-    }
-    /* Ajuste de impresión */
-    @media print {
-      .img-behind {
-         z-index: -1 !important;
-         position: absolute !important; 
-      }
-      body { -webkit-print-color-adjust: exact; }
-    }
-    /* Reset básico para el contenido */
-    #contract-body img {
-      display: inline-block;
-    }
-  `;
-
-  // NUEVO: Si hay páginas estructuradas (del nuevo editor), renderizarlas con fondos
-  if (contract.pages && contract.pages.length > 0) {
-    const pagesHtml = contract.pages.map((page, idx) => {
-      const processedContent = cleanHtmlStyles(renderContract(page.content || '', fullData));
-      const bgImage = page.backgroundImage || contract.backgroundImage;
-
-      // Renderizar imágenes flotantes de esta página
-      const floatingImages = (contract.images || [])
-        .filter(img => img.pageId === page.id)
-        .map(img => `<img src="${img.src}" class="contract-floating-img" style="left:${img.x}px; top:${img.y}px; width:${img.width}px; height:${img.height}px; z-index:20;">`)
-        .join('');
-
-      return `
-        <div class="contract-page">
-          ${bgImage ? `<img src="${bgImage}" class="contract-bg" />` : ''}
-          ${floatingImages}
-          <div class="contract-content">
-            ${processedContent}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    return `
-        <style>${SHARED_QUILL_STYLES}${EXTRA_CSS}</style>
-        ${pagesHtml}
-      `;
-  }
-
-  // 1. Si hay contenido personalizado legacy (templateContent o content), usarlo
-  const legacyContent = contract.templateContent || contract.content;
-  if (legacyContent) {
-    const content = cleanHtmlStyles(renderContract(legacyContent, fullData));
-
-    return `
-      <style>${SHARED_QUILL_STYLES}${EXTRA_CSS}</style>
-      <div id="contract-content" class="ql-editor" style="
-        font-family: 'Helvetica', 'Arial', sans-serif; 
-        padding: 0; 
-        background: white;
-        ${contract.backgroundImage ? `background-image: url(${contract.backgroundImage}); background-size: 100% 100%; background-repeat: no-repeat;` : ''}
-        width: 215.9mm; 
-        min-height: 279.4mm;
-        margin: 0 auto;
-        box-sizing: border-box;
-        position: relative;
-      ">
-        <div id="contract-body" class="contract-body ql-editor" style="padding: 20mm 20mm; overflow-wrap: break-word; word-wrap: break-word; position: relative; z-index: 1;">
-          ${content}
-        </div>
-      </div>
-      `;
-  }
-
-  // 2. Fallback: Plantilla Hardcoded (Legacy)
-  return `
-      <style>${SHARED_QUILL_STYLES}</style>
-      <div id="contract-content" style="
-        font-family: 'Times New Roman', serif; 
-        padding: 0; 
-        background: white;
-        width: 215.9mm; 
-        min-height: 279.4mm;
-        margin: 0 auto;
-        box-sizing: border-box;
-        position: relative;
-      ">
-        <div id="contract-body" style="padding: 15mm 20mm;">
-          <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
-            <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
-            <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
-            <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
-          </div>
-
-          <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${(contract.templateType || contract.template || 'Documento').toUpperCase()}</h1>
-
-          <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${contract.date ? new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
-
-          <p style="margin-bottom: 25px; text-align: justify;">
-            <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong> (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
-            <br /><br />
-            <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong> (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
-          </p>
-
-          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">PRIMERO: OBJETO DEL CONTRATO</h2>
-          <p style="margin-bottom: 15px; text-align: justify;">EL VENDEDOR, por medio del presente acto, vende, cede y traspasa con todas las garantías de derecho al COMPRADOR, quien acepta, el siguiente vehículo de motor:</p>
-          <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #edf2f7;">
-            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-              <tr><td style="padding: 4px 0; font-weight: bold; width: 30%;">Vehículo:</td><td>${contract.vehicle}</td></tr>
-              <tr><td style="padding: 4px 0; font-weight: bold;">Condición:</td><td>Usado / Certificado</td></tr>
-              <tr><td style="padding: 4px 0; font-weight: bold;">Identificación (VIN):</td><td>${contract.vin || 'Verificado en Chasis'}</td></tr>
-            </table>
-          </div>
-
-          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">SEGUNDO: PRECIO Y FORMA DE PAGO</h2>
-          <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.price || 0).toLocaleString()}</strong>, el cual se compromete a pagar de la siguiente manera:
-            ${contract.downPayment && Number(contract.downPayment) > 0
-      ? `un pago inicial de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.downPayment).toLocaleString()}</strong> y el balance restante mediante las condiciones acordadas.`
-      : `en un único pago al momento de la firma.`}
-            El VENDEDOR declara haber recibido conforme a lo pactado, sirviendo el presente documento como carta de pago y descargo legal por los montos recibidos.
-          </p>
-
-          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">TERCERO: ESTADO Y GARANTÍA</h2>
-          <p style="margin-bottom: 15px; text-align: justify;">El COMPRADOR declara haber revisado minuciosamente el vehículo y aceptarlo en el estado mecánico y de carrocería en que se encuentra ("AS IS"). EL VENDEDOR otorga una garantía limitada de treinta (30) días sobre motor y transmisión, sujeto a uso normal.</p>
-
-          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">CUARTO: JURISDICCIÓN Y LEY APLICABLE</h2>
-          <p style="margin-bottom: 40px; text-align: justify;">Para todo lo no previsto en el presente contrato, las partes se remiten al derecho común y eligen domicilio en la jurisdicción de Punta Cana para cualquier proceso derivado del mismo.</p>
-
-          <div style="margin-top: 60px; display: flex; justify-content: space-between; gap: 40px;">
-            <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
-              <p style="margin: 0; font-weight: bold;">EL VENDEDOR</p>
-              <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${userProfile.dealerName}</p>
-            </div>
-            <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
-              <p style="margin: 0; font-weight: bold;">EL COMPRADOR</p>
-              <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${contract.client}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      `;
-};
-
-const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
-  // If quote has templateContent, use it with variable replacements
-  if (quote.templateContent) {
-    const replacements = {
-      // Cliente
-      '{{CLIENTE_NOMBRE}}': quote.name || '',
-      '{{ CLIENTE_APELLIDO }}': quote.lastname || '',
-      '{{ CLIENTE_DOC }}': quote.cedula || '',
-      '{{ CLIENTE_TEL }}': quote.phone || '',
-      '{{ CLIENTE_CEDULA }}': quote.cedula || '',
-
-      // Vehículo
-      '{{ VEHICULO_MARCA }}': quote.vehicle?.split(' ')[0] || '',
-      '{{ VEHICULO_MODELO }}': quote.vehicle?.split(' ').slice(1).join(' ') || '',
-      '{{ VEHICULO_COMPLETO }}': quote.vehicle || '',
-      '{{ VEHICULO_ANO }}': quote.year || '',
-      '{{ VEHICULO_ANIO }}': quote.year || '',
-      '{{ VEHICULO_COLOR }}': quote.color || '',
-      '{{ VEHICULO_VIN }}': quote.vin || '',
-      '{{ VEHICULO_VERSION }}': quote.version || '',
-      '{{ VEHICULO_MILLAJE }}': quote.mileage ? String(quote.mileage).toLocaleString() : '',
-      '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
-      '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
-      '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
-      '{{ VEHICULO_PASAJEROS }}': quote.passengers || '',
-
-      // Negocio
-      '{{ PRECIO_VENTA }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
-      '{{ MONTO_INICIAL }}': quote.initial ? `RD$ ${Number(quote.initial).toLocaleString()}` : '',
-      '{{ BANCO }}': quote.bank || '',
-      '{{ FECHA_VENTA }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-      '{{ FECHA_COTIZACION }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-      '{{ DEALER_NOMBRE }}': userProfile.dealerName || '',
-      '{{ FOLIO }}': `Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}`,
-
-      // Legacy
-      '{{ client }}': `${quote.name || ''} ${quote.lastname || ''}`.trim(),
-      '{{ vehicle }}': quote.vehicle || '',
-      '{{ price }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
-    };
-
-    let content = quote.templateContent;
-    Object.keys(replacements).forEach(key => {
-      const escapedKey = key.replace(/[.*+?^${ }()|[\]\\]/g, '\\$&');
-      content = content.replace(new RegExp(escapedKey, 'g'), replacements[key]);
-    });
-
-    return `
-      <style>${SHARED_QUILL_STYLES}</style>
-      <div id="quote-content" style="
-        font-family: 'Helvetica', 'Arial', sans-serif; 
-        padding: 0; 
-        background: white;
-        width: 215.9mm; 
-        min-height: 279.4mm;
-        margin: 0 auto;
-        box-sizing: border-box;
-        position: relative;
-      ">
-        <div id="quote-body" style="padding: 15mm 20mm; overflow-wrap: break-word; word-wrap: break-word;">${content}</div>
-      </div>
-      `;
-  }
-
-  // Default format (fallback)
-  return `
-      <style>${SHARED_QUILL_STYLES}</style>
-      <div id="quote-content" style="
-        font-family: 'Helvetica', 'Arial', sans-serif; 
-        padding: 0; 
-        background: white;
-        width: 215.9mm; 
-        min-height: 279.4mm;
-        margin: 0 auto;
-        box-sizing: border-box;
-        position: relative;
-      ">
-        <div id="quote-body" style="padding: 15mm 20mm;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
-            <div>
-              <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
-              <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
-            </div>
-            <div style="text-align: right;">
-              <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'PREVIEW'}</p>
-              <p style="margin: 5px 0 0; font-size: 12px;">${new Date().toLocaleDateString('es-DO', { long: true })}</p>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA/ID:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula || 'N/A'}</td>
-              </tr>
-            </table>
-          </div>
-
-          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
-            <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
-            <div style="margin-top: 15px; display: flex; gap: 20px;">
-              <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
-                <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
-                <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
-              </div>
-            </div>
-          </div>
-
-          ${quote.bank ? `
-        <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
-            <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
-            <table style="width: 100%;">
-              <tr>
-                <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold; width: 30%;">INSTITUCIÓN:</td>
-                <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
-              </tr>
-            </table>
-        </div>
-        ` : ''}
-
-          <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
-            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br />
-              Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
-          </div>
-        </div>
-      </div>
-      `;
-};
-
 const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   if (!isOpen || !contract) return null;
 
+  const getContractHtml = (isPreview = false) => `
+    <div id="contract-content" style="
+      font-family: 'Times New Roman', serif; 
+      padding: 0; 
+      line-height: 1.6; 
+      color: #000; 
+      background: white;
+      ${isPreview ? 'width: 100%; max-width: 210mm;' : 'width: 210mm; min-height: 297mm;'}
+      margin: 0 auto;
+      box-sizing: border-box;
+      position: relative;
+      box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
+    ">
+      <div id="contract-body" style="padding: 15mm 20mm;">
+        <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
+          <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
+          <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
+          <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
+        </div>
+        
+        <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${(contract.template || 'Documento').toUpperCase()}</h1>
+        
+        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${contract.date ? new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+        
+        <p style="margin-bottom: 25px; text-align: justify;">
+          <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong> (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
+          <br/><br/>
+          <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong> (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
+        </p>
+        
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">PRIMERO: OBJETO DEL CONTRATO</h2>
+        <p style="margin-bottom: 15px; text-align: justify;">EL VENDEDOR, por medio del presente acto, vende, cede y traspasa con todas las garantías de derecho al COMPRADOR, quien acepta, el siguiente vehículo de motor:</p>
+        <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #edf2f7;">
+          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+            <tr><td style="padding: 4px 0; font-weight: bold; width: 30%;">Vehículo:</td><td>${contract.vehicle}</td></tr>
+            <tr><td style="padding: 4px 0; font-weight: bold;">Condición:</td><td>Usado / Certificado</td></tr>
+            <tr><td style="padding: 4px 0; font-weight: bold;">Identificación (VIN):</td><td>${contract.vin || 'Verificado en Chasis'}</td></tr>
+          </table>
+        </div>
+
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">SEGUNDO: PRECIO Y FORMA DE PAGO</h2>
+        <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.price || 0).toLocaleString()}</strong>, el cual se compromete a pagar de la siguiente manera: 
+          ${contract.downPayment && Number(contract.downPayment) > 0
+      ? `un pago inicial de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.downPayment).toLocaleString()}</strong> y el balance restante mediante las condiciones acordadas.`
+      : `en un único pago al momento de la firma.`}
+          El VENDEDOR declara haber recibido conforme a lo pactado, sirviendo el presente documento como carta de pago y descargo legal por los montos recibidos.
+        </p>
+        
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">TERCERO: ESTADO Y GARANTÍA</h2>
+        <p style="margin-bottom: 15px; text-align: justify;">El COMPRADOR declara haber revisado minuciosamente el vehículo y aceptarlo en el estado mecánico y de carrocería en que se encuentra ("AS IS"). EL VENDEDOR otorga una garantía limitada de treinta (30) días sobre motor y transmisión, sujeto a uso normal.</p>
+
+        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">CUARTO: JURISDICCIÓN Y LEY APLICABLE</h2>
+        <p style="margin-bottom: 40px; text-align: justify;">Para todo lo no previsto en el presente contrato, las partes se remiten al derecho común y eligen domicilio en la jurisdicción de Punta Cana para cualquier proceso derivado del mismo.</p>
+
+        <div style="margin-top: 60px; display: flex; justify-content: space-between; gap: 40px;">
+           <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
+             <p style="margin: 0; font-weight: bold;">EL VENDEDOR</p>
+             <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${userProfile.dealerName}</p>
+           </div>
+           <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
+             <p style="margin: 0; font-weight: bold;">EL COMPRADOR</p>
+             <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${contract.client}</p>
+           </div>
+        </div>
+        
+        <div style="margin-top: 40px; text-align: center; color: #cbd5e0; font-size: 10px; font-family: sans-serif;">
+            Documento generado digitalmente por CarBot RD - ID: ${contract.id.slice(0, 8)}
+        </div>
+      </div>
+    </div>
+  `;
+
   const handleDownloadPDF = async () => {
     const element = document.createElement('div');
-    element.innerHTML = generateContractHtml(contract, userProfile, false);
+    element.innerHTML = getContractHtml(false);
     document.body.appendChild(element);
 
     const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
+      margin: 0,
       // Use contract ID if it adheres to the new format, or fallback to generated name
       filename: contract.id && contract.id.startsWith('Contrato_') ? `${contract.id}.pdf` : `Contrato_${contract.client.replace(/\s+/g, '_')}_${contract.id.slice(0, 5)}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     const html2pdf = (await import('html2pdf.js')).default;
-    const cleanElement = prepareElementForPDF(element);
-    html2pdf().set(opt).from(cleanElement).save().then(() => {
+    html2pdf().set(opt).from(element).save().then(() => {
       document.body.removeChild(element);
     });
   };
@@ -1873,11 +1238,11 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
       <html>
         <head>
           <title>Imprimir Contrato</title>
-          <style>@page {size: letter; margin: 0; }</style>
+          <style>@page { size: A4; margin: 0; }</style>
         </head>
-        <body style="margin: 0;">${generateContractHtml(contract, userProfile)}</body>
+        <body style="margin: 0;">${getContractHtml()}</body>
       </html>
-      `);
+    `);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
@@ -1893,64 +1258,48 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
         <div className="flex flex-col h-full bg-slate-50 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden">
           <div className="flex justify-between items-center px-4 py-3 border-b bg-white sm:rounded-t-2xl shrink-0 safe-top">
             <h3 className="text-sm sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-              <FileText size={18} className="text-red-600 sm:w-[20px] sm:h-[20px]" /> <span className="truncate max-w-[200px]">Contrato: {contract.client}</span>
+              <FileText size={18} className="text-red-600 sm:w-5 sm:h-5" /> <span className="truncate max-w-[200px]">Contrato: {contract.client}</span>
             </h3>
             <button onClick={onClose}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-white overflow-hidden relative">
+          <div className="flex-1 bg-slate-200/50 p-2 sm:p-6 overflow-hidden border-b border-slate-200 sm:border sm:rounded-2xl sm:mx-4 sm:mb-4 shadow-inner relative">
             <iframe
               srcDoc={`
                 <!DOCTYPE html>
                 <html>
                   <head>
-                    <title>Vista Previa del Contrato</title>
                     <style>
-                      html { 
-                        height: 100%;
-                        overflow-y: auto;
-                        -webkit-overflow-scrolling: touch;
+                      html { min-height: 100%; }
+                      body { 
+                        margin: 0; 
+                        padding: 40px; 
+                        background: #cbd5e1; 
+                        font-family: sans-serif;
                       }
-                      body {
-                        margin: 0;
-                        padding: 0;
-                        background: #f8fafc;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        min-height: 100%;
-                      }
-                      .sheet-container {
-                        width: 215.9mm;
-                        max-width: 100%;
-                        background: white;
-                        box-shadow: 0 0 20px rgba(0,0,0,0.05);
-                        margin: 20px auto;
-                        min-height: 279.4mm;
-                        position: relative;
-                      }
-                      @media print {
-                        body { background: white; padding: 0; }
-                        .sheet-container { box-shadow: none; margin: 0; width: 100%; }
-                      }
-                      /* Responsive tweak for mobile */
-                      @media (max-width: 215.9mm) {
-                        .sheet-container {
-                          width: 100%;
-                          box-shadow: none;
-                          margin: 0;
-                        }
+                      * { box-sizing: border-box; }
+                      ::-webkit-scrollbar { width: 8px; }
+                      ::-webkit-scrollbar-track { background: #f1f1f1; }
+                      ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+                      ::-webkit-scrollbar-thumb:hover { background: #555; }
+                      
+                      /* MOBILE OPTIMIZATION */
+                      @media (max-width: 640px) {
+                        html, body { height: 100%; margin: 0; padding: 0; }
+                        body { padding: 0 !important; background: #fff; display: block; overflow-y: auto; } 
+                        #contract-content { box-shadow: none !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+                        #contract-body { padding: 20px !important; }
+                        h1 { font-size: 20px !important; } 
+                        p, td, li { font-size: 14px !important; }
                       }
                     </style>
                   </head>
                   <body>
-                    <div class="sheet-container">
-                      ${generateContractHtml(contract, userProfile, true)}
-                    </div>
+                    ${getContractHtml(true)}
                   </body>
                 </html>
               `}
-              className="w-full h-full border-none"
+              className="w-full h-full border-none rounded-none sm:rounded-sm min-h-0 block"
               title="Vista Previa del Contrato"
             />
           </div>
@@ -1972,125 +1321,60 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
 const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
   if (!isOpen || !quote) return null;
 
-  const getQuoteHtml = (isPreview = false) => {
-    // If quote has templateContent, use it with variable replacements
-    if (quote.templateContent) {
-      const replacements = {
-        // Cliente
-        '{{CLIENTE_NOMBRE}}': quote.name || '',
-        '{{ CLIENTE_APELLIDO }}': quote.lastname || '',
-        '{{ CLIENTE_DOC }}': quote.cedula || '',
-        '{{ CLIENTE_TEL }}': quote.phone || '',
-        '{{ CLIENTE_CEDULA }}': quote.cedula || '',
-
-        // Vehículo
-        '{{ VEHICULO_MARCA }}': quote.vehicle?.split(' ')[0] || '',
-        '{{ VEHICULO_MODELO }}': quote.vehicle?.split(' ').slice(1).join(' ') || '',
-        '{{ VEHICULO_COMPLETO }}': quote.vehicle || '',
-        '{{ VEHICULO_ANO }}': quote.year || '',
-        '{{ VEHICULO_ANIO }}': quote.year || '',
-        '{{ VEHICULO_COLOR }}': quote.color || '',
-        '{{ VEHICULO_VIN }}': quote.vin || '',
-        '{{ VEHICULO_VERSION }}': quote.version || '',
-        '{{ VEHICULO_MILLAJE }}': quote.mileage ? String(quote.mileage).toLocaleString() : '',
-        '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
-        '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
-        '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
-        '{{ VEHICULO_PASAJEROS }}': quote.passengers || '',
-
-        // Negocio
-        '{{ PRECIO_VENTA }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
-        '{{ MONTO_INICIAL }}': quote.initial ? `RD$ ${Number(quote.initial).toLocaleString()}` : '',
-        '{{ BANCO }}': quote.bank || '',
-        '{{ FECHA_VENTA }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-        '{{ FECHA_COTIZACION }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-        '{{ DEALER_NOMBRE }}': userProfile.dealerName || '',
-        '{{ FOLIO }}': `Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}`,
-
-        // Legacy
-        '{{ client }}': `${quote.name || ''} ${quote.lastname || ''}`.trim(),
-        '{{ vehicle }}': quote.vehicle || '',
-        '{{ price }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
-      };
-
-      let content = quote.templateContent;
-      Object.keys(replacements).forEach(key => {
-        const escapedKey = key.replace(/[.*+?^${ }()|[\]\\]/g, '\\$&');
-        content = content.replace(new RegExp(escapedKey, 'g'), replacements[key]);
-      });
-
-      return `
-      <style>${SHARED_QUILL_STYLES}</style>
-      <div id="quote-content" style="
-          font-family: 'Helvetica', 'Arial', sans-serif; 
-          padding: 0; 
-          background: white;
-          width: 215.9mm; 
-          min-height: 279.4mm;
-          margin: 0 auto;
-          box-sizing: border-box;
-          position: relative;
-        ">
-        <div id="quote-body" style="padding: 15mm 20mm; overflow-wrap: break-word; word-wrap: break-word;">${content}</div>
-      </div>
-      `;
-    }
-
-    // Default format (fallback)
-    return `
-      <style>${SHARED_QUILL_STYLES}</style>
-      <div id="quote-content" style="
-          font-family: 'Helvetica', 'Arial', sans-serif; 
-          padding: 0; 
-          background: white;
-          width: 215.9mm; 
-          min-height: 279.4mm;
-          margin: 0 auto;
-          box-sizing: border-box;
-          position: relative;
-        ">
-        <div id="quote-body" style="padding: 15mm 20mm;">
+  const getQuoteHtml = (isPreview = false) => `
+    <div id="quote-content" style="
+      font-family: 'Helvetica', 'Arial', sans-serif; 
+      padding: 0; 
+      line-height: 1.6; 
+      color: #334155; 
+      background: white;
+      ${isPreview ? 'width: 100%; max-width: 210mm;' : 'width: 210mm; min-height: 297mm;'}
+      margin: 0 auto;
+      box-sizing: border-box;
+      position: relative;
+      box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
+    ">
+      <div id="contract-body" style="padding: 15mm 20mm;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
-            <div>
-              <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
-              <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
-            </div>
-            <div style="text-align: right;">
-              <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'PREVIEW'}</p>
-              <p style="margin: 5px 0 0; font-size: 12px;">${new Date().toLocaleDateString('es-DO', { long: true })}</p>
-            </div>
+              <div>
+                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+                <p style="margin: 5px 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+              </div>
+              <div style="text-align: right;">
+                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}</p>
+                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </div>
           </div>
 
           <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold; width: 30%;">NOMBRE COMPLETO:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
-                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
-              </tr>
-              ${quote.cedula ? `
-                  <tr>
-                    <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA:</td>
-                    <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula}</td>
-                  </tr>
-                  ` : ''
-      }
-            </table>
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold; width: 30%;">NOMBRE COMPLETO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+                </tr>
+                ${quote.cedula ? `
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula}</td>
+                </tr>
+                ` : ''}
+              </table>
           </div>
 
           <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
-            <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
-            <div style="margin-top: 15px; display: flex; gap: 20px;">
-              <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
-                <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
-                <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+              <div style="margin-top: 15px; display: flex; gap: 20px;">
+                  <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
+                      <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+                      <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+                  </div>
               </div>
-            </div>
           </div>
 
           ${quote.bank ? `
@@ -2103,17 +1387,15 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
                 </tr>
               </table>
           </div>
-          ` : ''
-      }
+          ` : ''}
 
           <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
-            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br />
-              Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br/>
+            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
           </div>
-        </div>
       </div>
-      `;
-  };
+    </div>
+  `;
 
   const handleDownloadPDF = async () => {
     const element = document.createElement('div');
@@ -2121,16 +1403,16 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
     document.body.appendChild(element);
 
     const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
+      margin: 0,
+      // Use quote ID if it adheres to the new format, or fallback to generated name
       filename: quote.id && quote.id.startsWith('Cotizacion_') ? `${quote.id}.pdf` : `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     const html2pdf = (await import('html2pdf.js')).default;
-    const cleanElement = prepareElementForPDF(element);
-    html2pdf().set(opt).from(cleanElement).save().then(() => {
+    html2pdf().set(opt).from(element).save().then(() => {
       document.body.removeChild(element);
     });
   };
@@ -2138,14 +1420,14 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
-      <html >
+      <html>
         <head>
           <title>Imprimir Cotización</title>
-          <style>@page {size: letter; margin: 0; }</style>
+          <style>@page { size: A4; margin: 0; }</style>
         </head>
         <body style="margin: 0;">${getQuoteHtml()}</body>
       </html>
-      `);
+    `);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
@@ -2156,78 +1438,46 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-4xl h-[100dvh] sm:h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
-        <div className="flex flex-col h-full bg-slate-50 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex justify-between items-center px-4 py-3 border-b bg-white sm:rounded-t-2xl shrink-0 safe-top">
-            <h3 className="text-sm sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Send size={18} className="text-red-600 sm:w-[20px] sm:h-[20px]" /> <span className="truncate max-w-[200px]">Cotización: {quote.name} {quote.lastname}</span>
+      <div className="w-full max-w-4xl h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
+        <Card className="flex flex-col h-full bg-slate-50">
+          <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
+            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Send size={20} className="text-red-600" /> Cotización: ${quote.name} ${quote.lastname}
             </h3>
-            <button onClick={onClose}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+            <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-white overflow-hidden relative">
+          <div className="flex-1 bg-slate-200/50 p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-4 mb-4 shadow-inner">
             <iframe
               srcDoc={`
-  < !DOCTYPE html >
-    <html>
-      <head>
-        <title>Vista Previa de la Cotización</title>
-        <style>
-          html {
-            height: 100%;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
-                      }
-          body {
-            margin: 0;
-          padding: 0;
-          background: #f8fafc;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          min-height: 100%;
-                      }
-          .sheet-container {
-            width: 215.9mm;
-          max-width: 100%;
-          background: white;
-          box-shadow: 0 0 20px rgba(0,0,0,0.05);
-          margin: 20px auto;
-          min-height: 279.4mm;
-          position: relative;
-                      }
-          @media print {
-            body {background: white; padding: 0; }
-          .sheet-container {box-shadow: none; margin: 0; width: 100%; }
-                      }
-          /* Responsive tweak for mobile */
-          @media (max-width: 215.9mm) {
-                        .sheet-container {
-            width: 100%;
-          box-shadow: none;
-          margin: 0;
-                        }
-                      }
-        </style>
-      </head>
-      <body>
-        <div class="sheet-container">
-          ${generateQuoteHtml(quote, userProfile, true)}
-        </div>
-      </body>
-    </html>
-`}
-              className="w-full h-full border-none"
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <style>
+                body {margin: 0; padding: 20px; background: #cbd5e1; display: flex; justify-content: center; }
+                * {box - sizing: border-box; }
+                ::-webkit-scrollbar {width: 8px; }
+                ::-webkit-scrollbar-track {background: #f1f1f1; }
+                ::-webkit-scrollbar-thumb {background: #888; border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover {background: #555; }
+              </style>
+            </head>
+            <body>
+              ${getQuoteHtml(true)}
+            </body>
+          </html>
+              `}
+              className="w-full h-full border-none rounded-sm min-h-[800px]"
               title="Vista Previa de la Cotización"
             />
           </div>
 
-          <div className="p-3 bg-white border-t sm:rounded-b-2xl flex gap-3 justify-end shrink-0 safe-bottom">
+          <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
             <Button variant="ghost" onClick={onClose}>Cerrar</Button>
             <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
             <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );
@@ -2236,197 +1486,162 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 // --- VISTAS PRINCIPALES ---
 
-const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onRestoreDocument, onPermanentDeleteDocument, onEmptyTrash }) => {
-  const [activeTab, setActiveTab] = useState('vehicles'); // 'vehicles' or 'documents'
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]);
+const TrashView = ({ trash, trashDocs = [], onRestore, onRestoreDoc, onPermanentDelete, onPermanentDeleteDoc, onEmptyTrash, showToast }) => {
+  const [activeTab, setActiveTab] = useState('vehicles');
 
-  // Filtrar documentos eliminados
-  const deletedDocuments = useMemo(() => {
-    const deletedContracts = (contracts || []).filter(c => c.status === 'deleted').map(c => ({ ...c, docType: 'contract' }));
-    const deletedQuotes = (quotes || []).filter(q => q.status === 'deleted').map(q => ({ ...q, docType: 'quote' }));
-    return [...deletedContracts, ...deletedQuotes].sort((a, b) => new Date(b.deletedAt || b.createdAt) - new Date(a.deletedAt || a.createdAt));
-  }, [contracts, quotes]);
+  const filteredDocs = useMemo(() => {
+    return trashDocs.sort((a, b) => new Date(b.deletedAt || 0) - new Date(a.deletedAt || 0));
+  }, [trashDocs]);
 
-  const activeList = activeTab === 'vehicles' ? trash : deletedDocuments;
-
-  // Reset selection when tab changes
-  useEffect(() => {
-    setIsSelectionMode(false);
-    setSelectedItems([]);
-  }, [activeTab]);
-
-  const toggleSelection = (id) => {
-    setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  const getDocIcon = (id) => {
+    if (id.startsWith('Contrato')) return FileText;
+    if (id.startsWith('Cotizacion')) return Quote;
+    if (id.startsWith('Plantilla')) return Layout;
+    return File;
   };
 
-  const handleBulkRestore = async () => {
-    if (activeTab === 'vehicles') {
-      for (const id of selectedItems) await onRestore(id);
-    } else {
-      const itemsToRestore = activeList.filter(i => selectedItems.includes(i.id));
-      for (const item of itemsToRestore) await onRestoreDocument(item);
-    }
-    setSelectedItems([]);
-    setIsSelectionMode(false);
-  };
-
-  const handleBulkDelete = async () => {
-    if (confirm(`¿Estás seguro de eliminar permanentemente ${selectedItems.length} ítems? Esta acción NO se puede deshacer.`)) {
-      if (activeTab === 'vehicles') {
-        await Promise.all(selectedItems.map(id => onPermanentDelete(id, true)));
-      } else {
-        const itemsToDelete = activeList.filter(i => selectedItems.includes(i.id));
-        await Promise.all(itemsToDelete.map(item => onPermanentDeleteDocument(item, true)));
-      }
-      setSelectedItems([]);
-      setIsSelectionMode(false);
-    }
-  };
-
-  const handleEmptyDocumentsTrash = async () => {
-    if (confirm("¿Estás seguro de vaciar TODA la papelera de documentos? Esta acción NO se puede deshacer.")) {
-      await Promise.all(deletedDocuments.map(item => onPermanentDeleteDocument(item, true)));
-    }
+  const getDocTypeLabel = (id) => {
+    if (id.startsWith('Contrato')) return 'Contrato';
+    if (id.startsWith('Cotizacion')) return 'Cotización';
+    if (id.startsWith('Plantilla')) return 'Plantilla';
+    return 'Documento';
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 sm:pb-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1>
-          <p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Papelera de Reciclaje</h1>
+          <p className="text-slate-500 text-sm font-medium mt-1">Recupera ítems eliminados o bórralos permanentemente.</p>
         </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
-          {/* Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('vehicles')}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${activeTab === 'vehicles' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} `}
-            >
-              Vehículos ({trash.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${activeTab === 'documents' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} `}
-            >
-              Documentos ({deletedDocuments.length})
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            {activeList.length > 0 && (
-              <button
-                onClick={() => {
-                  setIsSelectionMode(!isSelectionMode);
-                  setSelectedItems([]);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all ${isSelectionMode ? 'bg-slate-200 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-              >
-                {isSelectionMode ? 'Cancelar Selección' : 'Seleccionar Varios'}
-              </button>
-            )}
-
-            {activeList.length > 0 && activeTab === 'vehicles' && (
-              <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none whitespace-nowrap">
-                Vaciar Vehículos
-              </Button>
-            )}
-            {activeList.length > 0 && activeTab === 'documents' && (
-              <Button variant="danger" icon={Trash2} onClick={handleEmptyDocumentsTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none whitespace-nowrap">
-                Vaciar Documentos
-              </Button>
-            )}
-          </div>
-        </div>
+        {(activeTab === 'vehicles' ? trash.length > 0 : trashDocs.length > 0) && (
+          <Button
+            variant="danger"
+            icon={Trash2}
+            onClick={() => onEmptyTrash(activeTab === 'vehicles' ? 'vehicles' : 'documents')}
+            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-transparent shadow-none w-full sm:w-auto"
+          >
+            Vaciar {activeTab === 'vehicles' ? 'Vehículos' : 'Documentos'}
+          </Button>
+        )}
       </div>
 
-      {activeList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
-          <Trash2 size={48} className="mb-4 text-slate-300" />
-          <p className="text-lg font-medium">No hay {activeTab === 'vehicles' ? 'vehículos' : 'documentos'} en la papelera.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {activeList.map(item => (
-            <div key={item.id} className={`relative group transition-all duration-300 ${isSelectionMode && selectedItems.includes(item.id) ? 'active-card-selection ring-2 ring-blue-500 rounded-2xl transform scale-[1.02]' : 'opacity-80 hover:opacity-100'}`}>
+      {/* Tabs */}
+      <div className="flex p-1 bg-slate-100 rounded-2xl w-fit border border-slate-200 shadow-inner">
+        <button
+          onClick={() => setActiveTab('vehicles')}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'vehicles' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <Car size={16} /> Vehículos ({trash.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'documents' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <FileText size={16} /> Documentos ({trashDocs.length})
+        </button>
+      </div>
 
-              {/* Checkbox Overlay */}
-              {isSelectionMode && (
-                <div
-                  className="absolute inset-0 z-20 cursor-pointer"
-                  onClick={() => toggleSelection(item.id)}
-                >
-                  <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedItems.includes(item.id) ? 'bg-blue-500 border-blue-500' : 'bg-white/80 border-slate-300'}`}>
-                    {selectedItems.includes(item.id) && <Check size={14} className="text-white" />}
+      {activeTab === 'vehicles' ? (
+        trash.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <Car size={40} className="text-slate-200" />
+            </div>
+            <p className="text-lg font-bold text-slate-400 uppercase tracking-widest">No hay vehículos en la papelera</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {trash.map(item => (
+              <div key={item.id} className="relative group grayscale hover:grayscale-0 transition-all duration-500">
+                <Card noPadding className="flex flex-col h-full border-red-50 bg-white hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 rounded-[24px]">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-t-[24px]">
+                    <img src={item.image} alt={item.model} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-red-900/40 to-transparent"></div>
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-white/20">
+                      <p className="text-[10px] font-black text-slate-900 uppercase">Eliminado</p>
+                    </div>
+                  </div>
+                  <div className="p-6 flex flex-col flex-1">
+                    <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight line-through decoration-red-500/30">{item.make} {item.model}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{item.year} • {item.color}</p>
+
+                    <div className="mt-8 grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => onRestore(item.id)}
+                        className="flex-1 py-3 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Undo size={14} /> Restaurar
+                      </button>
+                      <button
+                        onClick={() => onPermanentDelete(item.id)}
+                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} /> Borrar
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        filteredDocs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <FileText size={40} className="text-slate-200" />
+            </div>
+            <p className="text-lg font-bold text-slate-400 uppercase tracking-widest">No hay documentos en la papelera</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredDocs.map(doc => {
+              const Icon = getDocIcon(doc.id);
+              return (
+                <div key={doc.id} className="relative group grayscale hover:grayscale-0 transition-all duration-500">
+                  <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-3 bg-red-50 rounded-2xl">
+                        <Icon className="text-red-500" size={24} />
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full">{getDocTypeLabel(doc.id)}</span>
+                        <p className="text-[10px] font-bold text-red-400 mt-2 uppercase tracking-tighter">
+                          Eliminado: {doc.deletedAt ? new Date(doc.deletedAt).toLocaleDateString() : 'Ayer'}
+                        </p>
+                      </div>
+                    </div>
+                    <h3 className="text-base font-black text-slate-900 uppercase tracking-tight mb-1 line-through decoration-red-500/30">
+                      {doc.client || doc.name || 'Sin nombre'}
+                    </h3>
+                    <p className="text-xs font-bold text-slate-400 mb-6 truncate">{doc.vehicleInfo || doc.id}</p>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onRestoreDoc(doc)}
+                        className="flex-1 py-3 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Undo size={14} /> Restaurar
+                      </button>
+                      <button
+                        onClick={() => onPermanentDeleteDoc(doc)}
+                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} /> Borrar
+                      </button>
+                    </div>
                   </div>
                 </div>
-              )}
-
-              <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30">
-                {activeTab === 'vehicles' ? (
-                  <>
-                    <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
-                      <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-red-900/10 mix-blend-multiply"></div>
-                    </div>
-                    <div className="p-5 flex flex-col flex-1">
-                      <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
-                      <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
-
-                      {!isSelectionMode && (
-                        <div className="mt-auto grid grid-cols-2 gap-3">
-                          <Button variant="secondary" onClick={() => onRestore(item.id)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><Undo size={14} /> RESTAURAR</Button>
-                          <Button variant="secondary" onClick={() => onPermanentDelete(item.id)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><X size={14} /> BORRAR</Button>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-5 flex flex-col flex-1 h-full min-h-[200px]">
-                    <div className="mb-4">
-                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider mb-2 ${item.docType === 'contract' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'} `}>
-                        {item.docType === 'contract' ? 'Contrato' : 'Cotización'}
-                      </span>
-                      <h3 className="font-bold text-slate-800 text-lg w-full truncate" title={item.client || item.name}>{item.client || `${item.name || ''} ${item.lastname || ''} `}</h3>
-                      <p className="text-xs text-slate-500 font-medium truncate">{item.vehicle || 'Vehículo desconocido'}</p>
-                    </div>
-
-                    <p className="text-xs font-semibold text-red-400 mb-6 mt-auto">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Desconocido'}</p>
-
-                    {!isSelectionMode && (
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button variant="secondary" onClick={() => onRestoreDocument(item)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><Undo size={14} /> RESTAURAR</Button>
-                        <Button variant="secondary" onClick={() => onPermanentDeleteDocument(item)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><X size={14} /> BORRAR</Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Card>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Floating Action Bar for Selection */}
-      {isSelectionMode && selectedItems.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-2xl shadow-2xl flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
-          <span className="font-bold text-sm px-4 border-r border-slate-700">{selectedItems.length} seleccionados</span>
-
-          <button onClick={handleBulkRestore} className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2">
-            <Undo size={16} /> Restaurar
-          </button>
-
-          <button onClick={handleBulkDelete} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2">
-            <Trash2 size={16} /> Eliminar
-          </button>
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );
 };
+
 // --- CONFIRMATION MODAL ---
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", isDestructive = false }) => {
   if (!isOpen) return null;
@@ -2577,7 +1792,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile }) => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-all ${isEditing ? 'bg-white border-2 border-slate-200 focus:border-red-500' : 'bg-slate-50 border-2 border-transparent text-slate-500'} `}
+                  className={`w-full px-4 py-3 rounded-xl font-bold transition-all ${isEditing ? 'bg-white border-2 border-slate-200 focus:border-red-500' : 'bg-slate-50 border-2 border-transparent text-slate-500'}`}
                 />
               </div>
               {/* Job Title */}
@@ -2588,7 +1803,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile }) => {
                   value={formData.jobTitle}
                   onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
                   disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-all ${isEditing ? 'bg-white border-2 border-slate-200 focus:border-red-500' : 'bg-slate-50 border-2 border-transparent text-slate-500'} `}
+                  className={`w-full px-4 py-3 rounded-xl font-bold transition-all ${isEditing ? 'bg-white border-2 border-slate-200 focus:border-red-500' : 'bg-slate-50 border-2 border-transparent text-slate-500'}`}
                 />
               </div>
               {/* Email (Read only) */}
@@ -2644,7 +1859,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const params = new URLSearchParams(window.location.search);
   const rawDealerName = params.get('location_name') || userProfile?.dealerName || 'Tu Dealer';
   // El titular siempre usa el nombre real (con acentos) pero limpio de asteriscos y formateado
-  const displayDealerName = rawDealerName.trim().replace(/[*_~\`]/g, '').toUpperCase();
+  const displayDealerName = rawDealerName.trim().replace(/[*_~`]/g, '').toUpperCase();
   const displayUserName = params.get('user_name') || userProfile?.name || 'Usuario';
 
   return (
@@ -2689,7 +1904,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-24 -mb-24 pointer-events-none"></div>
       </Card>
 
-      {/* Row 1: Key Stats-Side by Side on Mobile */}
+      {/* Row 1: Key Stats - Side by Side on Mobile */}
       <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-6">
         {/* Inventario Card */}
         <Card className="p-4 sm:p-8 border-none shadow-sm bg-white relative overflow-hidden group cursor-pointer hover:shadow-md transition-all" onClick={() => onNavigate('inventory', 'available')}>
@@ -2818,7 +2033,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
     </div>
   );
 };
-const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [] }) => {
+const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('brand_asc'); // Default alphabetical by Make
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -2873,11 +2088,11 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
     let result = inventory.filter(item => {
       // Robust Search String Construction
       const searchContent = `
-      ${item.make || ''}
-      ${item.model || ''}
-      ${item.year || ''}
-      ${item.color || ''}
-      ${item.vin || ''}
+        ${item.make || ''} 
+        ${item.model || ''} 
+        ${item.year || ''} 
+        ${item.color || ''} 
+        ${item.vin || ''}
       `.toLowerCase();
 
       const globalMatches = !searchTerm || searchContent.includes(searchTerm.toLowerCase());
@@ -2978,7 +2193,7 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4 sm:pb-6">
-        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}</span></h1><p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~`]/g, '')}</span></h1><p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
         <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">Agregar Vehículo</Button>
       </div>
 
@@ -3027,8 +2242,8 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {groupedInventory[brand].map(item => (
                 <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
-                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1 hover:shadow-xl transition-all duration-500 border-none bg-white rounded-[2rem] !overflow-visible relative">
-                    <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden rounded-t-[2rem]">
+                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1 hover:shadow-xl transition-all duration-500 border-none bg-white rounded-[2rem] overflow-hidden">
+                    <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
                       <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" />
                       <div className="absolute top-4 right-4 shadow-xl"><Badge status={item.status} /></div>
 
@@ -3044,20 +2259,32 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h3 className="font-black text-slate-900 text-lg leading-tight">{item.make} {item.model}</h3>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.edition || 'EDICIÓN'} • {item.color || 'COLOR'}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.color || 'COLOR'}</p>
                         </div>
                       </div>
 
-                      {/* Precio Section */}
+                      {/* Specs Row */}
+                      <div className="flex gap-4 mb-4 py-3 border-y border-slate-50">
+                        <div className="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase">
+                          <Settings size={12} className="text-slate-300" />
+                          {item.transmision?.split(' ')[0] || '-'}
+                        </div>
+                        <div className="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase">
+                          <Zap size={12} className="text-slate-300" />
+                          {item.traccion || 'FWD'}
+                        </div>
+                      </div>
 
-                      <div className="mb-6">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Precio</p>
-                        <p className="text-2xl font-black text-red-700 tracking-tighter">
-                          {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
-                        </p>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                          Inicial: <span className="text-slate-900 font-black">{item.initial_payment_dop > 0 ? `RD$ ${item.initial_payment_dop.toLocaleString()}` : `US$ ${item.initial_payment.toLocaleString()}`}</span>
-                        </p>
+                      <div className="mb-6 flex justify-between items-end">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Precio</p>
+                        <div className="flex flex-col items-end">
+                          <div className="text-sm sm:text-lg font-black text-slate-900 leading-tight">
+                            {item.price_dop > 0 ? `RD$ ${Number(item.price_dop || 0).toLocaleString()}` : (item.price > 0 ? `US$ ${Number(item.price || 0).toLocaleString()}` : 'RD$ 0')}
+                          </div>
+                          <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mt-1 border border-emerald-100/50">
+                            Inicial: {item.initial_payment_dop > 0 ? `RD$ ${Number(item.initial_payment_dop || 0).toLocaleString()}` : (item.initial_payment > 0 ? `US$ ${Number(item.initial_payment || 0).toLocaleString()}` : 'RD$ 0')}
+                          </div>
+                        </div>
                       </div>
 
                       <div className="mt-auto space-y-2">
@@ -3069,7 +2296,7 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                             <FilePlus size={16} /> VENDER AHORA
                           </Button>
                         ) : (
-                          <div className="flex items-center gap-2 relative">
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="secondary"
                               className="flex-1 text-[10px] font-black bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-900 hover:text-white rounded-2xl flex items-center justify-center gap-2 py-3 active:scale-95 transition-all"
@@ -3086,25 +2313,23 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                               <Edit size={16} />
                             </button>
 
-                            <div className="relative">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                                className="p-3.5 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-2xl transition-all active:scale-90"
-                              >
-                                <MoreVertical size={16} />
-                              </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
+                              className="p-3.5 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-2xl transition-all active:scale-90"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                          </div>
+                        )}
 
-                              {openMenuId === item.id && (
-                                <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-3 z-[60] animate-in slide-in-from-bottom-2">
-                                  <button onClick={(e) => handleDuplicate(e, item)} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-3">
-                                    <Copy size={14} /> Duplicar
-                                  </button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3">
-                                    <Trash2 size={14} /> Eliminar
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                        {openMenuId === item.id && (
+                          <div className="absolute bottom-full right-6 mb-4 w-48 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-3 z-[60] animate-in slide-in-from-bottom-2">
+                            <button onClick={(e) => handleDuplicate(e, item)} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-3">
+                              <Copy size={14} /> Duplicar
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3">
+                              <Trash2 size={14} /> Eliminar
+                            </button>
                           </div>
                         )}
                       </div>
@@ -3120,52 +2345,49 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
 
       <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />
       <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
-      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} templates={templates} />
-      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} />
+      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} />
+      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} />
     </div>
   );
 };
 
-const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, templates, onSaveTemplate, onDeleteTemplate, userProfile, searchTerm, requestConfirmation, showToast }) => {
-  const [activeView, setActiveView] = useState('contracts'); // 'contracts', 'quotes', or 'templates'
+const ContractsView = ({
+  contracts,
+  quotes,
+  templates = [],
+  inventory,
+  onGenerateContract,
+  onDeleteContract,
+  onGenerateQuote,
+  onDeleteQuote,
+  onSaveTemplate,
+  onDeleteTemplate,
+  setEditingTemplate,
+  setIsTemplateEditorOpen,
+  userProfile,
+  searchTerm,
+  requestConfirmation,
+  onPreviewTemplate
+}) => {
+  const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [selectedContractPreview, setSelectedContractPreview] = useState(null);
   const [selectedQuotePreview, setSelectedQuotePreview] = useState(null);
   const [editingContract, setEditingContract] = useState(null);
-  const [editingTemplate, setEditingTemplate] = useState(null);
-  const [viewingTemplate, setViewingTemplate] = useState(null);
   const [sortConfig, setSortConfig] = useState('date_desc');
 
-  const handleDuplicate = (e, temp) => {
-    e.stopPropagation();
-    requestConfirmation({
-      title: 'Duplicar Plantilla',
-      message: `¿Deseas crear una copia de "${temp.name}"?`,
-      confirmText: 'Duplicar',
-      onConfirm: () => {
-        const { id, ...rest } = temp;
-        const newData = {
-          ...rest,
-          name: `${rest.name} (Copia)`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        onSaveTemplate(newData);
-      }
-    });
-  };
-
   const filteredData = useMemo(() => {
-    const dataToFilter = (activeView === 'contracts' ? contracts : quotes) || [];
+    if (activeView === 'templates') return templates;
 
-    // 1. Filtrar por búsqueda y status
+    const dataToFilter = activeView === 'contracts' ? contracts : quotes;
+
+    // 1. Filtrar por búsqueda
     const filtered = dataToFilter.filter(item => {
+      // Only show non-trashed items
+      if (item.status === 'trash') return false;
 
-      if (item.status === 'deleted') return false; // Filter out deleted items
       const search = searchTerm.toLowerCase();
-
-
       if (activeView === 'contracts') {
         return (item?.client || '').toLowerCase().includes(search) ||
           (item?.vehicle || '').toLowerCase().includes(search) ||
@@ -3200,7 +2422,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     filtered.forEach(item => {
       let groupKey = "RESULTADOS DE BÚSQUEDA";
       if (sortConfig.startsWith('date')) {
-        const d = item.createdAt ? new Date(item.createdAt) : new Date();
+        const d = new Date(item.createdAt);
         const validDate = isNaN(d.getTime()) ? new Date() : d;
         groupKey = validDate.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
       }
@@ -3209,16 +2431,16 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
       groups[groupKey].push(item);
     });
     return groups;
-  }, [contracts, quotes, activeView, searchTerm, sortConfig]);
+  }, [contracts, quotes, templates, activeView, searchTerm, sortConfig]);
 
   const handleDeleteItem = (id) => {
     const isContract = activeView === 'contracts';
     requestConfirmation({
       title: '¿Confirmar Eliminación?',
       message: isContract
-        ? "¿ESTÁS SEGURO? Esta acción eliminará el contrato permanentemente."
-        : "¿Seguro que deseas eliminar esta cotización?",
-      confirmText: 'Eliminar',
+        ? "¿Seguro que deseas mover este contrato a la papelera?"
+        : "¿Seguro que deseas mover esta cotización a la papelera?",
+      confirmText: 'Mover a Papelera',
       isDestructive: true,
       onConfirm: () => {
         if (isContract) onDeleteContract(id);
@@ -3227,74 +2449,160 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     });
   };
 
-  const downloadContractPDF = async (contract) => {
+  const downloadPDF = async (contract) => {
     const tempEl = document.createElement('div');
-    tempEl.innerHTML = generateContractHtml(contract, userProfile);
-
-    const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
-      filename: contract.id && contract.id.startsWith('Contrato_') ? `${contract.id}.pdf` : `Contrato_${contract.client}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
+    tempEl.innerHTML = `
+      <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+              <h1>${userProfile.dealerName}</h1>
+          </div>
+          <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
+          <p>Fecha: ${new Date(contract.date || contract.createdAt).toLocaleDateString()}</p>
+          <p>Cliente: <strong>${contract.client}</strong></p>
+          <p>Vehículo: <strong>${contract.vehicle}</strong></p>
+          <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
+              Certificamos la transacción del vehículo descrito arriba.
+          </div>
+      </div>
+    `;
     const html2pdf = (await import('html2pdf.js')).default;
-    const cleanElement = prepareElementForPDF(tempEl);
-    html2pdf().set(opt).from(cleanElement).save();
+    html2pdf().set({ filename: contract.id && contract.id.startsWith('Contrato_') ? `${contract.id}.pdf` : `Contrato_${contract.client}.pdf` }).from(tempEl).save();
   };
 
   const downloadQuotePDF = async (quote) => {
     const tempEl = document.createElement('div');
-    tempEl.innerHTML = generateQuoteHtml(quote, userProfile);
+    tempEl.innerHTML = `
+      <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+              <div>
+                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+                <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+              </div>
+              <div style="text-align: right;">
+                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
+                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
+              </div>
+          </div>
+
+          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+                </tr>
+              </table>
+          </div>
+
+          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+              <div style="margin-top: 15px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px;">
+                  <div style="padding: 10px; background: #fff1f2; border-radius: 8px; text-align: center;">
+                      <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+                      <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+                  </div>
+              </div>
+          </div>
+
+          ${quote.bank ? `
+          <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold;">INSTITUCIÓN:</td>
+                  <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
+                </tr>
+              </table>
+          </div>
+          ` : ''}
+
+          <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br/>
+            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+          </div>
+      </div>
+    `;
     const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
+      margin: 10,
       filename: quote.id && quote.id.startsWith('Cotizacion_') ? `${quote.id}.pdf` : `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     const html2pdf = (await import('html2pdf.js')).default;
-    const cleanElement = prepareElementForPDF(tempEl);
-    html2pdf().set(opt).from(cleanElement).save();
+    html2pdf().set(opt).from(tempEl).save();
   };
 
   const printContract = (contract) => {
+    const content = `
+      <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+              <h1>${userProfile.dealerName}</h1>
+          </div>
+          <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
+          <p>Fecha: ${new Date(contract.date || contract.createdAt).toLocaleDateString()}</p>
+          <p>Cliente: <strong>${contract.client}</strong></p>
+          <p>Vehículo: <strong>${contract.vehicle}</strong></p>
+          <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
+              Certificamos la transacción del vehículo descrito arriba.
+          </div>
+      </div>
+  `;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Imprimir Contrato</title>
-          <style>@page {size: letter; margin: 0; }</style>
-        </head>
-        <body style="margin: 0;">${generateContractHtml(contract, userProfile)}</body>
-      </html>
-      `);
+    printWindow.document.write(`<html><head><title>Imprimir Contrato</title></head><body onload="window.print()">${content}</body></html>`);
     printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
   };
 
   const printQuote = (quote) => {
+    const content = `
+      <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+              <div>
+                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+                <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+              </div>
+              <div style="text-align: right;">
+                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
+                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
+              </div>
+          </div>
+
+          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+                </tr>
+              </table>
+          </div>
+          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+               <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">VEHÍCULO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.vehicle}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">PRECIO:</td>
+                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">$${Number(quote.price).toLocaleString()} USD</td>
+                </tr>
+              </table>
+          </div>
+      </div >
+  `;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Imprimir Cotización</title>
-          <style>@page {size: letter; margin: 0; }</style>
-        </head>
-        <body style="margin: 0;">${generateQuoteHtml(quote, userProfile)}</body>
-      </html>
-      `);
+    printWindow.document.write(`< html ><head><title>Imprimir Cotización</title></head><body onload="window.print()">${content}</body></html > `);
     printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
   };
 
   const totalItems = Object.values(filteredData).flat().length;
@@ -3307,436 +2615,234 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           <p className="text-slate-500 text-sm mt-1">Historial organizado • {totalItems} registros</p>
         </div>
 
-        <div className="bg-slate-200 p-1.5 rounded-xl w-full md:w-[400px] flex relative shadow-inner h-11">
+        <div className="bg-slate-200 p-1.5 rounded-xl w-full md:w-auto inline-flex relative shadow-inner">
           {/* VISUAL TOGGLE BACKGROUND RED */}
           <div
             className={`absolute top-1.5 bottom-1.5 rounded-lg bg-red-600 shadow-lg shadow-red-600/20 transition-all duration-300 ease-in-out z-0`}
             style={{
-              left: activeView === 'contracts' ? '6px' : activeView === 'quotes' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 2px)',
+              left: activeView === 'contracts' ? '6px' : (activeView === 'quotes' ? '34.5%' : '67.5%'),
               width: 'calc(33.33% - 8px)',
             }}
           />
 
           <button
             onClick={() => setActiveView('contracts')}
-            className={`relative z-10 flex-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'contracts' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'contracts' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Contratos
           </button>
           <button
             onClick={() => setActiveView('quotes')}
-            className={`relative z-10 flex-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'quotes' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'quotes' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Cotizaciones
           </button>
           <button
             onClick={() => setActiveView('templates')}
-            className={`relative z-10 flex-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'templates' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'templates' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            Plantilla
+            Plantillas
           </button>
         </div>
       </div>
 
-      {activeView === 'templates' ? (
-        editingTemplate ? (
-          <ContractTemplateEditor
-            userProfile={userProfile}
-            initialData={editingTemplate}
-            onSave={(data) => { onSaveTemplate(data); setEditingTemplate(null); }}
-            onDelete={(id) => { handleDeleteTemplate(id); setEditingTemplate(null); }}
-            onCancel={() => setEditingTemplate(null)}
-            showToast={showToast}
-          />
-        ) : (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Galería de Plantillas</h2>
-              <Button icon={FilePlus} onClick={() => setEditingTemplate({ name: '', content: '' })} variant="primary">
-                Nueva Plantilla
-              </Button>
-            </div>
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <span className="text-xs font-bold text-slate-400 uppercase">Ordenar:</span>
+          <select
+            value={sortConfig}
+            onChange={(e) => setSortConfig(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border-none rounded-lg text-sm font-bold focus:ring-2 focus:ring-red-500/20 cursor-pointer"
+          >
+            <option value="date_desc">Recientes</option>
+            <option value="date_asc">Antiguos</option>
+            <option value="client_asc">Nombre</option>
+            <option value="vehicle_asc">Vehiculo</option>
+          </select>
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {templates.length > 0 ? (
-                templates.map(temp => (
-                  <Card key={temp.id} noPadding className="group hover:-translate-y-1 transition-all">
+        {/* DESKTOP ACTION BUTTON */}
+        <div className="hidden sm:block">
+          {activeView === 'contracts' ? (
+            <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
+              Nuevo Contrato
+            </Button>
+          ) : activeView === 'quotes' ? (
+            <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
+              Nueva Cotización
+            </Button>
+          ) : (
+            <Button icon={Plus} onClick={() => { setEditingTemplate(null); setIsTemplateEditorOpen(true); }} className="w-full sm:w-auto" variant="primary">
+              Nueva Plantilla
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* MOBILE FIXED ACTION BUTTON */}
+      <div className="sm:hidden fixed bottom-28 right-4 left-4 z-[60]">
+        {activeView === 'contracts' ? (
+          <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50">
+            Nuevo Contrato
+          </Button>
+        ) : activeView === 'quotes' ? (
+          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
+            Nueva Cotización
+          </Button>
+        ) : (
+          <Button icon={Plus} onClick={() => { setEditingTemplate(null); setIsTemplateEditorOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
+            Nueva Plantilla
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-12">
+        {activeView === 'templates' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {templates.map(template => (
+              <Card key={template.id} noPadding className="group hover:-translate-y-1 transition-all">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 bg-red-50 text-red-600 rounded-2xl shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
+                      <Layout size={24} />
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => onPreviewTemplate(template)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Vista Previa"><Eye size={18} /></button>
+                      <button onClick={() => { setEditingTemplate(template); setIsTemplateEditorOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
+                      <button onClick={() => onDeleteTemplate(template.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 mb-1">{template.name}</h3>
+                  <p className="text-xs font-bold text-slate-400 mb-4 line-clamp-2">Plantilla personalizada para documentos.</p>
+                  <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                    <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(template.createdAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {templates.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-300">
+                <Layout size={64} className="mb-4 opacity-20" />
+                <p className="text-lg font-medium">No hay plantillas creadas</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          Object.keys(filteredData).map(groupName => (
+            <div key={groupName} className="space-y-6">
+              <div className="flex items-center gap-4">
+                <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
+                <div className="h-px flex-1 bg-slate-100"></div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {filteredData[groupName].map(item => (
+                  <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
                     <div className="p-6">
                       <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 rounded-2xl bg-amber-50 text-amber-600 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                          <FileCode size={24} />
+                        <div className={`p-3 rounded-2xl shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                          {activeView === 'contracts' ? <FileText size={24} /> : <Send size={24} />}
                         </div>
                         <div className="flex gap-1">
-                          <button onClick={() => setViewingTemplate(temp)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="Ver"><Eye size={18} /></button>
-                          <button onClick={(e) => handleDuplicate(e, temp)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Duplicar"><Copy size={18} /></button>
-                          <button onClick={() => setEditingTemplate(temp)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="Editar"><Edit size={18} /></button>
-                          <button onClick={() => onDeleteTemplate(temp.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Eliminar"><Trash2 size={18} /></button>
+                          {activeView === 'contracts' ? (
+                            <>
+                              <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Contrato"><Eye size={18} /></button>
+                              <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
+                              <button onClick={() => printContract(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
+                              <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar PDF"><Download size={18} /></button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Cotización"><Eye size={18} /></button>
+                              <button onClick={() => printQuote(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
+                              <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar Ficha"><Download size={18} /></button>
+                            </>
+                          )}
+                          <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
                         </div>
                       </div>
-                      <h3 className="text-lg font-black text-slate-900 mb-1">{temp.name || 'Sin Nombre'}</h3>
-                      <div className="flex gap-2 mb-2">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${temp.category === 'quote' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                          {temp.category === 'quote' ? 'Cotización' : 'Contrato'}
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        Actualizada: {temp.updatedAt ? new Date(temp.updatedAt).toLocaleDateString() : 'N/A'}
+
+                      <h3 className="text-lg font-black text-slate-900 mb-1">
+                        {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
+                      </h3>
+                      <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
+                        <Car size={12} /> {item.vehicle}
                       </p>
-                      <div className="w-full h-64 bg-gray-100 rounded-xl overflow-hidden border border-slate-200 relative mt-4">
-                        {(() => {
-                          // Parsear datos de forma segura
-                          let firstPage = null;
-                          let images = [];
-                          try {
-                            const rawPages = temp.paginas;
-                            const pages = Array.isArray(rawPages) ? rawPages : JSON.parse(rawPages || '[]');
-                            if (Array.isArray(pages) && pages.length > 0) firstPage = pages[0];
 
-                            const rawImages = temp.imagenes;
-                            images = Array.isArray(rawImages) ? rawImages : JSON.parse(rawImages || '[]');
-                          } catch (e) { console.error("Error parsing template data", e); }
+                      {activeView === 'quotes' && (
+                        <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
+                            <span className="text-slate-700 font-bold">{item.phone}</span>
+                          </div>
+                          {item.bank && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-400 font-bold uppercase">Banco:</span>
+                              <span className="text-slate-700 font-bold">{item.bank}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                          if (firstPage) {
-                            return (
-                              <>
-                                <div
-                                  style={{
-                                    width: '210mm', height: '297mm',
-                                    position: 'absolute',
-                                    top: '0',
-                                    left: '50%',
-                                    transform: 'translateX(-50%) scale(0.35)', // Zoom para ver bien la cabecera
-                                    transformOrigin: 'top center',
-                                    backgroundImage: firstPage.backgroundImage ? `url(${firstPage.backgroundImage})` : 'none',
-                                    backgroundSize: '100% 100%',
-                                    backgroundColor: 'white'
-                                  }}
-                                >
-                                  {/* Capa de Texto Absoluta */}
-                                  <div
-                                    className="absolute inset-0 p-[25mm] text-left"
-                                    style={{
-                                      fontSize: '11pt',
-                                      lineHeight: '1.15',
-                                      fontFamily: 'Calibri, sans-serif',
-                                      pointerEvents: 'none',
-                                      color: '#000'
-                                    }}
-                                    dangerouslySetInnerHTML={{ __html: firstPage.content }}
-                                  />
-
-                                  {/* Mantener imágenes flotantes para fidelidad completa */}
-                                  {Array.isArray(images) && images.filter(img => img.pageId === firstPage.id).map(img => (
-                                    <img key={img.id} src={img.src} style={{ position: 'absolute', left: img.x, top: img.y, width: img.width, height: img.height, zIndex: img.zIndex === 'back' ? 0 : 20 }} />
-                                  ))}
-                                </div>
-                                {/* Sombra suave interna para dar profundidad */}
-                                <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(0,0,0,0.05)] pointer-events-none" />
-                              </>
-                            );
-                          } else {
-                            return <div className="flex items-center justify-center h-full text-[11px] text-slate-400 p-3 italic">Sin vista previa disponible</div>;
-                          }
-                        })()}
+                      <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                        <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}</div>
+                        {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
                       </div>
                     </div>
                   </Card>
-                ))
-              ) : (
-                <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-300 bg-white rounded-[2rem] border border-dashed border-slate-200">
-                  <FileCode size={64} className="mb-4 opacity-20" />
-                  <p className="text-lg font-medium">No hay plantillas creadas todavía</p>
-                  <Button variant="ghost" className="mt-4" onClick={() => setEditingTemplate({ name: '', content: '' })}>Crear mi primera plantilla</Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      ) : (
-        <>
-
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-xs font-bold text-slate-400 uppercase">Ordenar:</span>
-              <select
-                value={sortConfig}
-                onChange={(e) => setSortConfig(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border-none rounded-lg text-sm font-bold focus:ring-2 focus:ring-red-500/20 cursor-pointer"
-              >
-                <option value="date_desc">Recientes</option>
-                <option value="date_asc">Antiguos</option>
-                <option value="client_asc">Nombre</option>
-                <option value="vehicle_asc">Vehiculo</option>
-              </select>
-            </div>
-
-            {/* DESKTOP ACTION BUTTON */}
-            <div className="hidden sm:block">
-              {activeView === 'contracts' ? (
-                <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
-                  Nuevo Contrato
-                </Button>
-              ) : (
-                <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
-                  Nueva Cotización
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* MOBILE FIXED ACTION BUTTON */}
-          <div className="sm:hidden fixed bottom-28 right-4 left-4 z-[60]">
-            {activeView === 'contracts' ? (
-              <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50">
-                Nuevo Contrato
-              </Button>
-            ) : (
-              <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
-                Nueva Cotización
-              </Button>
-            )}
-          </div>
-
-          <div className="space-y-12">
-            {Object.keys(filteredData).map(groupName => (
-              <div key={groupName} className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
-                  <div className="h-px flex-1 bg-slate-100"></div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {filteredData[groupName].map(item => (
-                    <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
-                      <div className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className={`p-3 rounded-2xl shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                            {activeView === 'contracts' ? <FileText size={24} /> : <Send size={24} />}
-                          </div>
-                          <div className="flex gap-1">
-                            {activeView === 'contracts' ? (
-                              <>
-                                <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Contrato"><Eye size={18} /></button>
-                                <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
-                                <button onClick={() => printContract(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
-                                <button onClick={() => downloadContractPDF(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar PDF"><Download size={18} /></button>
-                              </>
-                            ) : (
-                              <>
-                                <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Cotización"><Eye size={18} /></button>
-                                <button onClick={() => printQuote(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
-                                <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar Ficha"><Download size={18} /></button>
-                              </>
-                            )}
-                            <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
-                          </div>
-                        </div>
-
-                        <h3 className="text-lg font-black text-slate-900 mb-1">
-                          {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
-                        </h3>
-                        <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
-                          <Car size={12} /> {item.vehicle}
-                        </p>
-
-                        {activeView === 'quotes' && (
-                          <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
-                              <span className="text-slate-700 font-bold">{item.phone}</span>
-                            </div>
-                            {item.bank && (
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-400 font-bold uppercase">Banco:</span>
-                                <span className="text-slate-700 font-bold">{item.bank}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                          <div className="flex items-center gap-1">
-                            <Calendar size={12} />
-                            {item.createdAt && !isNaN(new Date(item.createdAt).getTime())
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'Sin fecha'}
-                          </div>
-                          {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                ))}
               </div>
-            ))}
-            {totalItems === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-                <Files size={64} className="mb-4 opacity-20" />
-                <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
-              </div>
-            )}
+            </div>
+          ))
+        )}
+        {activeView !== 'templates' && totalItems === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+            <Files size={64} className="mb-4 opacity-20" />
+            <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
           </div>
+        )}
+      </div>
 
-          {isGenerateModalOpen && (
-            <GenerateContractModal
-              isOpen={isGenerateModalOpen}
-              onClose={() => setIsGenerateModalOpen(false)}
-              inventory={inventory}
-              templates={templates} // Pass dynamic templates
-              onGenerate={onGenerateContract}
-              initialVehicle={editingContract}
-            />
-          )}
-
-          {isQuoteModalOpen && (
-            <GenerateQuoteModal
-              isOpen={isQuoteModalOpen}
-              onClose={() => setIsQuoteModalOpen(false)}
-              inventory={inventory}
-              onSave={onGenerateQuote}
-              templates={templates}
-            />
-          )}
-
-          {selectedContractPreview && (
-            <ContractPreviewModal
-              isOpen={!!selectedContractPreview}
-              onClose={() => setSelectedContractPreview(null)}
-              contract={selectedContractPreview}
-              userProfile={userProfile}
-            />
-          )}
-
-          {selectedQuotePreview && (
-            <QuotePreviewModal
-              isOpen={!!selectedQuotePreview}
-              onClose={() => setSelectedQuotePreview(null)}
-              quote={selectedQuotePreview}
-              userProfile={userProfile}
-            />
-          )}
-
-
-        </>
+      {isGenerateModalOpen && (
+        <GenerateContractModal
+          isOpen={isGenerateModalOpen}
+          onClose={() => setIsGenerateModalOpen(false)}
+          inventory={inventory}
+          onGenerate={onGenerateContract}
+          initialVehicle={editingContract}
+        />
       )}
 
-      {viewingTemplate && (() => {
-        const dummyReplacements = {
-          '{{CLIENTE_NOMBRE}}': 'JUAN',
-          '{{CLIENTE_APELLIDO}}': 'PÉREZ',
-          '{{CLIENTE_DOC}}': '001-0000000-1',
-          '{{CLIENTE_TEL}}': '809-555-5555',
-          '{{CLIENTE_CEDULA}}': '001-0000000-1',
-          '{{VEHICULO_MARCA}}': 'TOYOTA',
-          '{{VEHICULO_MODELO}}': 'HILUX REVO',
-          '{{VEHICULO_COMPLETO}}': '2024 TOYOTA HILUX REVO',
-          '{{VEHICULO_ANO}}': '2024',
-          '{{VEHICULO_ANIO}}': '2024',
-          '{{VEHICULO_COLOR}}': 'BLANCO',
-          '{{VEHICULO_VIN}}': 'ABC123456789DEF0',
-          '{{VEHICULO_VERSION}}': '4X4 DIESEL',
-          '{{VEHICULO_MILLAJE}}': '1,200',
-          '{{VEHICULO_COMBUSTIBLE}}': 'DIESEL',
-          '{{VEHICULO_TRANSMISION}}': 'AUTOMÁTICA',
-          '{{VEHICULO_TRACCION}}': '4WD',
-          '{{VEHICULO_PASAJEROS}}': '5',
-          '{{PRECIO_VENTA}}': 'RD$ 3,500,000',
-          '{{MONTO_INICIAL}}': 'RD$ 700,000',
-          '{{BANCO}}': 'BANRESERVAS',
-          '{{FECHA_VENTA}}': new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-          '{{DEALER_NOMBRE}}': userProfile.dealerName || 'CARBOT RD',
-          '{{FOLIO}}': 'Q-DUMMY',
-          '{{client}}': 'JUAN PÉREZ',
-          '{{ vehicle }}': 'TOYOTA HILUX',
-          '{{ price }}': 'RD$ 3,500,000',
-        };
+      {isQuoteModalOpen && (
+        <GenerateQuoteModal
+          isOpen={isQuoteModalOpen}
+          onClose={() => setIsQuoteModalOpen(false)}
+          inventory={inventory}
+          onSave={onGenerateQuote}
+        />
+      )}
 
-        let previewContent = viewingTemplate.content || '';
-        Object.keys(dummyReplacements).forEach(key => {
-          const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          previewContent = previewContent.replace(new RegExp(escapedKey, 'g'), `<span style="color: #2563eb; font-weight: bold;">${dummyReplacements[key]}</span>`);
-        });
+      {selectedContractPreview && (
+        <ContractPreviewModal
+          isOpen={!!selectedContractPreview}
+          onClose={() => setSelectedContractPreview(null)}
+          contract={selectedContractPreview}
+          userProfile={userProfile}
+        />
+      )}
 
-        return (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white w-full max-w-4xl h-[100dvh] sm:h-[90vh] rounded-none sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-              <div className="px-4 py-3 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0 safe-top">
-                <div>
-                  <h2 className="text-sm sm:text-xl font-black text-slate-900 uppercase">Vista Previa: {viewingTemplate.name}</h2>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 sm:mt-1">Modo lectura • Formato Carta</p>
-                </div>
-                <button onClick={() => setViewingTemplate(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600"><X size={24} /></button>
-              </div>
-              <div className="flex-1 bg-gray-500/50 overflow-y-auto p-4 flex flex-col items-center">
-                {(() => {
-                  let pages = [];
-                  let images = [];
-                  try {
-                    const rawPages = viewingTemplate.paginas;
-                    pages = Array.isArray(rawPages) ? rawPages : JSON.parse(rawPages || '[]');
-
-                    // Fallback si no hay array de páginas: creamos una con el contenido legacy
-                    if (!Array.isArray(pages) || pages.length === 0) {
-                      pages = [{ id: 'legacy', content: viewingTemplate.content || '' }];
-                    }
-
-                    const rawImages = viewingTemplate.imagenes;
-                    images = Array.isArray(rawImages) ? rawImages : JSON.parse(rawImages || '[]');
-                  } catch (e) {
-                    console.error("Error parsing view template", e);
-                    pages = [{ id: 'error', content: viewingTemplate.content || '' }];
-                  }
-
-                  return pages.map((page, index) => (
-                    <div
-                      key={page.id}
-                      className="bg-white shadow-2xl relative overflow-hidden shrink-0"
-                      style={{
-                        width: '210mm',
-                        height: '297mm',
-                        backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : 'none',
-                        backgroundSize: '100% 100%',
-                        backgroundRepeat: 'no-repeat',
-                        // Esto centra la hoja si el zoom es pequeño
-                        transform: 'scale(0.75)',
-                        transformOrigin: 'top center',
-                        // Compensar el espacio vacío que deja el scale (297mm * 0.25 ≈ 74mm)
-                        marginBottom: index === pages.length - 1 ? '0' : '-70mm'
-                      }}
-                    >
-                      {/* CAPA DE TEXTO: Posicionada exactamente igual que en el editor */}
-                      <div
-                        className="absolute inset-0 p-[25mm] text-left pointer-events-none"
-                        style={{
-                          lineHeight: '1.15',
-                          fontSize: '11pt',
-                          fontFamily: 'Calibri, sans-serif',
-                          color: '#000',
-                          zIndex: 10
-                        }}
-                        dangerouslySetInnerHTML={{ __html: page.content }}
-                      />
-
-                      {/* Renderizar imágenes flotantes guardadas */}
-                      {Array.isArray(images) && images.filter(img => img.pageId === page.id).map(img => (
-                        <img key={img.id} src={img.src} style={{ position: 'absolute', left: img.x, top: img.y, width: img.width, height: img.height, zIndex: img.zIndex === 'back' ? 0 : 20 }} />
-                      ))}
-                    </div>
-                  ));
-                })()}
-              </div>
-
-              <div className="p-3 sm:p-6 bg-white border-t border-slate-100 flex justify-end gap-3 shrink-0 safe-bottom">
-                <Button variant="ghost" onClick={() => setViewingTemplate(null)}>Cerrar</Button>
-                <Button icon={Edit} onClick={() => { setEditingTemplate(viewingTemplate); setViewingTemplate(null); }} className="bg-amber-600 text-white hover:bg-amber-700">Editar Plantilla</Button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-    </div >
+      {selectedQuotePreview && (
+        <QuotePreviewModal
+          isOpen={!!selectedQuotePreview}
+          onClose={() => setSelectedQuotePreview(null)}
+          quote={selectedQuotePreview}
+          userProfile={userProfile}
+        />
+      )}
+    </div>
   );
 };
+
 
 // --- LAYOUT ---
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange }) => {
@@ -3789,7 +2895,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             {/* Trash Icon (Visible on all sizes, but adjusted for mobile) */}
             <button
               onClick={() => setActiveTab('trash')}
-              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'} `}
+              className={`p - 2 rounded - xl transition - all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'} `}
               title="Ir a Basurero"
             >
               <Trash2 size={18} className="sm:w-[20px] sm:h-[20px]" />
@@ -3802,27 +2908,27 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
                   {new URLSearchParams(window.location.search).get('user_name') || userProfile?.name || 'Usuario'}
                 </p>
                 <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">
-                  {(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}
-                </p>
-              </div>
+                  {(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~`]/g, '')}
+                </p >
+              </div >
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100">
                 {(new URLSearchParams(window.location.search).get('user_name') || userProfile?.name || 'U').charAt(0)}
               </div>
               <button onClick={onLogout} className="p-1 sm:p-2 text-slate-300 hover:text-red-600 transition-colors">
                 <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
               </button>
-            </div>
-          </div>
-        </div>
-      </header>
+            </div >
+          </div >
+        </div >
+      </header >
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500" >
+      < main className="flex-1 p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500" >
         {children}
-      </main>
+      </main >
 
       {/* Bottom Navigation (Mobile Only) */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90" >
+      < div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90" >
         {
           menuItems.map(item => {
             const isActive = activeTab === item.id;
@@ -3839,8 +2945,8 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             );
           })
         }
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 
@@ -4043,10 +3149,13 @@ export default function CarbotApp() {
   const [legacyDocs, setLegacyDocs] = useState([]);
   const [newContracts, setNewContracts] = useState([]);
   const [newQuotes, setNewQuotes] = useState([]);
-  const [templates, setTemplates] = useState([]);
 
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
 
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -4065,7 +3174,7 @@ export default function CarbotApp() {
     if ((urlLocationName || urlLocationId) && !isStoreRoute) {
       const syncActiveUser = async () => {
         try {
-          const cleanDisplayName = (urlLocationName || '').trim().replace(/[*_~\`]/g, '');
+          const cleanDisplayName = (urlLocationName || '').trim().replace(/[*_~`]/g, '');
           const stableId = getStandardDealerId(urlLocationName, urlLocationId);
 
           // VERIFICACIÓN DE UNICIDAD: ghlLocationId solo para 1 dealer
@@ -4276,7 +3385,7 @@ export default function CarbotApp() {
             console.log("✨ Perfil nuevo detectado vía AutoLogin");
             const urlName = params.get('user_name');
             const urlDealerName = params.get('location_name');
-            const cleanDisplayDealerName = urlDealerName ? urlDealerName.trim().replace(/[*_~\`]/g, '') : (urlLocationName || 'Mi Dealer');
+            const cleanDisplayDealerName = urlDealerName ? urlDealerName.trim().replace(/[*_~`]/g, '') : (urlLocationName || 'Mi Dealer');
             const stableDealerId = getStandardDealerId(urlLocationName || 'Mi Dealer', urlLocationId);
 
             profileData = {
@@ -4368,7 +3477,7 @@ export default function CarbotApp() {
         updatedAt: new Date().toISOString()
       };
 
-      // Update Dealer Scoped Folder-Robust Update with setDoc merge
+      // Update Dealer Scoped Folder - Robust Update with setDoc merge
       const dealerUserRef = doc(db, "Dealers", effectiveDealerId, "usuarios", userId);
       await setDoc(dealerUserRef, allowedUpdates, { merge: true });
 
@@ -4547,7 +3656,9 @@ export default function CarbotApp() {
       ...legacyDocs.filter(d => d.type === 'contract' || d.id.startsWith('Contrato')),
       ...newContracts
     ];
-    return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return all
+      .filter(item => item.status !== 'trash')
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [legacyContracts, legacyDocs, newContracts]);
 
   const quotes = useMemo(() => {
@@ -4556,8 +3667,26 @@ export default function CarbotApp() {
       ...legacyDocs.filter(d => d.type === 'quote' || d.id.startsWith('Cotizacion')),
       ...newQuotes
     ];
-    return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return all
+      .filter(item => item.status !== 'trash')
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [legacyQuotes, legacyDocs, newQuotes]);
+
+  const activeTemplates = useMemo(() => {
+    return (templates || []).filter(t => t.status !== 'trash');
+  }, [templates]);
+
+  const trashDocs = useMemo(() => {
+    const all = [
+      ...legacyContracts,
+      ...legacyQuotes,
+      ...legacyDocs,
+      ...newContracts,
+      ...newQuotes,
+      ...(templates || [])
+    ];
+    return all.filter(item => item.status === 'trash');
+  }, [legacyContracts, legacyQuotes, legacyDocs, newContracts, newQuotes, templates]);
 
 
   // 3. GUARDAR (Crear o Editar en Firebase)
@@ -4641,105 +3770,141 @@ export default function CarbotApp() {
     }
   };
 
-  const handlePermanentDelete = (id, force = false) => {
+  const handlePermanentDelete = (id) => {
     if (!userProfile?.dealerId) return;
-
-    const doDelete = async () => {
-      try {
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", id));
-        if (!force) showToast("Eliminado permanentemente");
-      } catch (error) {
-        showToast("Error al eliminar", "error");
-      }
-    };
-
-    if (force) return doDelete();
-
     requestConfirmation({
       title: 'Eliminar Permanentemente',
       message: '¿ESTÁS SEGURO? Esta acción no se puede deshacer.',
       confirmText: 'Eliminar para Siempre',
       isDestructive: true,
-      onConfirm: doDelete
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", id));
+          showToast("Eliminado permanentemente");
+        } catch (error) {
+          showToast("Error al eliminar", "error");
+        }
+      }
     });
   };
 
-  const handleRestoreDocument = async (item) => {
+  const handleSaveTemplate = async (templateData) => {
     if (!effectiveDealerId) return;
     try {
-      let ref;
-      // Determinar la referencia correcta basada en el ID y la lógica de colecciones
-      if (item.id.startsWith('Contrato')) {
-        ref = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
-      } else if (item.id.startsWith('Cotizacion')) {
-        ref = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
-      } else {
-        // Legacy fallback
-        const isContract = item.type === 'contract' || (item.client && !item.name);
-        ref = doc(db, "Dealers", effectiveDealerId, isContract ? "contracts" : "quotes", item.id);
-      }
-
-      await updateDoc(ref, { status: 'active' });
-      showToast("Documento restaurado");
-    } catch (e) {
-      console.error(e);
-      showToast("Error al restaurar documento", "error");
+      const templateId = templateData.id || `Plantilla_${Date.now()}`;
+      const templateRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", templateId);
+      await setDoc(templateRef, {
+        ...templateData,
+        id: templateId,
+        updatedAt: new Date().toISOString(),
+        createdAt: templateData.createdAt || new Date().toISOString()
+      }, { merge: true });
+      showToast("Plantilla guardada con éxito");
+      setIsTemplateEditorOpen(false);
+      setEditingTemplate(null);
+    } catch (error) {
+      showToast("Error al guardar plantilla: " + error.message, "error");
     }
   };
 
-  const handlePermanentDeleteDocument = (item, force = false) => {
+  const handleDeleteTemplate = async (id) => {
     if (!effectiveDealerId) return;
+    try {
+      const templateRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", id);
+      await updateDoc(templateRef, {
+        status: 'trash',
+        deletedAt: new Date().toISOString()
+      });
+      showToast("Plantilla movida a papelera");
+    } catch (error) {
+      showToast("Error al eliminar plantilla: " + error.message, "error");
+    }
+  };
 
-    const doDelete = async () => {
-      try {
-        let ref;
-        if (item.id.startsWith('Contrato')) {
-          ref = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
-        } else if (item.id.startsWith('Cotizacion')) {
-          ref = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
-        } else {
-          const isContract = item.type === 'contract' || (item.client && !item.name);
-          ref = doc(db, "Dealers", effectiveDealerId, isContract ? "contracts" : "quotes", item.id);
-        }
-
-        await deleteDoc(ref);
-        // También intentar borrar de la colección raíz 'documentos' por si acaso es legacy
-        try { await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", item.id)); } catch (e) { }
-
-        if (!force) showToast("Documento eliminado permanentemente");
-      } catch (e) {
-        console.error(e);
-        showToast("Error al eliminar documento", "error");
+  const handleRestoreDoc = async (item) => {
+    if (!effectiveDealerId) return;
+    try {
+      let docRef;
+      if (item.id.startsWith('Contrato')) {
+        docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+      } else if (item.id.startsWith('Cotizacion')) {
+        docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+      } else if (item.id.startsWith('Plantilla')) {
+        docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", item.id);
+      } else {
+        docRef = doc(db, "Dealers", effectiveDealerId, "quotes", item.id);
       }
-    };
+      await updateDoc(docRef, { status: 'available', deletedAt: null });
+      showToast("Documento restaurado");
+    } catch (error) {
+      showToast("Error al restaurar: " + error.message, "error");
+    }
+  };
 
-    if (force) return doDelete();
-
+  const handlePermanentDeleteDoc = async (item) => {
+    if (!effectiveDealerId) return;
     requestConfirmation({
-      title: '¿Eliminar Documento?',
-      message: 'Esta acción es irreversible.',
-      confirmText: 'Eliminar Definitivamente',
+      title: 'Eliminar Permanentemente',
+      message: '¿Estás seguro? Esta acción eliminará el documento para siempre.',
+      confirmText: 'Eliminar',
       isDestructive: true,
-      onConfirm: doDelete
+      onConfirm: async () => {
+        try {
+          let docRef;
+          if (item.id.startsWith('Contrato')) {
+            docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+          } else if (item.id.startsWith('Cotizacion')) {
+            docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+          } else if (item.id.startsWith('Plantilla')) {
+            docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", item.id);
+          } else {
+            docRef = doc(db, "Dealers", effectiveDealerId, "quotes", item.id);
+          }
+          await deleteDoc(docRef);
+          showToast("Documento eliminado permanentemente");
+        } catch (error) {
+          showToast("Error al eliminar: " + error.message, "error");
+        }
+      }
     });
   };
 
-  const handleEmptyTrash = () => {
-    if (!userProfile?.dealerId) return;
+  const handleEmptyTrash = async (type = 'vehicles') => {
+    if (!effectiveDealerId) return;
     requestConfirmation({
-      title: 'Vaciar Papelera',
-      message: '¿Seguro que deseas eliminar todos los vehículos de la papelera? Esta acción es permanente.',
+      title: '¿Vaciar Papelera?',
+      message: `¿Estás seguro de que deseas eliminar permanentemente todos los ${type === 'vehicles' ? 'vehículos' : 'documentos'} de la papelera?`,
       confirmText: 'Vaciar Todo',
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const trashItems = inventory.filter(i => i.status === 'trash');
-          for (const item of trashItems) {
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", item.id));
+          if (type === 'vehicles') {
+            const batch = writeBatch(db);
+            trashInventory.forEach(item => {
+              const carRef = doc(db, "Dealers", effectiveDealerId, "inventory", item.id);
+              batch.delete(carRef);
+            });
+            await batch.commit();
+          } else {
+            const batch = writeBatch(db);
+            trashDocs.forEach(item => {
+              let docRef;
+              if (item.id.startsWith('Contrato')) {
+                docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+              } else if (item.id.startsWith('Cotizacion')) {
+                docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+              } else if (item.id.startsWith('Plantilla')) {
+                docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", item.id);
+              } else {
+                docRef = doc(db, "Dealers", effectiveDealerId, "quotes", item.id);
+              }
+              batch.delete(docRef);
+            });
+            await batch.commit();
           }
-          showToast("Papelera vaciada");
-        } catch (e) {
-          showToast("Error al vaciar papelera", "error");
+          showToast(`Papelera de ${type === 'vehicles' ? 'vehículos' : 'documentos'} vaciada`);
+        } catch (error) {
+          showToast("Error al vaciar papelera: " + error.message, "error");
         }
       }
     });
@@ -4815,100 +3980,8 @@ export default function CarbotApp() {
     }
   };
 
-  const handleGenerateMultiContract = async (contractsArray) => {
-    console.log("handleGenerateMultiContract called with:", contractsArray);
-    if (!userProfile?.dealerId) {
-      console.error("MultiGen: Missing dealerId", userProfile);
-      showToast("Error critico: No hay perfil de usuario cargado", "error");
-      return;
-    }
-    if (!Array.isArray(contractsArray)) {
-      console.error("MultiGen: Input is not an array", contractsArray);
-      return;
-    }
-
-    try {
-      let generatedCount = 0;
-      let firstVehicleId = null;
-
-      for (const contractData of contractsArray) {
-        // Reuse the single contract logic structure
-        // Clean data
-        const cleanData = Object.fromEntries(
-          Object.entries(contractData).filter(([_, v]) => v !== undefined)
-        );
-        const { id, category, ...data } = cleanData;
-
-        // GENERAR ID DINÁMICO
-        const clientName = (data.client || 'Cliente').toUpperCase().replace(/[^A-Z0-9]/g, '_');
-        let make = 'MARCA';
-        let model = 'MODELO';
-        let last4Vin = '0000';
-
-        if (contractData.vehicleId) {
-          firstVehicleId = contractData.vehicleId;
-          const vehicleObj = activeInventory.find(v => v.id === contractData.vehicleId);
-          if (vehicleObj) {
-            make = (vehicleObj.make || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-            model = (vehicleObj.model || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-            last4Vin = (vehicleObj.vin || '0000').slice(-4);
-          } else if (data.vehicle) {
-            const parts = data.vehicle.split(' ');
-            if (parts.length >= 2) {
-              make = parts[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
-              model = parts[1].toUpperCase().replace(/[^A-Z0-9]/g, '');
-            }
-          }
-        }
-
-        const docType = category === 'quote' ? 'Cotizacion' : 'Contrato';
-        const docCollection = category === 'quote' ? 'cotizaciones' : 'contratos';
-
-        // Unique ID including Template Name to avoid collision if multiple docs for same car/client
-        const templateTag = (data.template || 'Doc').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 5);
-        const customId = `${docType}_${clientName}_${make}_${model}_${last4Vin}_${templateTag}_${Date.now().toString().slice(-4)}`;
-
-        const newDoc = {
-          ...data,
-          id: customId,
-          type: category || 'contract',
-          category: category || 'contract',
-          createdAt: new Date().toISOString()
-        };
-
-        // Guardar
-        await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", docCollection, "items", customId), newDoc);
-        generatedCount++;
-      }
-
-      // Update vehicle status ONLY if at least one contract was generated (not just quotes)
-      // If mixed, mark as sold? Or let user decide? For now, if any contract, mark sold.
-      const hasContract = contractsArray.some(c => c.category === 'contract' || !c.category);
-      if (firstVehicleId) {
-        const vehicleRef = doc(db, "Dealers", effectiveDealerId, "vehiculos", firstVehicleId);
-        const newStatus = hasContract ? 'sold' : 'quoted';
-        await updateDoc(vehicleRef, { status: newStatus, updatedAt: new Date().toISOString() });
-      }
-
-      showToast(`${generatedCount} documentos generados con éxito`);
-      setIsContractModalOpen(false);
-
-    } catch (error) {
-      console.error("Error multi-gen:", error);
-      showToast("Error generando documentos: " + error.message, "error");
-    }
-  };
-
-  const handleGenerateContract = async (contractDataInput) => {
+  const handleGenerateContract = async (contractData) => {
     if (!userProfile?.dealerId) return;
-
-    // Support Input Array for multi-gen
-    if (Array.isArray(contractDataInput)) {
-      return handleGenerateMultiContract(contractDataInput);
-    }
-
-    const contractData = contractDataInput; // Single object case
-
     try {
       // Limpiar undefined antes de enviar a Firestore
       const cleanData = Object.fromEntries(
@@ -4970,73 +4043,46 @@ export default function CarbotApp() {
         }
         showToast("Contrato generado");
       }
-      showToast("Contrato generado");
     } catch (error) {
       console.error(error);
       showToast("Error: " + error.message, "error");
     }
   };
 
-
   const handleDeleteContract = async (id) => {
-    if (!effectiveDealerId) return; // Usar effectiveDealerId
+    if (!userProfile?.dealerId) return;
     try {
-      if (id.startsWith('Contrato')) {
-        await updateDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", id), { status: 'deleted' });
-      } else {
-        await updateDoc(doc(db, "Dealers", effectiveDealerId, "contracts", id), { status: 'deleted' });
-      }
+      const contractRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", id);
+      await updateDoc(contractRef, {
+        status: 'trash',
+        deletedAt: new Date().toISOString()
+      });
       showToast("Contrato movido a papelera");
     } catch (error) {
-      console.error(error);
-      showToast("Error al eliminar: " + error.message, "error");
+      showToast("Error al eliminar contrato: " + error.message, "error");
     }
+  };
+
+  const handlePreviewTemplate = (template) => {
+    setEditingTemplate(template);
+    setIsTemplateEditorOpen(true);
+    setPreviewTemplate(template); // Store it for preview mode
   };
 
   const handleDeleteQuote = async (id) => {
-    if (!effectiveDealerId) return;
+    if (!userProfile?.dealerId) return;
     try {
       if (id.startsWith('Cotizacion')) {
-        await updateDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", id), { status: 'deleted' });
+        const quoteRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", id);
+        await updateDoc(quoteRef, {
+          status: 'trash',
+          deletedAt: new Date().toISOString()
+        });
       } else {
-        await updateDoc(doc(db, "Dealers", effectiveDealerId, "quotes", id), { status: 'deleted' });
+        const legacyRef = doc(db, "Dealers", effectiveDealerId, "quotes", id);
+        await updateDoc(legacyRef, { status: 'trash', deletedAt: new Date().toISOString() });
       }
       showToast("Cotización movida a papelera");
-    } catch (error) {
-      console.error(error);
-      showToast("Error al eliminar: " + error.message, "error");
-    }
-  };
-
-  const handleSaveTemplate = async (templateData) => {
-    if (!effectiveDealerId) return;
-    try {
-      const { id, ...data } = templateData;
-      // Normalizar nombre para el ID o usar timestamp
-      const nameSlug = (data.name || 'Plantilla').toUpperCase().replace(/[^A-Z0-9]/g, '_');
-      const templateId = id || `Plantilla_${nameSlug}_${Date.now()}`;
-
-      const tempRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", templateId);
-
-      await setDoc(tempRef, {
-        ...data,
-        id: templateId,
-        updatedAt: new Date().toISOString(),
-        createdAt: data.createdAt || new Date().toISOString()
-      }, { merge: true });
-
-      showToast(id ? "Plantilla actualizada" : "Plantilla creada");
-    } catch (error) {
-      console.error("Error saving template:", error);
-      showToast("Error al guardar la plantilla", "error");
-    }
-  };
-
-  const handleDeleteTemplate = async (id) => {
-    if (!effectiveDealerId) return;
-    try {
-      await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", id));
-      showToast("Plantilla eliminada");
     } catch (error) {
       showToast("Error al eliminar: " + error.message, "error");
     }
@@ -5071,11 +4117,9 @@ export default function CarbotApp() {
     switch (activeTab) {
       case 'settings': return <SettingsViewFixed userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} />;
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={shadowProfile} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} templates={templates} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={templates} inventory={activeInventory}
-        onGenerateContract={handleGenerateContract}
-        onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} onSaveTemplate={handleSaveTemplate} onDeleteTemplate={handleDeleteTemplate} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} showToast={showToast} />;
-      case 'trash': return <TrashView trash={trashInventory} contracts={contracts} quotes={quotes} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onRestoreDocument={handleRestoreDocument} onPermanentDeleteDocument={handlePermanentDeleteDocument} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
+      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={activeTemplates || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} onSaveTemplate={handleSaveTemplate} onDeleteTemplate={handleDeleteTemplate} setEditingTemplate={setEditingTemplate} setIsTemplateEditorOpen={setIsTemplateEditorOpen} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} onPreviewTemplate={handlePreviewTemplate} />;
+      case 'trash': return <TrashView trash={trashInventory} trashDocs={trashDocs} onRestore={handleRestoreVehicle} onRestoreDoc={handleRestoreDoc} onPermanentDelete={handlePermanentDelete} onPermanentDeleteDoc={handlePermanentDeleteDoc} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={shadowProfile} />;
     }
   };
@@ -5116,6 +4160,20 @@ export default function CarbotApp() {
         {renderContent()}
       </AppLayout>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {isTemplateEditorOpen && (
+        <PlantillaEditor
+          isOpen={isTemplateEditorOpen}
+          initialData={editingTemplate}
+          onSave={handleSaveTemplate}
+          onCancel={() => {
+            setIsTemplateEditorOpen(false);
+            setEditingTemplate(null);
+            setPreviewTemplate(null);
+          }}
+          previewMode={!!previewTemplate}
+        />
+      )}
 
       {/* GLOBAL CONFIRMATION MODAL */}
       <ConfirmationModal
