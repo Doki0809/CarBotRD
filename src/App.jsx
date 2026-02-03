@@ -28,10 +28,11 @@ import {
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
   PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy,
-  AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
+  AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera, Layout,
   ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
+import PlantillaEditor from './components/dashboard/PlantillaEditor';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
 // o directamente ya que es una SPA de Vite.
@@ -1485,41 +1486,157 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 // --- VISTAS PRINCIPALES ---
 
-const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
+const TrashView = ({ trash, trashDocs = [], onRestore, onRestoreDoc, onPermanentDelete, onPermanentDeleteDoc, onEmptyTrash, showToast }) => {
+  const [activeTab, setActiveTab] = useState('vehicles');
+
+  const filteredDocs = useMemo(() => {
+    return trashDocs.sort((a, b) => new Date(b.deletedAt || 0) - new Date(a.deletedAt || 0));
+  }, [trashDocs]);
+
+  const getDocIcon = (id) => {
+    if (id.startsWith('Contrato')) return FileText;
+    if (id.startsWith('Cotizacion')) return Quote;
+    if (id.startsWith('Plantilla')) return Layout;
+    return File;
+  };
+
+  const getDocTypeLabel = (id) => {
+    if (id.startsWith('Contrato')) return 'Contrato';
+    if (id.startsWith('Cotizacion')) return 'Cotización';
+    if (id.startsWith('Plantilla')) return 'Plantilla';
+    return 'Documento';
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1><p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p></div>
-        {trash.length > 0 && (
-          <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none">Vaciar Papelera</Button>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 sm:pb-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Papelera de Reciclaje</h1>
+          <p className="text-slate-500 text-sm font-medium mt-1">Recupera ítems eliminados o bórralos permanentemente.</p>
+        </div>
+        {(activeTab === 'vehicles' ? trash.length > 0 : trashDocs.length > 0) && (
+          <Button
+            variant="danger"
+            icon={Trash2}
+            onClick={() => onEmptyTrash(activeTab === 'vehicles' ? 'vehicles' : 'documents')}
+            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-transparent shadow-none w-full sm:w-auto"
+          >
+            Vaciar {activeTab === 'vehicles' ? 'Vehículos' : 'Documentos'}
+          </Button>
         )}
       </div>
 
-      {trash.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
-          <Trash2 size={48} className="mb-4 text-slate-300" /><p className="text-lg font-medium">La papelera está vacía.</p>
-        </div>
+      {/* Tabs */}
+      <div className="flex p-1 bg-slate-100 rounded-2xl w-fit border border-slate-200 shadow-inner">
+        <button
+          onClick={() => setActiveTab('vehicles')}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'vehicles' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <Car size={16} /> Vehículos ({trash.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'documents' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          <FileText size={16} /> Documentos ({trashDocs.length})
+        </button>
+      </div>
+
+      {activeTab === 'vehicles' ? (
+        trash.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <Car size={40} className="text-slate-200" />
+            </div>
+            <p className="text-lg font-bold text-slate-400 uppercase tracking-widest">No hay vehículos en la papelera</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {trash.map(item => (
+              <div key={item.id} className="relative group grayscale hover:grayscale-0 transition-all duration-500">
+                <Card noPadding className="flex flex-col h-full border-red-50 bg-white hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 rounded-[24px]">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-t-[24px]">
+                    <img src={item.image} alt={item.model} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-red-900/40 to-transparent"></div>
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg border border-white/20">
+                      <p className="text-[10px] font-black text-slate-900 uppercase">Eliminado</p>
+                    </div>
+                  </div>
+                  <div className="p-6 flex flex-col flex-1">
+                    <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight line-through decoration-red-500/30">{item.make} {item.model}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{item.year} • {item.color}</p>
+
+                    <div className="mt-8 grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => onRestore(item.id)}
+                        className="flex-1 py-3 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Undo size={14} /> Restaurar
+                      </button>
+                      <button
+                        onClick={() => onPermanentDelete(item.id)}
+                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} /> Borrar
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {trash.map(item => (
-            <div key={item.id} className="relative group opacity-80 hover:opacity-100 transition-opacity">
-              <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
-                <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
-                  <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  <div className="absolute inset-0 bg-red-900/10 mix-blend-multiply"></div>
-                </div>
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
-                  <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
-                  <div className="mt-auto grid grid-cols-2 gap-3">
-                    <Button variant="secondary" onClick={() => onRestore(item.id)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><Undo size={14} /> RESTAURAR</Button>
-                    <Button variant="secondary" onClick={() => onPermanentDelete(item.id)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><X size={14} /> BORRAR</Button>
+        filteredDocs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 bg-white rounded-[32px] border border-dashed border-slate-200">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <FileText size={40} className="text-slate-200" />
+            </div>
+            <p className="text-lg font-bold text-slate-400 uppercase tracking-widest">No hay documentos en la papelera</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredDocs.map(doc => {
+              const Icon = getDocIcon(doc.id);
+              return (
+                <div key={doc.id} className="relative group grayscale hover:grayscale-0 transition-all duration-500">
+                  <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="p-3 bg-red-50 rounded-2xl">
+                        <Icon className="text-red-500" size={24} />
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full">{getDocTypeLabel(doc.id)}</span>
+                        <p className="text-[10px] font-bold text-red-400 mt-2 uppercase tracking-tighter">
+                          Eliminado: {doc.deletedAt ? new Date(doc.deletedAt).toLocaleDateString() : 'Ayer'}
+                        </p>
+                      </div>
+                    </div>
+                    <h3 className="text-base font-black text-slate-900 uppercase tracking-tight mb-1 line-through decoration-red-500/30">
+                      {doc.client || doc.name || 'Sin nombre'}
+                    </h3>
+                    <p className="text-xs font-bold text-slate-400 mb-6 truncate">{doc.vehicleInfo || doc.id}</p>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onRestoreDoc(doc)}
+                        className="flex-1 py-3 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Undo size={14} /> Restaurar
+                      </button>
+                      <button
+                        onClick={() => onPermanentDeleteDoc(doc)}
+                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} /> Borrar
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </Card>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );
@@ -2158,14 +2275,16 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                         </div>
                       </div>
 
-                      <div className="mb-6">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Precio</p>
-                        <p className="text-2xl font-black text-red-700 tracking-tighter">
-                          {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
-                        </p>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                          Inicial: <span className="text-slate-900 font-black">{item.initial_payment_dop > 0 ? `RD$ ${item.initial_payment_dop.toLocaleString()}` : `US$ ${item.initial_payment.toLocaleString()}`}</span>
-                        </p>
+                      <div className="mb-6 flex justify-between items-end">
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Precio</p>
+                        <div className="flex flex-col items-end">
+                          <div className="text-sm sm:text-lg font-black text-slate-900 leading-tight">
+                            {item.price_dop > 0 ? `RD$ ${Number(item.price_dop || 0).toLocaleString()}` : (item.price > 0 ? `US$ ${Number(item.price || 0).toLocaleString()}` : 'RD$ 0')}
+                          </div>
+                          <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md mt-1 border border-emerald-100/50">
+                            Inicial: {item.initial_payment_dop > 0 ? `RD$ ${Number(item.initial_payment_dop || 0).toLocaleString()}` : (item.initial_payment > 0 ? `US$ ${Number(item.initial_payment || 0).toLocaleString()}` : 'RD$ 0')}
+                          </div>
+                        </div>
                       </div>
 
                       <div className="mt-auto space-y-2">
@@ -2232,7 +2351,24 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
   );
 };
 
-const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, userProfile, searchTerm, requestConfirmation }) => {
+const ContractsView = ({
+  contracts,
+  quotes,
+  templates = [],
+  inventory,
+  onGenerateContract,
+  onDeleteContract,
+  onGenerateQuote,
+  onDeleteQuote,
+  onSaveTemplate,
+  onDeleteTemplate,
+  setEditingTemplate,
+  setIsTemplateEditorOpen,
+  userProfile,
+  searchTerm,
+  requestConfirmation,
+  onPreviewTemplate
+}) => {
   const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -2242,10 +2378,15 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   const [sortConfig, setSortConfig] = useState('date_desc');
 
   const filteredData = useMemo(() => {
+    if (activeView === 'templates') return templates;
+
     const dataToFilter = activeView === 'contracts' ? contracts : quotes;
 
     // 1. Filtrar por búsqueda
     const filtered = dataToFilter.filter(item => {
+      // Only show non-trashed items
+      if (item.status === 'trash') return false;
+
       const search = searchTerm.toLowerCase();
       if (activeView === 'contracts') {
         return (item?.client || '').toLowerCase().includes(search) ||
@@ -2290,16 +2431,16 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
       groups[groupKey].push(item);
     });
     return groups;
-  }, [contracts, quotes, activeView, searchTerm, sortConfig]);
+  }, [contracts, quotes, templates, activeView, searchTerm, sortConfig]);
 
   const handleDeleteItem = (id) => {
     const isContract = activeView === 'contracts';
     requestConfirmation({
       title: '¿Confirmar Eliminación?',
       message: isContract
-        ? "¿ESTÁS SEGURO? Esta acción eliminará el contrato permanentemente."
-        : "¿Seguro que deseas eliminar esta cotización?",
-      confirmText: 'Eliminar',
+        ? "¿Seguro que deseas mover este contrato a la papelera?"
+        : "¿Seguro que deseas mover esta cotización a la papelera?",
+      confirmText: 'Mover a Papelera',
       isDestructive: true,
       onConfirm: () => {
         if (isContract) onDeleteContract(id);
@@ -2479,9 +2620,8 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           <div
             className={`absolute top-1.5 bottom-1.5 rounded-lg bg-red-600 shadow-lg shadow-red-600/20 transition-all duration-300 ease-in-out z-0`}
             style={{
-              left: activeView === 'contracts' ? '6px' : '50%',
-              width: 'calc(50% - 6px)',
-              transform: activeView === 'contracts' ? 'translateX(0)' : 'translateX(0)'
+              left: activeView === 'contracts' ? '6px' : (activeView === 'quotes' ? '34.5%' : '67.5%'),
+              width: 'calc(33.33% - 8px)',
             }}
           />
 
@@ -2496,6 +2636,12 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'quotes' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Cotizaciones
+          </button>
+          <button
+            onClick={() => setActiveView('templates')}
+            className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'templates' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            Plantillas
           </button>
         </div>
       </div>
@@ -2521,9 +2667,13 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
               Nuevo Contrato
             </Button>
-          ) : (
+          ) : activeView === 'quotes' ? (
             <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
               Nueva Cotización
+            </Button>
+          ) : (
+            <Button icon={Plus} onClick={() => { setEditingTemplate(null); setIsTemplateEditorOpen(true); }} className="w-full sm:w-auto" variant="primary">
+              Nueva Plantilla
             </Button>
           )}
         </div>
@@ -2535,81 +2685,117 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50">
             Nuevo Contrato
           </Button>
-        ) : (
+        ) : activeView === 'quotes' ? (
           <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
             Nueva Cotización
+          </Button>
+        ) : (
+          <Button icon={Plus} onClick={() => { setEditingTemplate(null); setIsTemplateEditorOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
+            Nueva Plantilla
           </Button>
         )}
       </div>
 
       <div className="space-y-12">
-        {Object.keys(filteredData).map(groupName => (
-          <div key={groupName} className="space-y-6">
-            <div className="flex items-center gap-4">
-              <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
-              <div className="h-px flex-1 bg-slate-100"></div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredData[groupName].map(item => (
-                <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className={`p - 3 rounded - 2xl shadow - sm transition - all duration - 300 group - hover: scale - 110 group - hover: rotate - 3 ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'} `}>
-                        {activeView === 'contracts' ? <FileText size={24} /> : <Send size={24} />}
-                      </div>
-                      <div className="flex gap-1">
-                        {activeView === 'contracts' ? (
-                          <>
-                            <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Contrato"><Eye size={18} /></button>
-                            <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
-                            <button onClick={() => printContract(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
-                            <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar PDF"><Download size={18} /></button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Cotización"><Eye size={18} /></button>
-                            <button onClick={() => printQuote(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
-                            <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar Ficha"><Download size={18} /></button>
-                          </>
-                        )}
-                        <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
-                      </div>
+        {activeView === 'templates' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {templates.map(template => (
+              <Card key={template.id} noPadding className="group hover:-translate-y-1 transition-all">
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 bg-red-50 text-red-600 rounded-2xl shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
+                      <Layout size={24} />
                     </div>
-
-                    <h3 className="text-lg font-black text-slate-900 mb-1">
-                      {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname} `}
-                    </h3>
-                    <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
-                      <Car size={12} /> {item.vehicle}
-                    </p>
-
-                    {activeView === 'quotes' && (
-                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
-                          <span className="text-slate-700 font-bold">{item.phone}</span>
-                        </div>
-                        {item.bank && (
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400 font-bold uppercase">Banco:</span>
-                            <span className="text-slate-700 font-bold">{item.bank}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                      <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}</div>
-                      {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
+                    <div className="flex gap-1">
+                      <button onClick={() => onPreviewTemplate(template)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Vista Previa"><Eye size={18} /></button>
+                      <button onClick={() => { setEditingTemplate(template); setIsTemplateEditorOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
+                      <button onClick={() => onDeleteTemplate(template.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+                  <h3 className="text-lg font-black text-slate-900 mb-1">{template.name}</h3>
+                  <p className="text-xs font-bold text-slate-400 mb-4 line-clamp-2">Plantilla personalizada para documentos.</p>
+                  <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                    <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(template.createdAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {templates.length === 0 && (
+              <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-300">
+                <Layout size={64} className="mb-4 opacity-20" />
+                <p className="text-lg font-medium">No hay plantillas creadas</p>
+              </div>
+            )}
           </div>
-        ))}
-        {totalItems === 0 && (
+        ) : (
+          Object.keys(filteredData).map(groupName => (
+            <div key={groupName} className="space-y-6">
+              <div className="flex items-center gap-4">
+                <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
+                <div className="h-px flex-1 bg-slate-100"></div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {filteredData[groupName].map(item => (
+                  <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
+                    <div className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className={`p-3 rounded-2xl shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                          {activeView === 'contracts' ? <FileText size={24} /> : <Send size={24} />}
+                        </div>
+                        <div className="flex gap-1">
+                          {activeView === 'contracts' ? (
+                            <>
+                              <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Contrato"><Eye size={18} /></button>
+                              <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
+                              <button onClick={() => printContract(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
+                              <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar PDF"><Download size={18} /></button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Cotización"><Eye size={18} /></button>
+                              <button onClick={() => printQuote(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
+                              <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar Ficha"><Download size={18} /></button>
+                            </>
+                          )}
+                          <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
+                        </div>
+                      </div>
+
+                      <h3 className="text-lg font-black text-slate-900 mb-1">
+                        {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
+                      </h3>
+                      <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
+                        <Car size={12} /> {item.vehicle}
+                      </p>
+
+                      {activeView === 'quotes' && (
+                        <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
+                            <span className="text-slate-700 font-bold">{item.phone}</span>
+                          </div>
+                          {item.bank && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-400 font-bold uppercase">Banco:</span>
+                              <span className="text-slate-700 font-bold">{item.bank}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                        <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}</div>
+                        {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+        {activeView !== 'templates' && totalItems === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-slate-300">
             <Files size={64} className="mb-4 opacity-20" />
             <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
@@ -2656,6 +2842,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     </div>
   );
 };
+
 
 // --- LAYOUT ---
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange }) => {
@@ -2965,6 +3152,10 @@ export default function CarbotApp() {
 
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
 
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -3411,6 +3602,12 @@ export default function CarbotApp() {
       setLegacyDocs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // 5. Listen to Templates
+    const tempRef = collection(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items");
+    const unsubscribeTemplates = onSnapshot(tempRef, (snapshot) => {
+      setTemplates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubscribeVehicles();
       unsubscribeNewContracts();
@@ -3418,6 +3615,7 @@ export default function CarbotApp() {
       unsubscribeLegacyContracts();
       unsubscribeLegacyQuotes();
       unsubscribeLegacyDocs();
+      unsubscribeTemplates();
     };
   }, [effectiveDealerId, urlLocationId]); // Re-activar si cambia el contexto
 
@@ -3458,7 +3656,9 @@ export default function CarbotApp() {
       ...legacyDocs.filter(d => d.type === 'contract' || d.id.startsWith('Contrato')),
       ...newContracts
     ];
-    return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return all
+      .filter(item => item.status !== 'trash')
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [legacyContracts, legacyDocs, newContracts]);
 
   const quotes = useMemo(() => {
@@ -3467,8 +3667,26 @@ export default function CarbotApp() {
       ...legacyDocs.filter(d => d.type === 'quote' || d.id.startsWith('Cotizacion')),
       ...newQuotes
     ];
-    return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return all
+      .filter(item => item.status !== 'trash')
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [legacyQuotes, legacyDocs, newQuotes]);
+
+  const activeTemplates = useMemo(() => {
+    return (templates || []).filter(t => t.status !== 'trash');
+  }, [templates]);
+
+  const trashDocs = useMemo(() => {
+    const all = [
+      ...legacyContracts,
+      ...legacyQuotes,
+      ...legacyDocs,
+      ...newContracts,
+      ...newQuotes,
+      ...(templates || [])
+    ];
+    return all.filter(item => item.status === 'trash');
+  }, [legacyContracts, legacyQuotes, legacyDocs, newContracts, newQuotes, templates]);
 
 
   // 3. GUARDAR (Crear o Editar en Firebase)
@@ -3570,22 +3788,123 @@ export default function CarbotApp() {
     });
   };
 
-  const handleEmptyTrash = () => {
-    if (!userProfile?.dealerId) return;
+  const handleSaveTemplate = async (templateData) => {
+    if (!effectiveDealerId) return;
+    try {
+      const templateId = templateData.id || `Plantilla_${Date.now()}`;
+      const templateRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", templateId);
+      await setDoc(templateRef, {
+        ...templateData,
+        id: templateId,
+        updatedAt: new Date().toISOString(),
+        createdAt: templateData.createdAt || new Date().toISOString()
+      }, { merge: true });
+      showToast("Plantilla guardada con éxito");
+      setIsTemplateEditorOpen(false);
+      setEditingTemplate(null);
+    } catch (error) {
+      showToast("Error al guardar plantilla: " + error.message, "error");
+    }
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    if (!effectiveDealerId) return;
+    try {
+      const templateRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", id);
+      await updateDoc(templateRef, {
+        status: 'trash',
+        deletedAt: new Date().toISOString()
+      });
+      showToast("Plantilla movida a papelera");
+    } catch (error) {
+      showToast("Error al eliminar plantilla: " + error.message, "error");
+    }
+  };
+
+  const handleRestoreDoc = async (item) => {
+    if (!effectiveDealerId) return;
+    try {
+      let docRef;
+      if (item.id.startsWith('Contrato')) {
+        docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+      } else if (item.id.startsWith('Cotizacion')) {
+        docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+      } else if (item.id.startsWith('Plantilla')) {
+        docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", item.id);
+      } else {
+        docRef = doc(db, "Dealers", effectiveDealerId, "quotes", item.id);
+      }
+      await updateDoc(docRef, { status: 'available', deletedAt: null });
+      showToast("Documento restaurado");
+    } catch (error) {
+      showToast("Error al restaurar: " + error.message, "error");
+    }
+  };
+
+  const handlePermanentDeleteDoc = async (item) => {
+    if (!effectiveDealerId) return;
     requestConfirmation({
-      title: 'Vaciar Papelera',
-      message: '¿Seguro que deseas eliminar todos los vehículos de la papelera? Esta acción es permanente.',
+      title: 'Eliminar Permanentemente',
+      message: '¿Estás seguro? Esta acción eliminará el documento para siempre.',
+      confirmText: 'Eliminar',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          let docRef;
+          if (item.id.startsWith('Contrato')) {
+            docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+          } else if (item.id.startsWith('Cotizacion')) {
+            docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+          } else if (item.id.startsWith('Plantilla')) {
+            docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", item.id);
+          } else {
+            docRef = doc(db, "Dealers", effectiveDealerId, "quotes", item.id);
+          }
+          await deleteDoc(docRef);
+          showToast("Documento eliminado permanentemente");
+        } catch (error) {
+          showToast("Error al eliminar: " + error.message, "error");
+        }
+      }
+    });
+  };
+
+  const handleEmptyTrash = async (type = 'vehicles') => {
+    if (!effectiveDealerId) return;
+    requestConfirmation({
+      title: '¿Vaciar Papelera?',
+      message: `¿Estás seguro de que deseas eliminar permanentemente todos los ${type === 'vehicles' ? 'vehículos' : 'documentos'} de la papelera?`,
       confirmText: 'Vaciar Todo',
       isDestructive: true,
       onConfirm: async () => {
         try {
-          const trashItems = inventory.filter(i => i.status === 'trash');
-          for (const item of trashItems) {
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", item.id));
+          if (type === 'vehicles') {
+            const batch = writeBatch(db);
+            trashInventory.forEach(item => {
+              const carRef = doc(db, "Dealers", effectiveDealerId, "inventory", item.id);
+              batch.delete(carRef);
+            });
+            await batch.commit();
+          } else {
+            const batch = writeBatch(db);
+            trashDocs.forEach(item => {
+              let docRef;
+              if (item.id.startsWith('Contrato')) {
+                docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+              } else if (item.id.startsWith('Cotizacion')) {
+                docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+              } else if (item.id.startsWith('Plantilla')) {
+                docRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", item.id);
+              } else {
+                docRef = doc(db, "Dealers", effectiveDealerId, "quotes", item.id);
+              }
+              batch.delete(docRef);
+            });
+            await batch.commit();
           }
-          showToast("Papelera vaciada");
-        } catch (e) {
-          showToast("Error al vaciar papelera", "error");
+          showToast(`Papelera de ${type === 'vehicles' ? 'vehículos' : 'documentos'} vaciada`);
+        } catch (error) {
+          showToast("Error al vaciar papelera: " + error.message, "error");
         }
       }
     });
@@ -3730,41 +4049,40 @@ export default function CarbotApp() {
     }
   };
 
-  const handleDeleteContract = (id) => {
+  const handleDeleteContract = async (id) => {
     if (!userProfile?.dealerId) return;
-    requestConfirmation({
-      title: '¿Eliminar Contrato?',
-      message: '¿Estás seguro?',
-      confirmText: 'Eliminar',
-      isDestructive: true,
-      onConfirm: async () => {
-        try {
-          // Intentar borrar de todas las posibles ubicaciones para seguridad o usar el ID para inferir
-          if (id.startsWith('Contrato')) {
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", id));
-          } else {
-            // Fallback legacy
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "contracts", id));
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", id));
-          }
-          showToast("Contrato eliminado");
-        } catch (error) {
-          showToast("Error al eliminar: " + error.message, "error");
-        }
-      }
-    });
+    try {
+      const contractRef = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", id);
+      await updateDoc(contractRef, {
+        status: 'trash',
+        deletedAt: new Date().toISOString()
+      });
+      showToast("Contrato movido a papelera");
+    } catch (error) {
+      showToast("Error al eliminar contrato: " + error.message, "error");
+    }
+  };
+
+  const handlePreviewTemplate = (template) => {
+    setEditingTemplate(template);
+    setIsTemplateEditorOpen(true);
+    setPreviewTemplate(template); // Store it for preview mode
   };
 
   const handleDeleteQuote = async (id) => {
     if (!userProfile?.dealerId) return;
     try {
       if (id.startsWith('Cotizacion')) {
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", id));
+        const quoteRef = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", id);
+        await updateDoc(quoteRef, {
+          status: 'trash',
+          deletedAt: new Date().toISOString()
+        });
       } else {
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "quotes", id));
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", id));
+        const legacyRef = doc(db, "Dealers", effectiveDealerId, "quotes", id);
+        await updateDoc(legacyRef, { status: 'trash', deletedAt: new Date().toISOString() });
       }
-      showToast("Cotización eliminada");
+      showToast("Cotización movida a papelera");
     } catch (error) {
       showToast("Error al eliminar: " + error.message, "error");
     }
@@ -3800,8 +4118,8 @@ export default function CarbotApp() {
       case 'settings': return <SettingsViewFixed userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} />;
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={shadowProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
-      case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={activeTemplates || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} onSaveTemplate={handleSaveTemplate} onDeleteTemplate={handleDeleteTemplate} setEditingTemplate={setEditingTemplate} setIsTemplateEditorOpen={setIsTemplateEditorOpen} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} onPreviewTemplate={handlePreviewTemplate} />;
+      case 'trash': return <TrashView trash={trashInventory} trashDocs={trashDocs} onRestore={handleRestoreVehicle} onRestoreDoc={handleRestoreDoc} onPermanentDelete={handlePermanentDelete} onPermanentDeleteDoc={handlePermanentDeleteDoc} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={shadowProfile} />;
     }
   };
@@ -3842,6 +4160,20 @@ export default function CarbotApp() {
         {renderContent()}
       </AppLayout>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {isTemplateEditorOpen && (
+        <PlantillaEditor
+          isOpen={isTemplateEditorOpen}
+          initialData={editingTemplate}
+          onSave={handleSaveTemplate}
+          onCancel={() => {
+            setIsTemplateEditorOpen(false);
+            setEditingTemplate(null);
+            setPreviewTemplate(null);
+          }}
+          previewMode={!!previewTemplate}
+        />
+      )}
 
       {/* GLOBAL CONFIRMATION MODAL */}
       <ConfirmationModal

@@ -203,7 +203,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     }
 
     // Enforce uppercase for specific fields
-    const upperFields = ['make', 'model', 'edition', 'vin', 'chassis', 'color'];
+    const upperFields = ['make', 'model', 'edition', 'vin', 'chassis', 'color', 'plate'];
     if (upperFields.includes(name)) {
       finalValue = finalValue.toUpperCase();
     }
@@ -778,7 +778,10 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   </div>
                 </div>
 
-                <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                  <FormInput label="Placa" name="plate" value={formData.plate} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                </div>
               </div>
 
               {/* COL 2: MECÁNICA GENERAL */}
@@ -786,6 +789,13 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
                   <Settings size={14} /> Mecánica
                 </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Select label="Condición" name="condition" value={formData.condition} onChange={handleChange} options={['Usado', 'Recién Importado', 'Nuevo', 'Certificado']} />
+                  <Select label="CARFAX" name="clean_carfax" value={formData.clean_carfax || '-'} onChange={handleChange} options={['CLEAN CARFAX', '-']} />
+                </div>
+                {/* NEW ROW FOR VEHICLE TYPE */}
+                <Select label="Tipo de Vehículo" name="vehicle_type" value={formData.vehicle_type || 'Automóvil'} onChange={handleChange} options={['Automóvil', 'Jeepeta', 'Camión', 'Camioneta', 'Vehículo Pesado', 'Moto', 'Autobús']} />
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['Automática', 'Manual', 'CVT', 'Tiptronic']} />
                   <Select label="Tracción" name="traction" value={formData.traction} onChange={handleChange} options={['FWD', 'RWD', 'AWD', '4x4']} />
@@ -808,21 +818,23 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <Select label="Interior" name="seat_material" value={formData.seat_material} onChange={handleChange} options={['Piel', 'Tela', 'Alcántara']} />
+                  <Select label="Filas Asientos" name="seats" value={formData.seats} onChange={handleChange} options={['2', '3', '4', '5']} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <Select label="Techo" name="roof_type" value={formData.roof_type} onChange={handleChange} options={['Normal', 'Sunroof', 'Panorámico']} />
+                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk} onChange={handleChange} options={['No', 'Sí']} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Select label="CarPlay" name="carplay" value={formData.carplay} onChange={handleChange} options={['Sí', 'No']} />
                   <Select label="Cámara" name="camera" value={formData.camera} onChange={handleChange} options={['No', 'Reversa', '360°']} />
                 </div>
+                {/* SENSORS & WINDOWS */}
                 <div className="grid grid-cols-2 gap-4">
                   <Select label="Sensores" name="sensors" value={formData.sensors} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk} onChange={handleChange} options={['No', 'Sí']} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                   <Select label="Cristales Eléct." name="electric_windows" value={formData.electric_windows} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Llave" name="key_type" value={formData.key_type} onChange={handleChange} options={['Llave Normal', 'Push Button']} />
                 </div>
-                <Select label="Filas de Asientos" name="seats" value={formData.seats} onChange={handleChange} options={['2', '3', '4', '5']} />
+                {/* KEY */}
+                <Select label="Llave" name="key_type" value={formData.key_type} onChange={handleChange} options={['Llave Normal', 'Push Button']} />
               </div>
 
             </div>

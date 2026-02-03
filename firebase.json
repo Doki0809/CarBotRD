@@ -1,29 +1,26 @@
 {
-  "hosting": [
-    {
-      "target": "nuevo",
-      "public": "dist",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        {
-          "source": "/tienda/**",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/inventario/**",
-          "function": "inventarioIA"
-        },
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ]
-    }
-  ],
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/tienda/**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/inventario/**",
+        "function": "inventarioIA"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "functions": [
     {
       "source": "functions",

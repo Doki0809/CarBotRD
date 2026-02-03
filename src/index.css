@@ -2,6 +2,182 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: #f8fafc;
+/* --- GLOBAL SELECTION STYLE --- */
+::selection {
+  background-color: #f8d7da;
+  /* Light pink background */
+  color: #721c24;
+  /* Dark red/brown text */
+}
+
+/* For Firefox */
+::-moz-selection {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* --- ESTILOS DEL EDITOR (HOJA DE PAPEL) --- */
+.ql-editor {
+  background-color: white;
+  /* Hoja blanca */
+  width: 794px;
+  /* Ancho exacto A4 */
+  min-height: 1123px;
+  /* Alto A4 */
+  margin: 20px auto;
+  /* Centrado en el contenedor */
+  padding: 3cm 2.5cm !important;
+  /* Márgenes de impresión reales */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  /* Sombra suave */
+  color: #1e293b;
+  /* Texto gris oscuro profesional */
+  font-family: 'Calibri', 'Arial', sans-serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  overflow-y: hidden;
+  /* El scroll lo maneja el contenedor padre */
+}
+
+/* Ocultar scrollbar pero permitir scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* --- ARREGLO DE LA BARRA DE HERRAMIENTAS --- */
+/* Forzamos que los botones se vean aunque falte la fuente de iconos */
+.ql-snow .ql-picker {
+  color: #475569;
+}
+
+.ql-snow .ql-stroke {
+  stroke: #475569;
+}
+
+.ql-snow .ql-fill {
+  fill: #475569;
+}
+
+/* Ajuste para que la barra no se vea aplastada */
+#contract-toolbar {
+  border: none !important;
+  padding: 8px !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- ESTILOS DE IMPRESIÓN (PDF) --- */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .ql-editor,
+  .ql-editor * {
+    visibility: visible;
+  }
+
+  .ql-editor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 2cm;
+    width: 100%;
+    box-shadow: none;
+  }
+}
+
+/* --- ESTILOS DE IMÁGENES FLOTANTES (TIPO WORD) --- */
+.paper-a4 {
+  position: relative !important;
+  /* Necesario para el posicionamiento absoluto */
+}
+
+.resizable-img-container {
+  transition: width 0.1s, height 0.1s;
+}
+
+/* Modos de Ajuste */
+.img-inline {
+  position: relative !important;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.img-square {
+  float: left;
+  margin: 10px;
+  position: relative !important;
+}
+
+.img-behind {
+  position: absolute !important;
+  z-index: -1 !important;
+  /* Detrás del texto pero visible sobre el fondo (gracias a isolate) */
+}
+
+.img-front {
+  position: absolute !important;
+  z-index: 99 !important;
+}
+
+.img-watermark {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  opacity: 0.2;
+  z-index: 0 !important;
+  width: 80% !important;
+  height: auto !important;
+}
+
+/* Estilo de selección gris tipo Word */
+.page-content::selection,
+.page-content *::selection {
+  background-color: rgba(180, 180, 180, 0.5) !important;
+  color: inherit !important;
+}
+
+/* Corte visual para que el contenido no sangre fuera de la hoja */
+.page-content {
+  overflow: hidden !important;
+}
+
+/* --- ESTILO DE VARIABLES TIPO CHIP/BADGE --- */
+.variable-chip {
+  background-color: #f1f5f9;
+  /* Gris muy claro */
+  border: 1px solid #e2e8f0;
+  /* Borde suave */
+  border-radius: 6px;
+  /* Bordes redondeados */
+  padding: 1px 6px;
+  /* Espaciado interno */
+  margin: 0 2px;
+  /* Separación lateral */
+  font-family: 'Roboto Mono', 'Monaco', monospace;
+  /* Toque técnico */
+  font-size: 0.9em;
+  /* Un poco más pequeña que el texto normal */
+  color: #475569;
+  /* Gris azulado oscuro */
+  display: inline-block;
+  /* Para que respete el padding */
+  user-select: all;
+  /* Permite seleccionar el chip entero fácilmente */
+  vertical-align: middle;
+  line-height: normal;
 }
