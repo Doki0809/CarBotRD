@@ -717,7 +717,7 @@ const PlantillaEditor = ({ initialData, onSave, onDelete, onCancel, contractData
     if (initialData) {
       setDocTitle(initialData.titulo || initialData.name || 'Documento Personalizado');
       setTemplateName(initialData.templateName || initialData.template || '');
-      setTemplateType(initialData.templateType || 'CONTRATO');
+      setTemplateType(initialData.templateType || (initialData.category === 'quote' ? 'COTIZACIÓN' : 'CONTRATO'));
 
       // Handle page content: prioritize specific pages, then templateContent, then default
       let loadedPages = safeParseArray(initialData.paginas || initialData.pages, null);
@@ -1032,6 +1032,7 @@ const PlantillaEditor = ({ initialData, onSave, onDelete, onCancel, contractData
         name: docTitle,
         templateName: templateName,
         templateType: templateType,
+        category: templateType === 'COTIZACIÓN' ? 'quote' : 'contract',
         // CRITICAL FIX: Usar 'paginas' y 'imagenes' (Español) para compatibilidad con el resto de la App
         paginas: updatedPages,
         pages: updatedPages,

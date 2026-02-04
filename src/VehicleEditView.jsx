@@ -53,11 +53,11 @@ const Select = ({ label, options = [], name, value, onChange, disabled, classNam
 
   const currentValue = value ?? (typeof options[0] === 'object' ? options[0].value : options[0]);
   const currentOption = options.find(opt => (typeof opt === 'object' ? opt.value : opt) === currentValue);
-  const displayLabel = typeof currentOption === 'object' ? currentOption.label : currentOption || currentValue;
+  const displayLabel = currentOption ? (typeof currentOption === 'object' ? currentOption.label : currentOption) : "-";
 
   return (
     <div className={`group relative ${className}`} ref={dropdownRef}>
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
+      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600 min-h-[24px] flex items-end">
         {label}
       </label>
       <button
@@ -103,7 +103,7 @@ const Select = ({ label, options = [], name, value, onChange, disabled, classNam
 const FormInput = ({ label, icon: Icon, name, value, onChange, type = "text", disabled, isSold, className = "" }) => (
   <div className="flex flex-col gap-2 group">
     {label && (
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
+      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600 min-h-[24px] flex items-end">
         {label}
       </label>
     )}
@@ -671,21 +671,21 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
 
                   <div className="space-y-4 sm:space-y-6">
                     <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
-                      <p className="text-lg sm:text-xl font-black">{contract?.client || 'N/A'}</p>
+                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">NOMBRE DEL CLIENTE</p>
+                      <p className="text-lg sm:text-xl font-black">{contract?.client || vehicle?.soldToName || 'N/A'}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PRECIO</p>
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">CÉDULA</p>
                         <p className="text-xs sm:text-sm font-black whitespace-nowrap">
-                          {formData.price_dop > 0 ? `RD$ ${(formData.price_dop / 1000).toFixed(0)}k` : `US$ ${(formData.price / 1000).toFixed(0)}k`}
+                          {contract?.clientCedula || vehicle?.soldToCedula || 'N/A'}
                         </p>
                       </div>
                       <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">VENTA</p>
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PRECIO</p>
                         <p className="text-xs sm:text-sm font-black text-right whitespace-nowrap">
-                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${(contract.price / 1000).toFixed(0)}k` : `US$ ${(contract.price / 1000).toFixed(0)}k`) : 'N/A'}
+                          {vehicle?.soldPrice ? `RD$ ${(vehicle.soldPrice).toLocaleString()}` : (contract?.price ? `RD$ ${(contract.price).toLocaleString()}` : 'N/A')}
                         </p>
                       </div>
                     </div>
@@ -749,10 +749,10 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <IdCard size={14} /> Información Básica
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormInput label="Año" name="year" value={formData.year} onChange={handleChange} />
-                  <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} />
+                  <FormInput label="Año" name="year" value={formData.year || ''} onChange={handleChange} placeholder="-" />
+                  <FormInput label="Color" name="color" value={formData.color || ''} onChange={handleChange} placeholder="-" />
                 </div>
-                <FormInput label="Edición / Versión" name="edition" value={formData.edition} onChange={handleChange} />
+                <FormInput label="Edición / Versión" name="edition" value={formData.edition || ''} onChange={handleChange} placeholder="-" />
 
                 {/* MILAJE MOVED HERE */}
                 <div className="group">
@@ -760,9 +760,10 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <div className="flex bg-slate-50 border-2 border-slate-50 rounded-2xl overflow-hidden focus-within:bg-white focus-within:border-red-500/20 focus-within:ring-4 focus-within:ring-red-500/5 transition-all outline-none">
                     <input
                       name="mileage"
-                      value={formData.mileage}
+                      value={(formData.mileage && formData.mileage != 0 && formData.mileage !== "0") ? formData.mileage : ''}
                       onChange={handleChange}
                       className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none"
+                      placeholder="-"
                     />
                     <div className="bg-slate-100 flex p-1 items-center border-l border-slate-200 shrink-0">
                       <div className="flex bg-slate-200/50 p-1 rounded-lg">
@@ -782,8 +783,8 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
-                  <FormInput label="Placa" name="plate" value={formData.plate} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                  <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis || ''} onChange={handleChange} className="font-mono text-xs tracking-wider" placeholder="-" />
+                  <FormInput label="Placa" name="plate" value={formData.plate || ''} onChange={handleChange} className="font-mono text-xs tracking-wider" placeholder="-" />
                 </div>
               </div>
 
@@ -793,22 +794,22 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <Settings size={14} /> Mecánica
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Select label="Condición" name="condition" value={formData.condition} onChange={handleChange} options={['Usado', 'Recién Importado', 'Nuevo', 'Certificado']} />
-                  <Select label="CARFAX" name="clean_carfax" value={formData.clean_carfax || '-'} onChange={handleChange} options={['CLEAN CARFAX', '-']} />
-                  <Select label="Tipo de Vehículo" name="vehicle_type" value={formData.vehicle_type || 'Automóvil'} onChange={handleChange} options={['Automóvil', 'Jeepeta', 'Camión', 'Camioneta', 'Vehículo Pesado', 'Moto']} />
+                  <Select label="Condición" name="condition" value={formData.condition || ''} onChange={handleChange} options={['Usado', 'Recién Importado', 'Nuevo', 'Certificado']} />
+                  <Select label="CARFAX" name="clean_carfax" value={formData.clean_carfax || ''} onChange={handleChange} options={['CLEAN CARFAX', '-']} />
+                  <Select label="Tipo de Vehículo" name="vehicle_type" value={formData.vehicle_type || ''} onChange={handleChange} options={['Automóvil', 'Jeepeta', 'Camión', 'Camioneta', 'Vehículo Pesado', 'Moto']} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['Automática', 'Manual', 'CVT', 'Tiptronic']} />
-                  <Select label="Tracción" name="traction" value={formData.traction} onChange={handleChange} options={['FWD', 'RWD', 'AWD', '4x4']} />
+                  <Select label="Transmisión" name="transmission" value={formData.transmission || ''} onChange={handleChange} options={['Automática', 'Manual', 'CVT', 'Tiptronic']} />
+                  <Select label="Tracción" name="traction" value={formData.traction || ''} onChange={handleChange} options={['FWD', 'RWD', 'AWD', '4x4']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Combustible" name="fuel" value={formData.fuel} onChange={handleChange} options={['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} />
-                  <Select label="Motor" name="engine_type" value={formData.engine_type} onChange={handleChange} options={['Normal', 'Turbo', 'Supercharged', 'Híbrido']} />
+                  <Select label="Combustible" name="fuel" value={formData.fuel || ''} onChange={handleChange} options={['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} />
+                  <Select label="Motor" name="engine_type" value={formData.engine_type || ''} onChange={handleChange} options={['Normal', 'Turbo', 'Supercharged', 'Híbrido']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormInput label="Cilindros" name="engine_cyl" value={formData.engine_cyl || ''} onChange={handleChange} placeholder="4 Cil" />
-                  <FormInput label="CC" name="engine_cc" value={formData.engine_cc || ''} onChange={handleChange} placeholder="2.0L" />
+                  <FormInput label="Cilindros" name="engine_cyl" value={formData.engine_cyl || ''} onChange={handleChange} placeholder="-" />
+                  <FormInput label="CC" name="engine_cc" value={formData.engine_cc || ''} onChange={handleChange} placeholder="-" />
                 </div>
               </div>
 
@@ -819,24 +820,24 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <CheckCircle size={14} /> Confort y Extras
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Interior" name="seat_material" value={formData.seat_material} onChange={handleChange} options={['Piel', 'Tela', 'Alcántara']} />
-                  <Select label="Filas Asientos" name="seats" value={formData.seats} onChange={handleChange} options={['2', '3', '4', '5']} />
+                  <Select label="Interior" name="seat_material" value={formData.seat_material || ''} onChange={handleChange} options={['Piel', 'Tela', 'Alcántara']} />
+                  <Select label="Filas Asientos" name="seats" value={formData.seats || ''} onChange={handleChange} options={['2', '3', '4', '5']} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Techo" name="roof_type" value={formData.roof_type} onChange={handleChange} options={['Normal', 'Sunroof', 'Panorámico']} />
-                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk} onChange={handleChange} options={['No', 'Sí']} />
+                  <Select label="Techo" name="roof_type" value={formData.roof_type || ''} onChange={handleChange} options={['Normal', 'Sunroof', 'Panorámico']} />
+                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk || ''} onChange={handleChange} options={['No', 'Sí']} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="CarPlay" name="carplay" value={formData.carplay} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Cámara" name="camera" value={formData.camera} onChange={handleChange} options={['No', 'Reversa', '360°']} />
+                  <Select label="CarPlay" name="carplay" value={formData.carplay || ''} onChange={handleChange} options={['Sí', 'No']} />
+                  <Select label="Cámara" name="camera" value={formData.camera || ''} onChange={handleChange} options={['No', 'Reversa', '360°']} />
                 </div>
                 {/* SENSORS & WINDOWS */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Sensores" name="sensors" value={formData.sensors} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Cristales Eléct." name="electric_windows" value={formData.electric_windows} onChange={handleChange} options={['Sí', 'No']} />
+                  <Select label="Sensores" name="sensors" value={formData.sensors || ''} onChange={handleChange} options={['Sí', 'No']} />
+                  <Select label="Cristales Eléct." name="electric_windows" value={formData.electric_windows || ''} onChange={handleChange} options={['Sí', 'No']} />
                 </div>
                 {/* KEY */}
-                <Select label="Llave" name="key_type" value={formData.key_type} onChange={handleChange} options={['Llave Normal', 'Push Button']} />
+                <Select label="Llave" name="key_type" value={formData.key_type || ''} onChange={handleChange} options={['Llave Normal', 'Push Button']} />
               </div>
 
             </div>

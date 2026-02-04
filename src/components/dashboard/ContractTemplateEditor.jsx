@@ -361,6 +361,7 @@ const ContractTemplateEditor = ({ initialData, onSave, onCancel }) => {
     });
     const [selectedImageId, setSelectedImageId] = useState(null);
     const [activePageIndex, setActivePageIndex] = useState(0);
+    const [category, setCategory] = useState(initialData?.category || 'contract');
     const [wordCount, setWordCount] = useState(0);
     const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, imageId: null });
 
@@ -617,7 +618,8 @@ const ContractTemplateEditor = ({ initialData, onSave, onCancel }) => {
             name: docTitle,
             pages: updatedPages, // Unificado: Array directo
             images: images,      // Unificado: Array directo
-            fecha: new Date().toISOString()
+            category: category,
+            updatedAt: new Date().toISOString()
         };
 
         if (onSave) {
@@ -665,12 +667,26 @@ const ContractTemplateEditor = ({ initialData, onSave, onCancel }) => {
                     <div className="text-blue-600 p-2 bg-blue-50 rounded"><FileText size={28} /></div>
                 </div>
                 <div className="flex flex-col flex-grow min-w-0">
-                    <input value={docTitle} onChange={e => setDocTitle(e.target.value)} className="text-lg font-medium outline-none truncate" />
+                    <input value={docTitle} onChange={e => setDocTitle(e.target.value)} className="text-lg font-black outline-none truncate bg-transparent" placeholder="Nombre de la plantilla" />
+                    <div className="flex gap-2 mt-0.5">
+                        <button
+                            onClick={() => setCategory('contract')}
+                            className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded transition-all ${category === 'contract' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                        >
+                            Contrato
+                        </button>
+                        <button
+                            onClick={() => setCategory('quote')}
+                            className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded transition-all ${category === 'quote' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                        >
+                            Cotización
+                        </button>
+                    </div>
                 </div>
 
                 <input type="file" ref={wordInputRef} onChange={handleWordUpload} accept=".docx" className="hidden" />
-                <button onClick={() => wordInputRef.current.click()} className="text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded text-sm font-medium flex gap-2 items-center transition-colors border border-gray-200">
-                    <Upload size={16} /> Importar Word
+                <button onClick={() => wordInputRef.current.click()} className="text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-bold flex gap-2 items-center transition-all border border-slate-200 shadow-sm active:scale-95">
+                    <Upload size={14} /> Importar Word
                 </button>
 
                 <button onClick={handleSave} className="bg-blue-600 text-white px-5 py-2 rounded-full font-medium hover:bg-blue-700 flex gap-2 shrink-0"><Save size={18} /> Guardar</button>
