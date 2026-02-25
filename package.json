@@ -10,10 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.97.0",
     "browser-image-compression": "^2.0.2",
     "firebase": "^12.7.0",
+    "framer-motion": "^12.34.3",
     "html2pdf.js": "^0.12.1",
     "lucide-react": "^0.562.0",
+    "pg": "^8.18.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -1,8 +1,23 @@
-const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json"); // I might not have this, better check if I can use default credentials or if I should use a cloud function
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import dotenv from 'dotenv';
 
-// Let's try to see if there is a serviceAccountKey.json or if I can just use the environment
-// Actually, since I am an agent, I should check if I have a tool to list firestore docs directly.
-// I don't have a direct firestore tool, but I have `run_command` and I can use the firebase CLI.
+const envConfig = dotenv.parse(fs.readFileSync('/Users/jean/carbotSystem/.env'))
 
-// Command: firebase firestore:get Dealers --project carbot-5d709
+const adminClient = createClient(envConfig.VITE_SUPABASE_URL, envConfig.VITE_SUPABASE_SERVICE_ROLE_KEY);
+
+async function run() {
+    console.log("Checking dealers...");
+    const { data, error } = await adminClient.from('dealers').select('id, nombre, logo_url');
+    if (error) {
+        console.error(error);
+        return;
+    }
+    console.log("Dealers:");
+    data.forEach(d => {
+        console.log(`- ${d.nombre}`);
+        console.log(`  Logo: ${d.logo_url}`);
+    });
+}
+
+run();

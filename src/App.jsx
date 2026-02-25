@@ -2,12 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 // import imageCompression from 'browser-image-compression';
 import { db, auth, storage } from './firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import {
-  signOut,
-  onAuthStateChanged,
-  updatePassword,
-  signInWithEmailAndPassword
-} from 'firebase/auth';
+import { supabase } from './supabase.js';
+import LoginView from './components/LoginView.jsx';
 import {
   collection,
   onSnapshot,
@@ -23,41 +19,104 @@ import {
   getDocs
 } from 'firebase/firestore';
 
+
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
   DollarSign, CheckCircle, X, Menu, User, Send, Loader2, FilePlus,
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
-  PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy,
+  PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy, Link,
   AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
-  ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical
+  ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode, AtSign, Building, LayoutGrid, ShieldCheck
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
+import { generarContratoEnGHL } from './ghl_integration/ghlService';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
 // o directamente ya que es una SPA de Vite.
 // import html2pdf from 'html2pdf.js';
 
-/**
- * CARBOT - B2B SaaS para Dealers
- * VERSIÓN: ONLINE (FIREBASE)
- */
+// --- SHARED STYLES FOR TEMPLATES ---
+export const SHARED_QUILL_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=Mirza:wght@400;700&family=Roboto:wght@400;700&family=Aref+Ruqaa:wght@400;700&display=swap');
 
-// MOCK_USER ELIMINADO
-// INITIAL_CONTRACTS ELIMINADO
+  /* Reset */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  /* Container and Base Typography */
+  body, .ql-editor { 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
 
-const CONTRACT_TEMPLATES = [
-  { id: 't1', name: 'Venta al Contado', icon: DollarSign, desc: 'Contrato estándar de compraventa.' },
-  { id: 't2', name: 'Financiamiento', icon: CreditCard, desc: 'Acuerdo con plan de pagos y garantías.' },
-  { id: 't3', name: 'Carta de Ruta', icon: FileSignature, desc: 'Permiso provisional de circulación.' },
-];
+  /* Quill alignment classes */
+  .ql-align-center { text-align: center !important; }
+  .ql-align-right { text-align: right !important; }
+  .ql-align-left { text-align: left !important; }
+  .ql-align-justify { text-align: justify !important; }
+  
+  /* Quill indentation */
+  .ql-indent-1 { padding-left: 3em !important; }
+  .ql-indent-2 { padding-left: 6em !important; }
+  .ql-indent-3 { padding-left: 9em !important; }
+  .ql-indent-4 { padding-left: 12em !important; }
+  .ql-indent-5 { padding-left: 15em !important; }
+  
+  /* Typography */
+  h1 { font-size: 2.5em; font-weight: 800; margin-bottom: 0.5em; color: #0f172a; }
+  h2 { font-size: 1.75em; font-weight: 700; margin-bottom: 0.5em; color: #0f172a; }
+  h3 { font-size: 1.25em; font-weight: 700; margin-bottom: 0.5em; color: #0f172a; }
+  p { margin: 0; padding: 0; min-height: 1.25em; }
+  
+  /* Lists */
+  ul, ol { padding-left: 1.5em; margin: 0.75em 0; }
+  li { margin: 0.4em 0; }
+  
+  /* Images */
+  img { max-width: 100%; height: auto; display: block; margin: 15px auto; border-radius: 4px; }
+  
+  /* Quill font sizes */
+  .ql-size-small { font-size: 0.8em; }
+  .ql-size-large { font-size: 1.5em; }
+  .ql-size-huge { font-size: 2.25em; }
+  
+  /* Quill fonts */
+  .ql-font-serif { font-family: Georgia, 'Times New Roman', serif; }
+  .ql-font-monospace { font-family: Monaco, 'Courier New', monospace; }
+  .ql-font-mirza { font-family: 'Mirza', serif; }
+  .ql-font-roboto { font-family: 'Roboto', sans-serif; }
+  .ql-font-aref { font-family: 'Aref Ruqaa', serif; }
+  .ql-font-helvetica { font-family: 'Helvetica', Arial, sans-serif; }
+  .ql-font-inter { font-family: 'Inter', sans-serif; }
+  .ql-font-arial { font-family: 'Arial', sans-serif; }
+  .ql-font-calibri { font-family: 'Calibri', 'Candara', 'Segoe UI', sans-serif; }
+  .ql-font-times-new-roman { font-family: 'Times New Roman', serif; }
+  .ql-font-georgia { font-family: 'Georgia', serif; }
+  .ql-font-verdana { font-family: 'Verdana', sans-serif; }
+  
+  /* Text styles */
+  strong, b { font-weight: 700; color: #0f172a; }
+  em, i { font-style: italic; }
+  u { text-decoration: underline; }
+  s { text-decoration: line-through; }
+  
+  /* Horizontal rules */
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.5em 0; }
+  
+  /* Table support */
+  table { border-collapse: collapse; width: 100%; margin: 20px 0; table-layout: fixed; }
+  td, th { border: 1px solid #cbd5e1; padding: 12px; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
+  th { background: #f8fafc; font-weight: 700; }
+`;
 
 // --- UI KIT ---
 const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, ...props }) => {
   const variants = {
-    primary: 'bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-600/20 hover:shadow-red-600/30',
-    secondary: 'bg-white text-slate-700 border-2 border-slate-100 hover:bg-slate-50 shadow-md',
-    ghost: 'bg-transparent text-slate-500 hover:bg-slate-100',
-    danger: 'bg-red-50 text-red-600 hover:bg-red-100 border-2 border-red-100',
+    primary: 'bg-red-600 text-white hover:bg-red-500 shadow-glow-red-sm hover:shadow-glow-red',
+    secondary: 'bg-glass text-white/80 border border-glass-border hover:border-glass-border-hover hover:bg-glass-light backdrop-blur-xl',
+    ghost: 'bg-transparent text-white/50 hover:bg-white/5 hover:text-white/80',
+    danger: 'bg-red-600/10 text-red-400 hover:bg-red-600/20 border border-red-600/20',
   };
 
   const hasManualBg = className.includes('bg-');
@@ -81,7 +140,7 @@ const Button = ({ children, variant = 'primary', className = '', icon: Icon, onC
 const Card = ({ children, className = '', noPadding = false }) => {
   const hasBg = className.includes('bg-');
   return (
-    <div className={`${hasBg ? '' : 'bg-white'} rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden transition-all duration-300 ${className}`}>
+    <div className={`${hasBg ? '' : 'glass-card'} rounded-3xl overflow-hidden transition-all duration-300 ${className}`}>
       <div className={noPadding ? '' : 'p-6'}>{children}</div>
     </div>
   );
@@ -89,11 +148,11 @@ const Card = ({ children, className = '', noPadding = false }) => {
 
 const Badge = ({ status }) => {
   const styles = {
-    available: "bg-emerald-50 text-emerald-700 border-emerald-100 ring-1 ring-emerald-600/10",
-    quoted: "bg-amber-50 text-amber-700 border-amber-100 ring-1 ring-amber-600/10",
-    sold: "bg-slate-100 text-slate-600 border-slate-200 ring-1 ring-slate-600/10",
-    pending: "bg-red-50 text-red-700 border-red-100 ring-1 ring-red-600/10",
-    signed: "bg-green-50 text-green-700 border-green-100 ring-1 ring-green-600/10",
+    available: "bg-red-600/15 text-red-400 border-red-600/20 ring-1 ring-red-600/20",
+    quoted: "bg-amber-500/15 text-amber-400 border-amber-500/20 ring-1 ring-amber-500/20",
+    sold: "bg-white/5 text-white/40 border-white/10 ring-1 ring-white/10",
+    pending: "bg-orange-500/15 text-orange-400 border-orange-500/20 ring-1 ring-orange-500/20",
+    signed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20 ring-1 ring-emerald-500/20",
   };
   const labels = { available: "Disponible", quoted: "Cotizado", sold: "Vendido", pending: "Pendiente Firma", signed: "Firmado" };
   return (
@@ -104,15 +163,15 @@ const Badge = ({ status }) => {
 };
 
 const Input = ({ label, className = "", type = "text", ...props }) => (
-  <div className="mb-4 group">
+  <div className="mb-4 group text-left">
     {label && (
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
+      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">
         {label}
       </label>
     )}
     <input
       type={type}
-      className={`w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm focus:outline-none focus:bg-white focus:border-red-500/20 focus:ring-4 focus:ring-red-500/5 transition-all outline-none ${className}`}
+      className={`w-full relative items-stretch shadow-sm rounded-xl px-4 py-3 border border-slate-200 outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-white font-bold text-slate-800 text-sm placeholder:text-slate-300 transition-all ${className}`}
       {...props}
     />
   </div>
@@ -150,41 +209,42 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
   const displayLabel = typeof currentOption === 'object' ? currentOption.label : currentOption || selectedValue;
 
   return (
-    <div className="mb-4 group relative" ref={dropdownRef}>
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
+    <div className="mb-4 group relative text-left" ref={dropdownRef}>
+      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">
         {label}
       </label>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm transition-all outline-none ${isOpen ? 'bg-white border-red-500/20 ring-4 ring-red-500/5' : 'hover:bg-slate-100'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 shadow-sm rounded-xl font-bold text-sm text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${isOpen ? 'ring-2 ring-red-500/20 border-red-500' : 'hover:border-slate-300'
+          } ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
       >
         <span className="truncate">{displayLabel}</span>
         <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-red-500' : ''}`} />
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 mt-2 p-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[110] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 z-[110] animate-in fade-in zoom-in-95 duration-200">
           <div className="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1">
             {options.map((opt, i) => {
               const isObj = typeof opt === 'object' && opt !== null;
-              const val = isObj ? opt.value : opt;
-              const labelText = isObj ? opt.label : opt;
-              const isActive = selectedValue === val;
-
+              const optionValue = isObj ? opt.value : opt;
+              const optionLabel = isObj ? opt.label : opt;
+              const isSelected = selectedValue === optionValue;
               return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => handleSelect(val)}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${isActive
-                    ? 'bg-red-50 text-red-600'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-red-500'
+                  onClick={() => handleSelect(optionValue)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-between
+                    ${isSelected
+                      ? 'bg-red-50 text-red-600'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                 >
-                  {labelText}
+                  {optionLabel}
+                  {isSelected && <Check size={16} className="text-red-600" />}
                 </button>
               );
             })}
@@ -200,7 +260,7 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
 const Toast = ({ message, type = 'success', onClose }) => {
   useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 rounded-xl shadow-2xl transform transition-all duration-500 animate-in slide-in-from-top-5 fade-in ${type === 'success' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>
+    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 rounded-2xl shadow-glass-lg backdrop-blur-2xl border border-glass-border transform transition-all duration-500 animate-fade-in ${type === 'success' ? 'bg-red-600/90 text-white' : 'bg-surface/90 text-white border-red-600/30'}`}>
       <CheckCircle size={20} className="mr-3" />
       <span className="font-medium tracking-wide">{message}</span>
     </div>
@@ -209,7 +269,7 @@ const Toast = ({ message, type = 'success', onClose }) => {
 
 const AppLogo = ({ className, size = 32, invert = false }) => {
   const [hasError, setHasError] = useState(false);
-  if (hasError) return <div className={`flex items-center justify-center ${invert ? 'text-white' : 'text-red-600'} ${className}`}><Car size={size} /></div>;
+  if (hasError) return <div className={`flex items-center justify-center ${invert ? 'text-white' : 'text-red-600'} ${className} `}><Car size={size} /></div>;
   return <img src="/logo.png" alt="Carbot" className={`${className} object-contain`} style={{ height: size, width: 'auto' }} onError={() => setHasError(true)} />;
 };
 
@@ -300,7 +360,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     const totalCurrent = photos.length;
 
     if (totalCurrent + files.length > 10) {
-      alert(`Límite excedido. Máximo 10 fotos.`);
+      alert(`Límite excedido.Máximo 10 fotos.`);
       return;
     }
 
@@ -425,20 +485,31 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
         const color = (data.color || 'Unknown').replace(/[^a-zA-Z0-9]/g, '');
         const last4Vin = (data.vin || '0000').slice(-4);
 
-        const folderName = `${year} ${make} ${model} ${color} ${last4Vin}`.trim();
-        const baseStoragePath = `dealer-${cleanDealerName}/Marcas/${folderName}`;
+        const folderName = `${year} ${make} ${model} ${color} ${last4Vin} `.trim();
+        const baseStoragePath = `dealer - ${cleanDealerName} /Marcas/${folderName} `;
 
         for (let i = 0; i < filesToUpload.length; i++) {
           const item = filesToUpload[i];
           try {
-            const cleanName = (item.file.name || `image_${i}.jpg`).replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase();
+            const cleanName = (item.file.name || `image_${i}.jpg`).replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase();
             const storagePath = `${baseStoragePath}/${Date.now()}_${cleanName}`;
-            const storageRef = ref(storage, storagePath);
-            const snapshot = await uploadBytes(storageRef, item.file);
-            const downloadUrl = await getDownloadURL(snapshot.ref);
-            if (downloadUrl) uploadedUrls.push(downloadUrl);
+
+            const { data: uploadData, error: uploadErr } = await supabase.storage
+              .from('fotos_vehiculos')
+              .upload(storagePath, item.file, {
+                cacheControl: '3600',
+                upsert: true
+              });
+
+            if (uploadErr) throw uploadErr;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('fotos_vehiculos')
+              .getPublicUrl(storagePath);
+
+            if (publicUrl) uploadedUrls.push(publicUrl);
           } catch (err) {
-            console.error(err);
+            console.error("Error uploading photo to Supabase:", err);
           }
         }
         setUploadProgress('');
@@ -472,7 +543,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
   const isLocked = status === 'sold';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-md transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full max-w-5xl animate-in zoom-in-95 duration-200 h-[100dvh] sm:h-[92vh] flex flex-col bg-white rounded-none sm:rounded-[24px] overflow-hidden shadow-2xl ring-1 ring-black/5">
 
         {/* HEADER */}
@@ -499,7 +570,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
             <Lock size={18} className="text-red-400" />
             <p className="text-xs font-bold uppercase tracking-wide">
               Modo Solo Lectura: Este vehículo está marcado como <span className="text-red-400">VENDIDO</span>.
-              <span className="opacity-75 font-normal ml-1 normal-case">Cambia el estado a "Disponible" o "Cotizado" para editar los detalles.</span>
+              <span className="opacity-75 font-normal ml-1 normal-case text-white/80">Cambia el estado a "Disponible" o "Cotizado" para editar los detalles.</span>
             </p>
           </div>
         )}
@@ -522,25 +593,25 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
 
                 {/* MILLAJE CON TOGGLE INTEGRADO */}
                 <div className="flex flex-col mb-4 group text-left">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">Millaje</label>
-                  <div className={`flex shadow-sm rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 transition-all ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">Millaje</label>
+                  <div className={`flex relative items-stretch shadow-sm rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 transition-all ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
                     <input
                       name="mileage"
                       type="number"
                       defaultValue={initialData?.mileage}
-                      className="w-full min-w-0 px-3 py-2.5 bg-transparent focus:outline-none placeholder:text-slate-300 text-slate-700 font-bold text-sm"
+                      className="w-full min-w-0 px-4 py-3 bg-transparent focus:outline-none placeholder:text-slate-300 text-slate-800 font-bold text-sm"
                       placeholder="0"
                       disabled={isLocked}
                     />
-                    <div className="bg-slate-100 flex p-1 items-center border-l border-slate-200 shrink-0">
-                      <div className="flex bg-slate-200/50 p-1 rounded-lg">
+                    <div className="bg-slate-50 flex p-1 items-center border-l border-slate-200 shrink-0">
+                      <div className="flex p-0.5 rounded-lg bg-slate-200/50">
                         {['KM', 'MI'].map((unit) => (
                           <button
                             key={unit}
                             type="button"
                             disabled={isLocked}
                             onClick={() => setMileageUnit(unit)}
-                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${mileageUnit === unit ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${mileageUnit === unit ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
                           >
                             {unit === 'KM' ? 'KM' : 'MILLA'}
                           </button>
@@ -603,26 +674,26 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* PRECIO */}
                 <div className={isLocked ? "opacity-60 pointer-events-none grayscale-[0.5] flex flex-col group" : "flex flex-col group"}>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">Precio de Venta</label>
-                  <div className={`flex relative items-stretch shadow-sm rounded-xl overflow-hidden ring-1 ring-slate-200 ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">Precio de Venta</label>
+                  <div className={`flex relative items-stretch shadow-sm rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 transition-all ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
                     <input
                       type="text"
                       value={formatWithCommas(prices.price)}
                       onChange={(e) => setPrices(prev => ({ ...prev, price: parseCommaNumber(e.target.value) }))}
-                      className="flex-1 min-w-0 px-2.5 py-3 bg-transparent focus:outline-none font-black text-slate-800 text-sm"
+                      className="flex-1 min-w-0 px-4 py-3 bg-transparent focus:outline-none font-bold text-slate-800 placeholder:text-slate-300 text-sm"
                       placeholder="0.00"
                       required
                       disabled={isLocked}
                     />
-                    <div className="bg-slate-100 flex p-1 items-center border-l border-slate-200 shrink-0">
-                      <div className="flex bg-slate-200/50 p-1 rounded-lg">
+                    <div className="bg-slate-50 flex p-1 items-center border-l border-slate-200 shrink-0">
+                      <div className="flex p-0.5 rounded-lg bg-slate-200/50">
                         {['USD', 'DOP'].map((c) => (
                           <button
                             key={c}
                             type="button"
                             disabled={isLocked}
                             onClick={() => setCurrency(c)}
-                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${currency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${currency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
                           >
                             {c === 'USD' ? 'US$' : 'RD$'}
                           </button>
@@ -634,25 +705,25 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
 
                 {/* INICIAL */}
                 <div className={isLocked ? "opacity-60 pointer-events-none grayscale-[0.5] flex flex-col group" : "flex flex-col group"}>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">Inicial</label>
-                  <div className={`flex relative items-stretch shadow-sm rounded-xl overflow-hidden ring-1 ring-slate-200 ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">Inicial</label>
+                  <div className={`flex relative items-stretch shadow-sm rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 transition-all ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
                     <input
                       type="text"
                       value={formatWithCommas(prices.initial)}
                       onChange={(e) => setPrices(prev => ({ ...prev, initial: parseCommaNumber(e.target.value) }))}
-                      className="flex-1 min-w-0 px-2.5 py-3 bg-transparent focus:outline-none font-black text-slate-800 text-sm"
+                      className="flex-1 min-w-0 px-4 py-3 bg-transparent focus:outline-none font-bold text-slate-800 placeholder:text-slate-300 text-sm"
                       placeholder="0.00"
                       disabled={isLocked}
                     />
-                    <div className="bg-slate-100 flex p-1 items-center border-l border-slate-200 shrink-0">
-                      <div className="flex bg-slate-200/50 p-1 rounded-lg">
+                    <div className="bg-slate-50 flex p-1 items-center border-l border-slate-200 shrink-0">
+                      <div className="flex p-0.5 rounded-lg bg-slate-200/50">
                         {['USD', 'DOP'].map((c) => (
                           <button
                             key={c}
                             type="button"
                             disabled={isLocked}
                             onClick={() => setDownPaymentCurrency(c)}
-                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${downPaymentCurrency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${downPaymentCurrency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
                           >
                             {c === 'USD' ? 'US$' : 'RD$'}
                           </button>
@@ -665,32 +736,24 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                 {/* ESTADO */}
                 {/* ESTADO - PREMIUM SELECTOR */}
                 <div className="md:col-span-1 group">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">Estado del Vehículo</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">Estado del Vehículo</label>
                   <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                     {[
-                      { value: 'available', label: 'Disponible', color: 'bg-emerald-500', text: 'text-emerald-600', bg: 'bg-emerald-50' },
-                      { value: 'quoted', label: 'Cotizado', color: 'bg-amber-500', text: 'text-amber-600', bg: 'bg-amber-50' },
-                      { value: 'sold', label: 'Vendido', color: 'bg-slate-500', text: 'text-slate-600', bg: 'bg-slate-200' }
+                      { value: 'available', label: 'Disponible', color: 'bg-red-500', text: 'text-red-600', border: 'border-transparent', bg: 'bg-red-50' },
+                      { value: 'quoted', label: 'Cotizado', color: 'bg-amber-500', text: 'text-amber-600', border: 'border-transparent', bg: 'bg-amber-50' },
+                      { value: 'sold', label: 'Vendido', color: 'bg-slate-400', text: 'text-slate-600', border: 'border-transparent', bg: 'bg-slate-200' }
                     ].map((option) => {
                       const isActive = (initialData?.status || 'available') === option.value;
-                      // Local state handling if we weren't using a form... 
-                      // actually we need to make sure this updates the form correctly.
-                      // Since we are using native form inputs, we should add a hidden input for status
-                      // and manage state for this visual selector.
                       return (
                         <button
                           key={option.value}
                           type="button"
                           onClick={() => {
-                            // Update a hidden input or state? 
-                            // The form uses uncontrolled inputs for some things, but let's check.
-                            // The modal uses `initialData` but we don't have a direct state for `status`.
-                            // Let's add a hidden input for status and a state for it.
                             setStatus(option.value);
                           }}
-                          className={`flex-1 flex flex-col items-center justify-center py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 ${status === option.value
+                          className={`flex-1 flex flex-col items-center justify-center py-2 text-xs font-black uppercase tracking-wider transition-all duration-300 rounded-lg ${status === option.value
                             ? `bg-white shadow-md ${option.text} scale-100`
-                            : 'text-slate-400 hover:bg-white/50 hover:text-slate-500'
+                            : 'text-slate-400 hover:bg-white/50 hover:text-slate-500 border border-transparent'
                             }`}
                         >
                           <div className={`w-1.5 h-1.5 rounded-full mb-1 ${status === option.value ? option.color : 'bg-slate-300'}`} />
@@ -716,7 +779,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                   type="button"
                   disabled={isLocked}
                   onClick={() => document.getElementById('image-upload').click()}
-                  className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:border-red-400 hover:bg-red-50 transition-all group"
+                  className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:border-red-400 hover:bg-red-50 transition-all group bg-slate-50/20"
                 >
                   <div className="p-2 bg-slate-50 rounded-full group-hover:bg-white transition-colors">
                     {loading ? <Loader2 size={20} className="animate-spin text-slate-400" /> : <Plus size={20} className="text-slate-400 group-hover:text-red-500" />}
@@ -738,9 +801,9 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                     <img src={photo.url} alt={`Upload ${index}`} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                       <button type="button" onClick={() => removeImage(index)} className="p-1.5 bg-red-600 text-white rounded-full hover:scale-110 transition-transform"><X size={12} /></button>
-                      {index !== 0 && <button type="button" onClick={() => setAsCover(index)} className="p-1.5 bg-emerald-500 text-white rounded-full hover:scale-110 transition-transform"><Check size={12} /></button>}
+                      {index !== 0 && <button type="button" onClick={() => setAsCover(index)} className="p-1.5 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"><Check size={12} /></button>}
                     </div>
-                    {index === 0 && <span className="absolute bottom-0 left-0 right-0 bg-emerald-500 text-white text-[8px] font-black text-center py-0.5 uppercase tracking-widest">Portada</span>}
+                    {index === 0 && <span className="absolute bottom-0 left-0 right-0 bg-red-500 text-white text-[8px] font-black text-center py-0.5 uppercase tracking-widest">Portada</span>}
                   </div>
                 ))}
               </div>
@@ -776,16 +839,20 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
             {loading ? <><Loader2 className="animate-spin mr-2" /> Guardando...</> : <><Save size={20} /> Guardar Vehículo</>}
           </Button>
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 
-const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
+const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, templates = [] }) => {
   const [loading, setLoading] = useState(false);
   const [bankName, setBankName] = useState('');
   const [cedula, setCedula] = useState('');
   const [price, setPrice] = useState(vehicle?.price || '');
+
+  // Get first quote template if available
+  const quoteTemplates = useMemo(() => templates.filter(t => t.category === 'quote'), [templates]);
+  const defaultTemplate = quoteTemplates[0] || null;
 
   // Reset price when vehicle changes
   useEffect(() => {
@@ -828,7 +895,23 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
       price: price,
       bank: bankName,
       vehicleId: vehicle.id,
-      vehicle: `${vehicle.make} ${vehicle.model} ${vehicle.year}`
+      vehicle: `${vehicle.make} ${vehicle.model}`,
+      // Additional vehicle fields for template replacement
+      year: vehicle.year || '',
+      color: vehicle.color || '',
+      version: vehicle.version || '',
+      vin: vehicle.vin || '',
+      mileage: vehicle.mileage || '',
+      fuel: vehicle.fuel || '',
+      transmission: vehicle.transmission || '',
+      drivetrain: vehicle.drivetrain || '',
+      passengers: vehicle.passengers || '',
+      // Template data
+      template: defaultTemplate?.name || null,
+      templateId: defaultTemplate?.id || null,
+      templateContent: defaultTemplate?.content || null,
+      category: 'quote',
+      createdAt: new Date().toISOString()
     };
 
     const finalUrl = `${baseUrl}?${params.toString()}`;
@@ -879,7 +962,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile }) => {
   );
 };
 
-const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
+const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = [] }) => {
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
@@ -888,6 +971,10 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   const [bank, setBank] = useState('');
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+
+  // Filter for quote templates
+  const quoteTemplates = useMemo(() => templates.filter(t => t.category === 'quote'), [templates]);
 
   // Auto-fill price when vehicle selected
   useEffect(() => {
@@ -900,6 +987,13 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
     }
   }, [selectedVehicleId, inventory]);
 
+  // Auto-select first quote template if available and none selected
+  useEffect(() => {
+    if (quoteTemplates.length > 0 && !selectedTemplateId) {
+      setSelectedTemplateId(quoteTemplates[0].id);
+    }
+  }, [quoteTemplates, selectedTemplateId]);
+
   if (!isOpen) return null;
 
   const availableVehicles = inventory.filter(v => v.status !== 'sold');
@@ -910,6 +1004,9 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
     setLoading(true);
     const vehicle = inventory.find(v => v.id === selectedVehicleId);
 
+    // Find selected template data
+    const templateObj = templates.find(t => t.id === selectedTemplateId);
+
     setTimeout(() => {
       onSave({
         name,
@@ -917,9 +1014,24 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
         phone,
         cedula,
         bank,
-        price, // Enviar precio
+        price,
         vehicle: `${vehicle.make} ${vehicle.model}`,
-        vehicleId: vehicle.id
+        vehicleId: vehicle.id,
+        // Additional vehicle fields for template replacement
+        year: vehicle.year || '',
+        color: vehicle.color || '',
+        version: vehicle.version || '',
+        vin: vehicle.vin || '',
+        mileage: vehicle.mileage || '',
+        fuel: vehicle.fuel || '',
+        transmission: vehicle.transmission || '',
+        drivetrain: vehicle.drivetrain || '',
+        passengers: vehicle.passengers || '',
+        template: templateObj?.name || null,
+        templateId: templateObj?.id || null,
+        templateContent: templateObj?.content || null,
+        category: 'quote',
+        createdAt: new Date().toISOString()
       });
       setLoading(false);
       onClose();
@@ -952,6 +1064,25 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
                 ))}
               </select>
             </div>
+
+            {quoteTemplates.length > 0 && (
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Plantilla de Cotización</label>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {quoteTemplates.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSelectedTemplateId(t.id)}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all whitespace-nowrap ${selectedTemplateId === t.id ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos del Prospecto</label>
               <div className="grid grid-cols-2 gap-4">
@@ -978,15 +1109,36 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave }) => {
   );
 };
 
-const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initialVehicle }) => {
-  const [selectedTemplate, setSelectedTemplate] = useState('');
+const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast, userProfile }) => {
+  const [selectedTemplates, setSelectedTemplates] = useState([]); // Ahora es array
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle ? initialVehicle.vehicleId || initialVehicle.id : '');
   const [clientName, setClientName] = useState('');
   const [clientLastName, setClientLastName] = useState('');
   const [clientCedula, setClientCedula] = useState('');
   const [finalPrice, setFinalPrice] = useState(''); // Estado para precio final
   const [downPayment, setDownPayment] = useState(''); // Estado para el inicial
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [bankName, setBankName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ghlTemplates, setGhlTemplates] = useState([]);
+
+  useEffect(() => {
+    if (isOpen && userProfile?.dealerId) {
+      const fetchTemplates = async () => {
+        try {
+          const res = await fetch(`/api/ghl/templates?dealerId=${encodeURIComponent(userProfile.dealerId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            setGhlTemplates(data);
+          }
+        } catch (error) {
+          console.error("Error loading GHL templates:", error);
+        }
+      };
+      fetchTemplates();
+    }
+  }, [isOpen, userProfile?.dealerId]);
 
   useEffect(() => {
     if (initialVehicle) {
@@ -1014,14 +1166,17 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
       setFinalPrice(initialVehicle.price || (v ? (v.price_dop > 0 ? v.price_dop : (v.price || 0)) : 0));
       setDownPayment(initialVehicle.downPayment || initialVehicle.initial || (v ? (v.initial_dop > 0 ? v.initial_dop : (v.initial || 0)) : 0));
 
-      const template = CONTRACT_TEMPLATES.find(t => t.name === initialVehicle.template);
-      if (template) setSelectedTemplate(template.id);
+      const template = templates.find(t => t.name === initialVehicle.template);
+      if (template) setSelectedTemplates([template.id]);
     } else {
-      setSelectedTemplate('');
+      setSelectedTemplates([]);
       setSelectedVehicleId('');
       setClientName('');
       setClientLastName('');
+      setClientPhone(''); // Restore phone
+      setClientEmail(''); // Restore email
       setClientCedula('');
+      setBankName(''); // Restore bank
       setFinalPrice('');
       setDownPayment('');
     }
@@ -1043,90 +1198,163 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
 
   const availableVehicles = inventory.filter(v => v.status !== 'sold' || (initialVehicle && v.id === initialVehicle.id));
 
-  const handleSubmit = (e) => {
+  const toggleTemplate = (tId) => {
+    if (selectedTemplates.includes(tId)) {
+      setSelectedTemplates(prev => prev.filter(id => id !== tId));
+    } else {
+      setSelectedTemplates(prev => [...prev, tId]);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedTemplate || !selectedVehicleId) return;
+    if (selectedTemplates.length === 0 || !selectedVehicleId) return;
+
     setLoading(true);
-    const vehicle = inventory.find(v => v.id === selectedVehicleId); // Firebase IDs son strings, quitamos parseInt
-    const template = CONTRACT_TEMPLATES.find(t => t.id === selectedTemplate);
-    setTimeout(() => {
-      onGenerate({
-        id: initialVehicle?.contractId || undefined, // Pass ID if editing
-        client: `${clientName} ${clientLastName}`,
-        cedula: clientCedula,
-        vehicle: `${vehicle.make} ${vehicle.model}`,
-        vehicleId: vehicle.id,
-        price: finalPrice || (vehicle.price_dop > 0 ? vehicle.price_dop : vehicle.price), // Use manual final price or vehicle default
-        downPayment: downPayment, // Pass down payment
-        template: template.name,
-        status: 'pending',
-        date: new Date().toISOString().split('T')[0],
-        ghl_id: `ghl_${Math.floor(Math.random() * 1000)}`,
-        vin: vehicle.vin
-      });
-      setLoading(false);
+    try {
+      const vehicle = inventory.find(v => v.id === selectedVehicleId);
+      if (!vehicle) throw new Error("Vehículo no encontrado");
+
+      const cliente = {
+        nombre: clientName,
+        apellido: clientLastName,
+        telefono: clientPhone,
+        email: clientEmail
+      };
+
+      // GHL Location ID resolution
+      const locationId = userProfile?.ghlLocationId || userProfile?.dealerId || 'DURAN-FERNANDEZ-AUTO-SRL';
+
+      console.log(`🚀 Generando contrato(s) en GHL para: ${clientName} ${clientLastName}`);
+
+      const results = [];
+      for (const templateId of selectedTemplates) {
+        const docUrl = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, userProfile?.dealerId);
+        results.push(docUrl);
+      }
+
+      // 1. Mostrar éxito y abrir primer documento
+      if (results.length > 0) {
+        window.open(results[0], '_blank');
+        showToast(`${results.length} documento(s) generado(s) con éxito en GHL`, "success");
+      }
+
+      // 2. Ejecutar onGenerate local (opcional/compatibilidad)
+      if (onGenerate) {
+        onGenerate({
+          vehicleId: selectedVehicleId,
+          clientData: {
+            name: clientName,
+            lastName: clientLastName,
+            cedula: clientCedula,
+            phone: clientPhone,
+            email: clientEmail
+          },
+          templateIds: selectedTemplates,
+          bankName,
+          finalPrice: finalPrice,
+          ghlDocumentUrls: results
+        });
+      }
+
       onClose();
-    }, 1500);
+    } catch (error) {
+      console.error("❌ Error GHL integration:", error);
+      showToast(`Error: ${error.message}`, "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full h-full sm:h-auto sm:max-w-2xl animate-in zoom-in-95 duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200">
         <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><FilePlus size={20} className="text-red-600" /></div>
-              Generar Nuevo Contrato
+              Generar Nuevos Documentos
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">1. Selecciona el Vehículo</label>
-              <select className="w-full px-3 py-3 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500" value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)} required>
+              <select
+                className={`w-full px-3 py-3 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${!!initialVehicle ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-gray-50'}`}
+                value={selectedVehicleId}
+                onChange={(e) => setSelectedVehicleId(e.target.value)}
+                required
+                disabled={!!initialVehicle}
+              >
                 <option value="">-- Seleccionar vehículo disponible --</option>
                 {availableVehicles.map(v => (
                   <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${v.price.toLocaleString()}`}</option>
                 ))}
               </select>
             </div>
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-              <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 2. Datos del Cliente</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
-                <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} required />
-              </div>
-              <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
-            </div>
 
-            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-              <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 3. Términos Financieros</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} required />
-                <Input label="Inicial / Avance" type="number" placeholder="Ej. 150000" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
+            {/* Compact Grid Layout */}
+            <div className="space-y-4">
+              {/* Row 1: Client Data (4 cols) */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 2. Datos del Cliente</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
+                  <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} required />
+                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
+                  <Input label="Teléfono" placeholder="809-555-5555" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
+                  <Input label="Email" type="email" placeholder="email@ejemplo.com" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Row 2: Financial Terms (3 cols) */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 3. Términos Financieros</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Input label="Banco / Financiera" placeholder="Ej. Banco Popular" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                  <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} required />
+                  <Input label="Inicial / Avance" type="number" placeholder="Ej. 150000" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
+                </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">4. Elige una Plantilla</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {CONTRACT_TEMPLATES.map(template => {
-                  const Icon = template.icon;
-                  const isSelected = selectedTemplate === template.id;
+              <label className="block text-sm font-medium text-gray-700 mb-3">4. Elige los Documentos a Generar (Selección Múltiple)</label>
+
+              {/* Group by category if needed, or just list everything */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2">
+                {ghlTemplates.map(template => {
+                  const isSelected = selectedTemplates.includes(template.id);
                   return (
-                    <div key={template.id} onClick={() => setSelectedTemplate(template.id)} className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 relative overflow-hidden ${isSelected ? 'border-red-600 bg-red-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-gray-300'}`}>
-                      {isSelected && <div className="absolute top-2 right-2 text-red-600"><CheckCircle size={16} fill="currentColor" className="text-white" /></div>}
-                      <Icon className={`mb-3 ${isSelected ? 'text-red-600' : 'text-gray-400'}`} size={24} />
-                      <h4 className={`font-bold text-sm ${isSelected ? 'text-red-700' : 'text-gray-700'}`}>{template.name}</h4>
+                    <div
+                      key={template.id}
+                      onClick={() => toggleTemplate(template.id)}
+                      className={`cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 relative flex items-center gap-3 ${isSelected ? 'border-red-600 bg-red-50 shadow-md' : 'border-gray-100 bg-gray-50 hover:bg-white hover:border-gray-300'}`}
+                    >
+                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'bg-red-600 border-red-600' : 'border-gray-300 bg-white'}`}>
+                        {isSelected && <Check size={14} className="text-white" />}
+                      </div>
+
+                      <div className="flex-1">
+                        <h4 className={`font-bold text-sm leading-tight uppercase ${isSelected ? 'text-slate-900' : 'text-gray-600'}`}>{template.name}</h4>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-red-500">GHL TEMPLATE</span>
+                      </div>
                     </div>
                   );
                 })}
+                {ghlTemplates.length === 0 && (
+                  <div className="col-span-full p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    Cargando plantillas de GHL... Asegúrate de estar conectado en Ajustes.
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+
+            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>Cancelar</Button>
-              <Button type="submit" disabled={loading || !selectedTemplate || !selectedVehicleId} className="bg-red-600 text-white hover:bg-red-700">
-                {loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Generando...</> : 'Generar y Guardar'}
+              <Button type="submit" disabled={loading || selectedTemplates.length === 0 || !selectedVehicleId} className="bg-slate-900 text-white hover:bg-slate-800">
+                {loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Procesando...</> : `Generar ${selectedTemplates.length} Documento(s)`}
               </Button>
             </div>
           </form>
@@ -1136,97 +1364,499 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, initial
   );
 };
 
+// --- HELPER: RENDER CONTRACT WITH DATA ---
+const renderContract = (html, data) => {
+  if (!html) return '';
+  let content = html;
+
+  // Normalizar datos para asegurar que no falte nada
+  const clientParts = (data.client || '').split(' ');
+  const clientFirstName = data.nombre || clientParts[0] || '';
+  const clientLastName = data.apellido || clientParts.slice(1).join(' ') || '';
+
+  const vehicleParts = (data.vehicle || '').split(' ');
+  const vehicleMake = data.marca || vehicleParts[0] || '';
+  const vehicleModel = data.modelo || vehicleParts.slice(1).join(' ') || '';
+
+  // 1. DICCIONARIO DE DATOS (Data Object) - Estructura exacta solicitada
+  const contratoData = {
+    // Datos del Cliente
+    'nombre': clientFirstName,
+    'apellido': clientLastName,
+    'cedula': data.cedula || '',
+    'telefono': data.telefono || data.phone || '',
+    'direccion': data.direccion || data.address || '',
+
+    // Ficha Principal
+    'marca': vehicleMake,
+    'modelo': vehicleModel,
+    'edicion': data.version || data.edicion || '', // Added edicion mapping
+    'version': data.version || '',
+    'año': data.año || data.year || '',
+    'color': data.color || '',
+    'chasis': data.chasis || data.vin || '',
+    'vin': data.vin || data.chasis || '', // Alias
+    'placa': data.placa || data.plate || '',
+
+    // Finanzas
+    'precio': data.precio || `RD$ ${Number(data.price || 0).toLocaleString()}`,
+    'inicial': data.inicial || `RD$ ${Number(data.downPayment || 0).toLocaleString()}`,
+    'banco': data.banco || data.bank || '',
+
+    // Detalles Extra
+    'millaje': data.mileage ? Number(data.mileage).toLocaleString() : '',
+    'carfax': data.carfax || '',
+    'condicion': data.condicion || data.condition || 'Excelentes condiciones',
+    'asientos': data.asientos || data.seats || '',
+    'motor': data.motor || data.details_engine || data.engineDescription || 'Motor no especificado',
+    'transmision': data.transmission || '',
+    'combustible': data.fuel || '',
+
+    // Documento
+    'fecha': data.date ? new Date(data.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
+
+    // Bloques de Firma
+    'firma_cliente': `
+      <div style="width:100%; max-width:350px; margin-top:60px; text-align:center; font-family:sans-serif;">
+        <div style="border-top:2px solid #000; width:100%; margin-bottom:8px;"></div>
+        <div style="font-weight:bold; font-size:14px; text-transform:uppercase; margin-bottom:4px;">
+          ${(clientFirstName).toUpperCase()} ${(clientLastName).toUpperCase()}
+        </div>
+        <div style="font-weight:bold; font-size:11px; text-transform:uppercase;">CLIENTE/CEDULA/FECHA.</div>
+      </div>
+    `,
+    'firma_vendedor': `
+      <div style="width:100%; max-width:350px; margin-top:60px; text-align:center; font-family:sans-serif;">
+        <div style="border-top:2px solid #000; width:100%; margin-bottom:8px;"></div>
+        <div style="font-weight:bold; font-size:14px; text-transform:uppercase; margin-bottom:4px;">
+          ${(data.dealerName || 'AGENTE AUTORIZADO').toUpperCase()}
+        </div>
+        <div style="font-weight:bold; font-size:11px; text-transform:uppercase;">VENDEDOR AUTORIZADO</div>
+      </div>
+    `,
+
+    // LEGACY / COMPATIBILIDAD
+    'CLIENTE_NOMBRE': clientFirstName,
+    'CLIENTE_APELLIDO': clientLastName,
+    'CLIENTE_CEDULA': data.cedula || '',
+    'VEHICULO_MARCA': vehicleMake,
+    'VEHICULO_MODELO': vehicleModel,
+    'VEHICULO_VIN': data.chasis || data.vin || '',
+  };
+
+  // 2. FUNCIÓN DE REEMPLAZO CORREGIDA (Lógica del usuario)
+  let resultado = content;
+
+  Object.keys(contratoData).forEach(key => {
+    // Esta Regex busca {{key}} con cualquier cantidad de llaves y espacios
+    // Ej: {{nombre}}, {{{ nombre }}}, {{{{nombre}}}}
+    const regex = new RegExp(`{+\\s*${key}\\s*}+`, 'gi');
+    const valorReal = contratoData[key] !== undefined && contratoData[key] !== null ? contratoData[key] : '';
+
+    // Solo reemplazar si hay valor, o si es explícitamente vacío, pero mantener lógica de reemplazo
+    resultado = resultado.replace(regex, valorReal);
+  });
+
+  // Limpieza de estilos rojos (legacy)
+  resultado = resultado.replace(/<span[^>]*style="[^"]*color:\s*#dc2626[^"]*"[^>]*>(.*?)<\/span>/gi, '$1');
+
+  // 3. LIMPIEZA FINAL DE CUALQUIER ETIQUETA HUÉRFANA
+  // Elimina cualquier cosa que parezca un placeholder no reemplazado {{...}}
+  return resultado.replace(/{+.*?}+/g, '');
+};
+
+// Helper para limpieza quirúrgica de estilos (mismo logic que PlantillaEditor)
+const cleanHtmlStyles = (htmlContent) => {
+  if (!htmlContent) return '';
+  let processed = htmlContent;
+
+  // 1. Convert variable-chip class to inline style (optional, but keep for basic cleanup)
+  // We remove the aggressive style regex to preserve bold/italics
+  processed = processed.replace(/class=["']variable-chip["']/gi, 'style="color: #000000; display: inline;"');
+  processed = processed.replace(/contenteditable=["']false["']/gi, '');
+
+  return processed;
+};
+
+// Función de Sanitización Selectiva para PDF (DOM-based)
+const prepareElementForPDF = (originalElement) => {
+  // 1. Clonamos para no afectar el DOM visible
+  const clone = originalElement.cloneNode(true);
+
+  // 2. Buscamos variables (chips), spans con estilos, o divs con fondo de variable
+  // Ajustamos el selector para atrapar todo lo que parezca un "chip"
+  const variables = clone.querySelectorAll('span, .variable-chip, span[style*="background"], span[style*="border"]');
+
+  variables.forEach(el => {
+    // A. ELIMINAR LA CAJA (Estética de editor)
+    el.style.backgroundColor = 'transparent';
+    el.style.border = 'none';
+    el.style.boxShadow = 'none';
+    el.style.padding = '0';
+    el.style.margin = '0';
+    el.style.borderRadius = '0';
+
+    // B. FORZAR APARIENCIA DE TEXTO
+    el.style.display = 'inline';
+    el.style.color = '#000000'; // Negro puro
+
+    // C. Importante: NO tocamos font-weight ni font-style
+    // el.style.fontWeight se mantiene si estaba definido o heredado
+  });
+
+  return clone;
+};
+
+const generateContractHtml = (contract, userProfile, isPreview = false) => {
+  // Merge contract data + userProfile for the renderer
+  const fullData = {
+    ...contract,
+    dealerName: userProfile.dealerName,
+    dealerAddress: userProfile.address,
+    dealerPhone: userProfile.phone
+  };
+
+  // CSS EXTRA PARA IMÁGENES Y CAPAS
+  const EXTRA_CSS = `
+    /* Capas de imagen (mismas que en el editor) */
+    .img-behind {
+      position: absolute !important;
+      z-index: -1 !important;
+      opacity: 0.6;
+    }
+    .img-front {
+      position: absolute !important;
+      z-index: 10 !important;
+    }
+    /* Página estilo Carta */
+    .contract-page {
+      width: 215.9mm;
+      height: 279.4mm;
+      position: relative;
+      background-color: white;
+      page-break-after: always;
+      overflow: hidden;
+    }
+    .contract-page:last-child {
+      page-break-after: auto;
+    }
+    .contract-bg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+      object-fit: fill; /* Estira el fondo al tamaño carta completo */
+    }
+    .contract-content {
+      position: absolute;
+      top: 25mm; left: 25mm; right: 25mm; bottom: 25mm;
+      z-index: 10;
+      font-family: 'Calibri', 'Carlito', sans-serif;
+      line-height: 1.15;
+      font-size: 11pt;
+      color: black;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .contract-floating-img {
+      position: absolute;
+    }
+    /* Ajuste de impresión */
+    @media print {
+      .img-behind {
+         z-index: -1 !important;
+         position: absolute !important; 
+      }
+      body { -webkit-print-color-adjust: exact; }
+    }
+    /* Reset básico para el contenido */
+    #contract-body img {
+      display: inline-block;
+    }
+  `;
+
+  // NUEVO: Si hay páginas estructuradas (del nuevo editor), renderizarlas con fondos
+  if (contract.pages && contract.pages.length > 0) {
+    const pagesHtml = contract.pages.map((page, idx) => {
+      const processedContent = cleanHtmlStyles(renderContract(page.content || '', fullData));
+      const bgImage = page.backgroundImage || contract.backgroundImage;
+
+      // Renderizar imágenes flotantes de esta página
+      const floatingImages = (contract.images || [])
+        .filter(img => img.pageId === page.id)
+        .map(img => `<img src="${img.src}" class="contract-floating-img" style="left:${img.x}px; top:${img.y}px; width:${img.width}px; height:${img.height}px; z-index:20;">`)
+        .join('');
+
+      return `
+        <div class="contract-page">
+          ${bgImage ? `<img src="${bgImage}" class="contract-bg" />` : ''}
+          ${floatingImages}
+          <div class="contract-content">
+            ${processedContent}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+        <style>${SHARED_QUILL_STYLES}${EXTRA_CSS}</style>
+        ${pagesHtml}
+      `;
+  }
+
+  // 1. Si hay contenido personalizado legacy (templateContent o content), usarlo
+  const legacyContent = contract.templateContent || contract.content;
+  if (legacyContent) {
+    const content = cleanHtmlStyles(renderContract(legacyContent, fullData));
+
+    return `
+      <style>${SHARED_QUILL_STYLES}${EXTRA_CSS}</style>
+      <div id="contract-content" class="ql-editor" style="
+        font-family: 'Helvetica', 'Arial', sans-serif; 
+        padding: 0; 
+        background: white;
+        ${contract.backgroundImage ? `background-image: url(${contract.backgroundImage}); background-size: 100% 100%; background-repeat: no-repeat;` : ''}
+        width: 215.9mm; 
+        min-height: 279.4mm;
+        margin: 0 auto;
+        box-sizing: border-box;
+        position: relative;
+      ">
+        <div id="contract-body" class="contract-body ql-editor" style="padding: 20mm 20mm; overflow-wrap: break-word; word-wrap: break-word; position: relative; z-index: 1;">
+          ${content}
+        </div>
+      </div>
+      `;
+  }
+
+  // 2. Fallback: Plantilla Hardcoded (Legacy)
+  return `
+      <style>${SHARED_QUILL_STYLES}</style>
+      <div id="contract-content" style="
+        font-family: 'Times New Roman', serif; 
+        padding: 0; 
+        background: white;
+        width: 215.9mm; 
+        min-height: 279.4mm;
+        margin: 0 auto;
+        box-sizing: border-box;
+        position: relative;
+      ">
+        <div id="contract-body" style="padding: 15mm 20mm;">
+          <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
+            <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
+            <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
+            <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
+          </div>
+
+          <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${(contract.templateType || contract.template || 'Documento').toUpperCase()}</h1>
+
+          <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${contract.date ? new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+
+          <p style="margin-bottom: 25px; text-align: justify;">
+            <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong> (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
+            <br /><br />
+            <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong> (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
+          </p>
+
+          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">PRIMERO: OBJETO DEL CONTRATO</h2>
+          <p style="margin-bottom: 15px; text-align: justify;">EL VENDEDOR, por medio del presente acto, vende, cede y traspasa con todas las garantías de derecho al COMPRADOR, quien acepta, el siguiente vehículo de motor:</p>
+          <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #edf2f7;">
+            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+              <tr><td style="padding: 4px 0; font-weight: bold; width: 30%;">Vehículo:</td><td>${contract.vehicle}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold;">Condición:</td><td>Usado / Certificado</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold;">Identificación (VIN):</td><td>${contract.vin || 'Verificado en Chasis'}</td></tr>
+            </table>
+          </div>
+
+          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">SEGUNDO: PRECIO Y FORMA DE PAGO</h2>
+          <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.price || 0).toLocaleString()}</strong>, el cual se compromete a pagar de la siguiente manera:
+            ${contract.downPayment && Number(contract.downPayment) > 0
+      ? `un pago inicial de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.downPayment).toLocaleString()}</strong> y el balance restante mediante las condiciones acordadas.`
+      : `en un único pago al momento de la firma.`}
+            El VENDEDOR declara haber recibido conforme a lo pactado, sirviendo el presente documento como carta de pago y descargo legal por los montos recibidos.
+          </p>
+
+          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">TERCERO: ESTADO Y GARANTÍA</h2>
+          <p style="margin-bottom: 15px; text-align: justify;">El COMPRADOR declara haber revisado minuciosamente el vehículo y aceptarlo en el estado mecánico y de carrocería en que se encuentra ("AS IS"). EL VENDEDOR otorga una garantía limitada de treinta (30) días sobre motor y transmisión, sujeto a uso normal.</p>
+
+          <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">CUARTO: JURISDICCIÓN Y LEY APLICABLE</h2>
+          <p style="margin-bottom: 40px; text-align: justify;">Para todo lo no previsto en el presente contrato, las partes se remiten al derecho común y eligen domicilio en la jurisdicción de Punta Cana para cualquier proceso derivado del mismo.</p>
+
+          <div style="margin-top: 60px; display: flex; justify-content: space-between; gap: 40px;">
+            <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
+              <p style="margin: 0; font-weight: bold;">EL VENDEDOR</p>
+              <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${userProfile.dealerName}</p>
+            </div>
+            <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
+              <p style="margin: 0; font-weight: bold;">EL COMPRADOR</p>
+              <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${contract.client}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      `;
+};
+
+const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
+  // If quote has templateContent, use it with variable replacements
+  if (quote.templateContent) {
+    const replacements = {
+      // Cliente
+      '{{CLIENTE_NOMBRE}}': quote.name || '',
+      '{{ CLIENTE_APELLIDO }}': quote.lastname || '',
+      '{{ CLIENTE_DOC }}': quote.cedula || '',
+      '{{ CLIENTE_TEL }}': quote.phone || '',
+      '{{ CLIENTE_CEDULA }}': quote.cedula || '',
+
+      // Vehículo
+      '{{ VEHICULO_MARCA }}': quote.vehicle?.split(' ')[0] || '',
+      '{{ VEHICULO_MODELO }}': quote.vehicle?.split(' ').slice(1).join(' ') || '',
+      '{{ VEHICULO_COMPLETO }}': quote.vehicle || '',
+      '{{ VEHICULO_ANO }}': quote.year || '',
+      '{{ VEHICULO_ANIO }}': quote.year || '',
+      '{{ VEHICULO_COLOR }}': quote.color || '',
+      '{{ VEHICULO_VIN }}': quote.vin || '',
+      '{{ VEHICULO_VERSION }}': quote.version || '',
+      '{{ VEHICULO_MILLAJE }}': quote.mileage ? String(quote.mileage).toLocaleString() : '',
+      '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
+      '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
+      '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
+      '{{ VEHICULO_PASAJEROS }}': quote.passengers || '',
+
+      // Negocio
+      '{{ PRECIO_VENTA }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
+      '{{ MONTO_INICIAL }}': quote.initial ? `RD$ ${Number(quote.initial).toLocaleString()}` : '',
+      '{{ BANCO }}': quote.bank || '',
+      '{{ FECHA_VENTA }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
+      '{{ FECHA_COTIZACION }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
+      '{{ DEALER_NOMBRE }}': userProfile.dealerName || '',
+      '{{ FOLIO }}': `Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}`,
+
+      // Legacy
+      '{{ client }}': `${quote.name || ''} ${quote.lastname || ''}`.trim(),
+      '{{ vehicle }}': quote.vehicle || '',
+      '{{ price }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
+    };
+
+    let content = quote.templateContent;
+    Object.keys(replacements).forEach(key => {
+      const escapedKey = key.replace(/[.*+?^${ }()|[\]\\]/g, '\\$&');
+      content = content.replace(new RegExp(escapedKey, 'g'), replacements[key]);
+    });
+
+    return `
+      <style>${SHARED_QUILL_STYLES}</style>
+      <div id="quote-content" style="
+        font-family: 'Helvetica', 'Arial', sans-serif; 
+        padding: 0; 
+        background: white;
+        width: 215.9mm; 
+        min-height: 279.4mm;
+        margin: 0 auto;
+        box-sizing: border-box;
+        position: relative;
+      ">
+        <div id="quote-body" style="padding: 15mm 20mm; overflow-wrap: break-word; word-wrap: break-word;">${content}</div>
+      </div>
+      `;
+  }
+
+  // Default format (fallback)
+  return `
+      <style>${SHARED_QUILL_STYLES}</style>
+      <div id="quote-content" style="
+        font-family: 'Helvetica', 'Arial', sans-serif; 
+        padding: 0; 
+        background: white;
+        width: 215.9mm; 
+        min-height: 279.4mm;
+        margin: 0 auto;
+        box-sizing: border-box;
+        position: relative;
+      ">
+        <div id="quote-body" style="padding: 15mm 20mm;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
+            <div>
+              <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+              <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'PREVIEW'}</p>
+              <p style="margin: 5px 0 0; font-size: 12px;">${new Date().toLocaleDateString('es-DO', { long: true })}</p>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA/ID:</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula || 'N/A'}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+            <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+            <div style="margin-top: 15px; display: flex; gap: 20px;">
+              <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
+                <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+                <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
+              </div>
+            </div>
+          </div>
+
+          ${quote.bank ? `
+        <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
+            <table style="width: 100%;">
+              <tr>
+                <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold; width: 30%;">INSTITUCIÓN:</td>
+                <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
+              </tr>
+            </table>
+        </div>
+        ` : ''}
+
+          <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
+            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br />
+              Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+          </div>
+        </div>
+      </div>
+      `;
+};
+
 const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   if (!isOpen || !contract) return null;
 
-  const getContractHtml = (isPreview = false) => `
-    <div id="contract-content" style="
-      font-family: 'Times New Roman', serif; 
-      padding: 0; 
-      line-height: 1.6; 
-      color: #000; 
-      background: white;
-      ${isPreview ? 'width: 100%; max-width: 210mm;' : 'width: 210mm; min-height: 297mm;'}
-      margin: 0 auto;
-      box-sizing: border-box;
-      position: relative;
-      box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
-    ">
-      <div id="contract-body" style="padding: 15mm 20mm;">
-        <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
-          <h1 style="margin: 0; color: #1a202c; font-size: 28px;">${userProfile.dealerName}</h1>
-          <p style="margin: 5px 0; color: #4a5568; font-size: 14px;">RNC: 1-0000000-1 | Tel: 809-555-5555</p>
-          <p style="margin: 0; color: #718096; font-size: 12px; font-style: italic;">Calidad y Confianza sobre Ruedas</p>
-        </div>
-        
-        <h1 style="text-align: center; font-size: 20px; margin-bottom: 30px; text-transform: uppercase; text-decoration: underline;">${(contract.template || 'Documento').toUpperCase()}</h1>
-        
-        <p style="margin-bottom: 20px; text-align: justify;">En la ciudad de Punta Cana, Provincia La Altagracia, República Dominicana, a los <strong>${contract.date ? new Date(contract.date).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
-        
-        <p style="margin-bottom: 25px; text-align: justify;">
-          <strong>DE UNA PARTE:</strong> El señor(a) <strong>${userProfile.name}</strong>, de nacionalidad Dominicana, mayor de edad, actuando en nombre y representación legal de la empresa <strong>${userProfile.dealerName}</strong> (en lo adelante denominado como <strong>EL VENDEDOR</strong>).
-          <br/><br/>
-          <strong>DE LA OTRA PARTE:</strong> El señor(a) <strong>${contract.client}</strong>, portador del documento de identidad No. <strong>${contract.cedula || 'N/A'}</strong> (en lo adelante denominado como <strong>EL COMPRADOR</strong>).
-        </p>
-        
-        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">PRIMERO: OBJETO DEL CONTRATO</h2>
-        <p style="margin-bottom: 15px; text-align: justify;">EL VENDEDOR, por medio del presente acto, vende, cede y traspasa con todas las garantías de derecho al COMPRADOR, quien acepta, el siguiente vehículo de motor:</p>
-        <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #edf2f7;">
-          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-            <tr><td style="padding: 4px 0; font-weight: bold; width: 30%;">Vehículo:</td><td>${contract.vehicle}</td></tr>
-            <tr><td style="padding: 4px 0; font-weight: bold;">Condición:</td><td>Usado / Certificado</td></tr>
-            <tr><td style="padding: 4px 0; font-weight: bold;">Identificación (VIN):</td><td>${contract.vin || 'Verificado en Chasis'}</td></tr>
-          </table>
-        </div>
-
-        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">SEGUNDO: PRECIO Y FORMA DE PAGO</h2>
-        <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.price || 0).toLocaleString()}</strong>, el cual se compromete a pagar de la siguiente manera: 
-          ${contract.downPayment && Number(contract.downPayment) > 0
-      ? `un pago inicial de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.downPayment).toLocaleString()}</strong> y el balance restante mediante las condiciones acordadas.`
-      : `en un único pago al momento de la firma.`}
-          El VENDEDOR declara haber recibido conforme a lo pactado, sirviendo el presente documento como carta de pago y descargo legal por los montos recibidos.
-        </p>
-        
-        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">TERCERO: ESTADO Y GARANTÍA</h2>
-        <p style="margin-bottom: 15px; text-align: justify;">El COMPRADOR declara haber revisado minuciosamente el vehículo y aceptarlo en el estado mecánico y de carrocería en que se encuentra ("AS IS"). EL VENDEDOR otorga una garantía limitada de treinta (30) días sobre motor y transmisión, sujeto a uso normal.</p>
-
-        <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">CUARTO: JURISDICCIÓN Y LEY APLICABLE</h2>
-        <p style="margin-bottom: 40px; text-align: justify;">Para todo lo no previsto en el presente contrato, las partes se remiten al derecho común y eligen domicilio en la jurisdicción de Punta Cana para cualquier proceso derivado del mismo.</p>
-
-        <div style="margin-top: 60px; display: flex; justify-content: space-between; gap: 40px;">
-           <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
-             <p style="margin: 0; font-weight: bold;">EL VENDEDOR</p>
-             <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${userProfile.dealerName}</p>
-           </div>
-           <div style="width: 45%; border-top: 1px solid #000; padding-top: 10px; text-align: center;">
-             <p style="margin: 0; font-weight: bold;">EL COMPRADOR</p>
-             <p style="margin: 10px 0 0 0; font-size: 12px; color: #4a5568;">${contract.client}</p>
-           </div>
-        </div>
-        
-        <div style="margin-top: 40px; text-align: center; color: #cbd5e0; font-size: 10px; font-family: sans-serif;">
-            Documento generado digitalmente por CarBot RD - ID: ${contract.id.slice(0, 8)}
-        </div>
-      </div>
-    </div>
-  `;
-
   const handleDownloadPDF = async () => {
     const element = document.createElement('div');
-    element.innerHTML = getContractHtml(false);
+    element.innerHTML = generateContractHtml(contract, userProfile, false);
     document.body.appendChild(element);
 
     const opt = {
-      margin: 0,
+      margin: [0.5, 0.5, 0.5, 0.5],
       // Use contract ID if it adheres to the new format, or fallback to generated name
       filename: contract.id && contract.id.startsWith('Contrato_') ? `${contract.id}.pdf` : `Contrato_${contract.client.replace(/\s+/g, '_')}_${contract.id.slice(0, 5)}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
 
     const html2pdf = (await import('html2pdf.js')).default;
-    html2pdf().set(opt).from(element).save().then(() => {
+    const cleanElement = prepareElementForPDF(element);
+    html2pdf().set(opt).from(cleanElement).save().then(() => {
       document.body.removeChild(element);
     });
   };
@@ -1237,11 +1867,11 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
       <html>
         <head>
           <title>Imprimir Contrato</title>
-          <style>@page { size: A4; margin: 0; }</style>
+          <style>@page {size: letter; margin: 0; }</style>
         </head>
-        <body style="margin: 0;">${getContractHtml()}</body>
+        <body style="margin: 0;">${generateContractHtml(contract, userProfile)}</body>
       </html>
-    `);
+      `);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
@@ -1257,48 +1887,64 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
         <div className="flex flex-col h-full bg-slate-50 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden">
           <div className="flex justify-between items-center px-4 py-3 border-b bg-white sm:rounded-t-2xl shrink-0 safe-top">
             <h3 className="text-sm sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-              <FileText size={18} className="text-red-600 sm:w-5 sm:h-5" /> <span className="truncate max-w-[200px]">Contrato: {contract.client}</span>
+              <FileText size={18} className="text-red-600 sm:w-[20px] sm:h-[20px]" /> <span className="truncate max-w-[200px]">Contrato: {contract.client}</span>
             </h3>
             <button onClick={onClose}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-slate-200/50 p-2 sm:p-6 overflow-hidden border-b border-slate-200 sm:border sm:rounded-2xl sm:mx-4 sm:mb-4 shadow-inner relative">
+          <div className="flex-1 bg-white overflow-hidden relative">
             <iframe
               srcDoc={`
                 <!DOCTYPE html>
                 <html>
                   <head>
+                    <title>Vista Previa del Contrato</title>
                     <style>
-                      html { min-height: 100%; }
-                      body { 
-                        margin: 0; 
-                        padding: 40px; 
-                        background: #cbd5e1; 
-                        font-family: sans-serif;
+                      html { 
+                        height: 100%;
+                        overflow-y: auto;
+                        -webkit-overflow-scrolling: touch;
                       }
-                      * { box-sizing: border-box; }
-                      ::-webkit-scrollbar { width: 8px; }
-                      ::-webkit-scrollbar-track { background: #f1f1f1; }
-                      ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-                      ::-webkit-scrollbar-thumb:hover { background: #555; }
-                      
-                      /* MOBILE OPTIMIZATION */
-                      @media (max-width: 640px) {
-                        html, body { height: 100%; margin: 0; padding: 0; }
-                        body { padding: 0 !important; background: #fff; display: block; overflow-y: auto; } 
-                        #contract-content { box-shadow: none !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; }
-                        #contract-body { padding: 20px !important; }
-                        h1 { font-size: 20px !important; } 
-                        p, td, li { font-size: 14px !important; }
+                      body {
+                        margin: 0;
+                        padding: 0;
+                        background: #f8fafc;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        min-height: 100%;
+                      }
+                      .sheet-container {
+                        width: 215.9mm;
+                        max-width: 100%;
+                        background: white;
+                        box-shadow: 0 0 20px rgba(0,0,0,0.05);
+                        margin: 20px auto;
+                        min-height: 279.4mm;
+                        position: relative;
+                      }
+                      @media print {
+                        body { background: white; padding: 0; }
+                        .sheet-container { box-shadow: none; margin: 0; width: 100%; }
+                      }
+                      /* Responsive tweak for mobile */
+                      @media (max-width: 215.9mm) {
+                        .sheet-container {
+                          width: 100%;
+                          box-shadow: none;
+                          margin: 0;
+                        }
                       }
                     </style>
                   </head>
                   <body>
-                    ${getContractHtml(true)}
+                    <div class="sheet-container">
+                      ${generateContractHtml(contract, userProfile, true)}
+                    </div>
                   </body>
                 </html>
               `}
-              className="w-full h-full border-none rounded-none sm:rounded-sm min-h-0 block"
+              className="w-full h-full border-none"
               title="Vista Previa del Contrato"
             />
           </div>
@@ -1320,60 +1966,125 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
 const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
   if (!isOpen || !quote) return null;
 
-  const getQuoteHtml = (isPreview = false) => `
-    <div id="quote-content" style="
-      font-family: 'Helvetica', 'Arial', sans-serif; 
-      padding: 0; 
-      line-height: 1.6; 
-      color: #334155; 
-      background: white;
-      ${isPreview ? 'width: 100%; max-width: 210mm;' : 'width: 210mm; min-height: 297mm;'}
-      margin: 0 auto;
-      box-sizing: border-box;
-      position: relative;
-      box-shadow: ${isPreview ? '0 0 20px rgba(0,0,0,0.1)' : 'none'};
-    ">
-      <div id="contract-body" style="padding: 15mm 20mm;">
+  const getQuoteHtml = (isPreview = false) => {
+    // If quote has templateContent, use it with variable replacements
+    if (quote.templateContent) {
+      const replacements = {
+        // Cliente
+        '{{CLIENTE_NOMBRE}}': quote.name || '',
+        '{{ CLIENTE_APELLIDO }}': quote.lastname || '',
+        '{{ CLIENTE_DOC }}': quote.cedula || '',
+        '{{ CLIENTE_TEL }}': quote.phone || '',
+        '{{ CLIENTE_CEDULA }}': quote.cedula || '',
+
+        // Vehículo
+        '{{ VEHICULO_MARCA }}': quote.vehicle?.split(' ')[0] || '',
+        '{{ VEHICULO_MODELO }}': quote.vehicle?.split(' ').slice(1).join(' ') || '',
+        '{{ VEHICULO_COMPLETO }}': quote.vehicle || '',
+        '{{ VEHICULO_ANO }}': quote.year || '',
+        '{{ VEHICULO_ANIO }}': quote.year || '',
+        '{{ VEHICULO_COLOR }}': quote.color || '',
+        '{{ VEHICULO_VIN }}': quote.vin || '',
+        '{{ VEHICULO_VERSION }}': quote.version || '',
+        '{{ VEHICULO_MILLAJE }}': quote.mileage ? String(quote.mileage).toLocaleString() : '',
+        '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
+        '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
+        '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
+        '{{ VEHICULO_PASAJEROS }}': quote.passengers || '',
+
+        // Negocio
+        '{{ PRECIO_VENTA }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
+        '{{ MONTO_INICIAL }}': quote.initial ? `RD$ ${Number(quote.initial).toLocaleString()}` : '',
+        '{{ BANCO }}': quote.bank || '',
+        '{{ FECHA_VENTA }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
+        '{{ FECHA_COTIZACION }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
+        '{{ DEALER_NOMBRE }}': userProfile.dealerName || '',
+        '{{ FOLIO }}': `Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}`,
+
+        // Legacy
+        '{{ client }}': `${quote.name || ''} ${quote.lastname || ''}`.trim(),
+        '{{ vehicle }}': quote.vehicle || '',
+        '{{ price }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
+      };
+
+      let content = quote.templateContent;
+      Object.keys(replacements).forEach(key => {
+        const escapedKey = key.replace(/[.*+?^${ }()|[\]\\]/g, '\\$&');
+        content = content.replace(new RegExp(escapedKey, 'g'), replacements[key]);
+      });
+
+      return `
+      <style>${SHARED_QUILL_STYLES}</style>
+      <div id="quote-content" style="
+          font-family: 'Helvetica', 'Arial', sans-serif; 
+          padding: 0; 
+          background: white;
+          width: 215.9mm; 
+          min-height: 279.4mm;
+          margin: 0 auto;
+          box-sizing: border-box;
+          position: relative;
+        ">
+        <div id="quote-body" style="padding: 15mm 20mm; overflow-wrap: break-word; word-wrap: break-word;">${content}</div>
+      </div>
+      `;
+    }
+
+    // Default format (fallback)
+    return `
+      <style>${SHARED_QUILL_STYLES}</style>
+      <div id="quote-content" style="
+          font-family: 'Helvetica', 'Arial', sans-serif; 
+          padding: 0; 
+          background: white;
+          width: 215.9mm; 
+          min-height: 279.4mm;
+          margin: 0 auto;
+          box-sizing: border-box;
+          position: relative;
+        ">
+        <div id="quote-body" style="padding: 15mm 20mm;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
-              <div>
-                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
-                <p style="margin: 5px 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
-              </div>
-              <div style="text-align: right;">
-                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'TEMP'}</p>
-                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              </div>
+            <div>
+              <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
+              <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase() || 'PREVIEW'}</p>
+              <p style="margin: 5px 0 0; font-size: 12px;">${new Date().toLocaleDateString('es-DO', { long: true })}</p>
+            </div>
           </div>
 
           <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold; width: 30%;">NOMBRE COMPLETO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
-                </tr>
-                ${quote.cedula ? `
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula}</td>
-                </tr>
-                ` : ''}
-              </table>
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold; width: 30%;">NOMBRE COMPLETO:</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
+                <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
+              </tr>
+              ${quote.cedula ? `
+                  <tr>
+                    <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">CÉDULA:</td>
+                    <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.cedula}</td>
+                  </tr>
+                  ` : ''
+      }
+            </table>
           </div>
 
           <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
-              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
-              <div style="margin-top: 15px; display: flex; gap: 20px;">
-                  <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
-                      <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
-                      <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
-                  </div>
+            <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
+            <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
+            <div style="margin-top: 15px; display: flex; gap: 20px;">
+              <div style="padding: 10px 20px; background: #fff1f2; border-radius: 8px; text-align: center; flex: 1;">
+                <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
+                <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
               </div>
+            </div>
           </div>
 
           ${quote.bank ? `
@@ -1386,15 +2097,17 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
                 </tr>
               </table>
           </div>
-          ` : ''}
+          ` : ''
+      }
 
           <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
-            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br/>
-            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
+            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br />
+              Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
           </div>
+        </div>
       </div>
-    </div>
-  `;
+      `;
+  };
 
   const handleDownloadPDF = async () => {
     const element = document.createElement('div');
@@ -1402,16 +2115,16 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
     document.body.appendChild(element);
 
     const opt = {
-      margin: 0,
-      // Use quote ID if it adheres to the new format, or fallback to generated name
+      margin: [0.5, 0.5, 0.5, 0.5],
       filename: quote.id && quote.id.startsWith('Cotizacion_') ? `${quote.id}.pdf` : `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
 
     const html2pdf = (await import('html2pdf.js')).default;
-    html2pdf().set(opt).from(element).save().then(() => {
+    const cleanElement = prepareElementForPDF(element);
+    html2pdf().set(opt).from(cleanElement).save().then(() => {
       document.body.removeChild(element);
     });
   };
@@ -1419,14 +2132,14 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
-      <html>
+      <html >
         <head>
           <title>Imprimir Cotización</title>
-          <style>@page { size: A4; margin: 0; }</style>
+          <style>@page {size: letter; margin: 0; }</style>
         </head>
         <body style="margin: 0;">${getQuoteHtml()}</body>
       </html>
-    `);
+      `);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
@@ -1437,46 +2150,78 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full max-w-4xl h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
-        <Card className="flex flex-col h-full bg-slate-50">
-          <div className="flex justify-between items-center mb-4 p-4 border-b bg-white rounded-t-xl shrink-0">
-            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Send size={20} className="text-red-600" /> Cotización: ${quote.name} ${quote.lastname}
+      <div className="w-full max-w-4xl h-[100dvh] sm:h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
+        <div className="flex flex-col h-full bg-slate-50 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex justify-between items-center px-4 py-3 border-b bg-white sm:rounded-t-2xl shrink-0 safe-top">
+            <h3 className="text-sm sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Send size={18} className="text-red-600 sm:w-[20px] sm:h-[20px]" /> <span className="truncate max-w-[200px]">Cotización: {quote.name} {quote.lastname}</span>
             </h3>
-            <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+            <button onClick={onClose}><X size={24} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
 
-          <div className="flex-1 bg-slate-200/50 p-6 overflow-y-auto border border-slate-200 rounded-2xl mx-4 mb-4 shadow-inner">
+          <div className="flex-1 bg-white overflow-hidden relative">
             <iframe
               srcDoc={`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <style>
-                body {margin: 0; padding: 20px; background: #cbd5e1; display: flex; justify-content: center; }
-                * {box - sizing: border-box; }
-                ::-webkit-scrollbar {width: 8px; }
-                ::-webkit-scrollbar-track {background: #f1f1f1; }
-                ::-webkit-scrollbar-thumb {background: #888; border-radius: 10px; }
-                ::-webkit-scrollbar-thumb:hover {background: #555; }
-              </style>
-            </head>
-            <body>
-              ${getQuoteHtml(true)}
-            </body>
-          </html>
-              `}
-              className="w-full h-full border-none rounded-sm min-h-[800px]"
+  < !DOCTYPE html >
+    <html>
+      <head>
+        <title>Vista Previa de la Cotización</title>
+        <style>
+          html {
+            height: 100%;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+                      }
+          body {
+            margin: 0;
+          padding: 0;
+          background: #f8fafc;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          min-height: 100%;
+                      }
+          .sheet-container {
+            width: 215.9mm;
+          max-width: 100%;
+          background: white;
+          box-shadow: 0 0 20px rgba(0,0,0,0.05);
+          margin: 20px auto;
+          min-height: 279.4mm;
+          position: relative;
+                      }
+          @media print {
+            body {background: white; padding: 0; }
+          .sheet-container {box-shadow: none; margin: 0; width: 100%; }
+                      }
+          /* Responsive tweak for mobile */
+          @media (max-width: 215.9mm) {
+                        .sheet-container {
+            width: 100%;
+          box-shadow: none;
+          margin: 0;
+                        }
+                      }
+        </style>
+      </head>
+      <body>
+        <div class="sheet-container">
+          ${generateQuoteHtml(quote, userProfile, true)}
+        </div>
+      </body>
+    </html>
+`}
+              className="w-full h-full border-none"
               title="Vista Previa de la Cotización"
             />
           </div>
 
-          <div className="flex justify-end gap-3 p-4 bg-white border-t rounded-b-xl shrink-0">
+          <div className="p-3 bg-white border-t sm:rounded-b-2xl flex gap-3 justify-end shrink-0 safe-bottom">
             <Button variant="ghost" onClick={onClose}>Cerrar</Button>
             <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
             <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
@@ -1485,46 +2230,197 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 
 // --- VISTAS PRINCIPALES ---
 
-const TrashView = ({ trash, onRestore, onPermanentDelete, onEmptyTrash }) => {
+const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onRestoreDocument, onPermanentDeleteDocument, onEmptyTrash }) => {
+  const [activeTab, setActiveTab] = useState('vehicles'); // 'vehicles' or 'documents'
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState([]);
+
+  // Filtrar documentos eliminados
+  const deletedDocuments = useMemo(() => {
+    const deletedContracts = (contracts || []).filter(c => c.status === 'deleted').map(c => ({ ...c, docType: 'contract' }));
+    const deletedQuotes = (quotes || []).filter(q => q.status === 'deleted').map(q => ({ ...q, docType: 'quote' }));
+    return [...deletedContracts, ...deletedQuotes].sort((a, b) => new Date(b.deletedAt || b.createdAt) - new Date(a.deletedAt || a.createdAt));
+  }, [contracts, quotes]);
+
+  const activeList = activeTab === 'vehicles' ? trash : deletedDocuments;
+
+  // Reset selection when tab changes
+  useEffect(() => {
+    setIsSelectionMode(false);
+    setSelectedItems([]);
+  }, [activeTab]);
+
+  const toggleSelection = (id) => {
+    setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleBulkRestore = async () => {
+    if (activeTab === 'vehicles') {
+      for (const id of selectedItems) await onRestore(id);
+    } else {
+      const itemsToRestore = activeList.filter(i => selectedItems.includes(i.id));
+      for (const item of itemsToRestore) await onRestoreDocument(item);
+    }
+    setSelectedItems([]);
+    setIsSelectionMode(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (confirm(`¿Estás seguro de eliminar permanentemente ${selectedItems.length} ítems? Esta acción NO se puede deshacer.`)) {
+      if (activeTab === 'vehicles') {
+        await Promise.all(selectedItems.map(id => onPermanentDelete(id, true)));
+      } else {
+        const itemsToDelete = activeList.filter(i => selectedItems.includes(i.id));
+        await Promise.all(itemsToDelete.map(item => onPermanentDeleteDocument(item, true)));
+      }
+      setSelectedItems([]);
+      setIsSelectionMode(false);
+    }
+  };
+
+  const handleEmptyDocumentsTrash = async () => {
+    if (confirm("¿Estás seguro de vaciar TODA la papelera de documentos? Esta acción NO se puede deshacer.")) {
+      await Promise.all(deletedDocuments.map(item => onPermanentDeleteDocument(item, true)));
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center">
-        <div><h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1><p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p></div>
-        {trash.length > 0 && (
-          <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none">Vaciar Papelera</Button>
-        )}
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1>
+          <p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+          {/* Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab('vehicles')}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${activeTab === 'vehicles' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} `}
+            >
+              Vehículos ({trash.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${activeTab === 'documents' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} `}
+            >
+              Documentos ({deletedDocuments.length})
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            {activeList.length > 0 && (
+              <button
+                onClick={() => {
+                  setIsSelectionMode(!isSelectionMode);
+                  setSelectedItems([]);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all ${isSelectionMode ? 'bg-slate-200 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+              >
+                {isSelectionMode ? 'Cancelar Selección' : 'Seleccionar Varios'}
+              </button>
+            )}
+
+            {activeList.length > 0 && activeTab === 'vehicles' && (
+              <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none whitespace-nowrap">
+                Vaciar Vehículos
+              </Button>
+            )}
+            {activeList.length > 0 && activeTab === 'documents' && (
+              <Button variant="danger" icon={Trash2} onClick={handleEmptyDocumentsTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none whitespace-nowrap">
+                Vaciar Documentos
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {trash.length === 0 ? (
+      {activeList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
-          <Trash2 size={48} className="mb-4 text-slate-300" /><p className="text-lg font-medium">La papelera está vacía.</p>
+          <Trash2 size={48} className="mb-4 text-slate-300" />
+          <p className="text-lg font-medium">No hay {activeTab === 'vehicles' ? 'vehículos' : 'documentos'} en la papelera.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {trash.map(item => (
-            <div key={item.id} className="relative group opacity-80 hover:opacity-100 transition-opacity">
-              <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
-                <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
-                  <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                  <div className="absolute inset-0 bg-red-900/10 mix-blend-multiply"></div>
-                </div>
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
-                  <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
-                  <div className="mt-auto grid grid-cols-2 gap-3">
-                    <Button variant="secondary" onClick={() => onRestore(item.id)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><Undo size={14} /> RESTAURAR</Button>
-                    <Button variant="secondary" onClick={() => onPermanentDelete(item.id)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><X size={14} /> BORRAR</Button>
+          {activeList.map(item => (
+            <div key={item.id} className={`relative group transition-all duration-300 ${isSelectionMode && selectedItems.includes(item.id) ? 'active-card-selection ring-2 ring-blue-500 rounded-2xl transform scale-[1.02]' : 'opacity-80 hover:opacity-100'}`}>
+
+              {/* Checkbox Overlay */}
+              {isSelectionMode && (
+                <div
+                  className="absolute inset-0 z-20 cursor-pointer"
+                  onClick={() => toggleSelection(item.id)}
+                >
+                  <div className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedItems.includes(item.id) ? 'bg-blue-500 border-blue-500' : 'bg-white/80 border-slate-300'}`}>
+                    {selectedItems.includes(item.id) && <Check size={14} className="text-white" />}
                   </div>
                 </div>
+              )}
+
+              <Card noPadding className="flex flex-col h-full border-red-100 bg-red-50/30">
+                {activeTab === 'vehicles' ? (
+                  <>
+                    <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
+                      <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <div className="absolute inset-0 bg-red-900/10 mix-blend-multiply"></div>
+                    </div>
+                    <div className="p-5 flex flex-col flex-1">
+                      <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
+                      <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
+
+                      {!isSelectionMode && (
+                        <div className="mt-auto grid grid-cols-2 gap-3">
+                          <Button variant="secondary" onClick={() => onRestore(item.id)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><Undo size={14} /> RESTAURAR</Button>
+                          <Button variant="secondary" onClick={() => onPermanentDelete(item.id)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><X size={14} /> BORRAR</Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-5 flex flex-col flex-1 h-full min-h-[200px]">
+                    <div className="mb-4">
+                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider mb-2 ${item.docType === 'contract' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'} `}>
+                        {item.docType === 'contract' ? 'Contrato' : 'Cotización'}
+                      </span>
+                      <h3 className="font-bold text-slate-800 text-lg w-full truncate" title={item.client || item.name}>{item.client || `${item.name || ''} ${item.lastname || ''} `}</h3>
+                      <p className="text-xs text-slate-500 font-medium truncate">{item.vehicle || 'Vehículo desconocido'}</p>
+                    </div>
+
+                    <p className="text-xs font-semibold text-red-400 mb-6 mt-auto">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Desconocido'}</p>
+
+                    {!isSelectionMode && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button variant="secondary" onClick={() => onRestoreDocument(item)} className="w-full text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><Undo size={14} /> RESTAURAR</Button>
+                        <Button variant="secondary" onClick={() => onPermanentDeleteDocument(item)} className="w-full text-xs font-bold border-red-200 text-red-700 hover:bg-red-50 flex items-center justify-center gap-1 active:scale-95 hover:scale-[1.02] transition-all"><X size={14} /> BORRAR</Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             </div>
           ))}
         </div>
       )}
+
+      {/* Floating Action Bar for Selection */}
+      {isSelectionMode && selectedItems.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white p-2 rounded-2xl shadow-2xl flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <span className="font-bold text-sm px-4 border-r border-slate-700">{selectedItems.length} seleccionados</span>
+
+          <button onClick={handleBulkRestore} className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2">
+            <Undo size={16} /> Restaurar
+          </button>
+
+          <button onClick={handleBulkDelete} className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2">
+            <Trash2 size={16} /> Eliminar
+          </button>
+        </div>
+      )}
     </div>
   );
 };
-
 // --- CONFIRMATION MODAL ---
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", isDestructive = false }) => {
   if (!isOpen) return null;
@@ -1563,20 +2459,25 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
 
 
 // --- SETTINGS VIEW ---
-const SettingsView = ({ userProfile, onLogout, onUpdateProfile }) => {
+const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: userProfile?.name || '',
-    jobTitle: userProfile?.jobTitle || 'Vendedor'
+    jobTitle: userProfile?.jobTitle || 'Vendedor',
+    newPassword: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const fileInputRef = useRef(null);
+  const logoInputRef = useRef(null);
 
-  // Sync formData when userProfile changes
   useEffect(() => {
     if (userProfile) {
       setFormData({
         name: userProfile.name || '',
-        jobTitle: userProfile.jobTitle || 'Vendedor'
+        jobTitle: userProfile.jobTitle || 'Vendedor',
+        newPassword: ''
       });
     }
   }, [userProfile]);
@@ -1586,144 +2487,406 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile }) => {
     await onUpdateProfile(formData);
     setIsEditing(false);
     setIsLoading(false);
+    showToast("Perfil actualizado correctamente");
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    const uploadUserId = userProfile?.id || userProfile?.uid || userProfile?.email?.replace(/\./g, '_');
+    if (!file || !uploadUserId) return;
+
+    // Validar tipo de imagen
+    if (!file.type.startsWith('image/')) {
+      showToast("Por favor selecciona una imagen válida.");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const storagePath = `${uploadUserId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase()}`;
+      let photoURL = '';
+
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from('fotos_perfil')
+        .upload(storagePath, file, { upsert: true });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('fotos_perfil')
+        .getPublicUrl(storagePath);
+
+      photoURL = publicUrl;
+      await onUpdateProfile({ ...formData, photoURL });
+      showToast("Foto de perfil actualizada");
+    } catch (error) {
+      console.error("Error al subir foto:", error);
+      showToast("Error al subir la foto");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !userProfile?.dealerId) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast("Por favor selecciona una imagen válida.");
+      return;
+    }
+
+    try {
+      setIsUploadingLogo(true);
+      const storagePath = `logos/${userProfile.dealerId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase()}`;
+      let logoURL = '';
+
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from('fotos_perfil')
+        .upload(storagePath, file, { upsert: true });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('fotos_perfil')
+        .getPublicUrl(storagePath);
+
+      logoURL = publicUrl;
+
+      // Update Supabase
+      const { error: supaErr } = await supabase
+        .from('dealers')
+        .update({ logo_url: logoURL })
+        .eq('id', userProfile.dealerId);
+
+      if (supaErr) throw supaErr;
+
+      // Update Local userProfile to reflect it immediately
+      await onUpdateProfile({ ...formData, dealer_logo: logoUrl });
+
+      showToast("Logo del dealer actualizado");
+    } catch (error) {
+      console.error("Error al subir logo:", error);
+      showToast("Error al subir el logo");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleOpenBotLink = () => {
+    if (!userProfile?.dealerId) return;
+    const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(userProfile.dealerId)}`;
+    window.open(link, '_blank');
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 sm:pb-0">
+    <div className="min-h-screen bg-[#E5E5E0] sm:p-6 md:p-12 flex items-stretch sm:items-center justify-center font-inter selection:bg-red-500/20">
+      <div className="max-w-[500px] md:max-w-4xl lg:max-w-5xl w-full bg-[#f2f2f7] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col min-h-[100vh] sm:min-h-[850px] relative animate-in fade-in zoom-in-95 duration-700 mx-auto">
 
-      {/* Premium Header Banner */}
-      <div className="relative w-full h-40 sm:h-48 rounded-[32px] overflow-hidden mb-8 shadow-2xl shadow-red-900/20 group">
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800"></div>
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30"></div>
+        {/* --- BANNER (LIQUID GLASS LOGO CONTAINER) --- */}
+        <div className="relative h-64 md:h-72 overflow-hidden bg-black rounded-b-[40px] md:rounded-b-[60px] shadow-sm flex items-center justify-center">
 
-        {/* Decorative Red Accents */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-red-600 rounded-full blur-[80px] opacity-20 -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-600 rounded-full blur-[80px] opacity-10 -ml-20 -mb-20"></div>
+          {/* Base Background: either the logo or the cool liquid glass effect */}
+          {userProfile?.dealer_logo ? (
+            <div className="absolute inset-0 z-0 bg-slate-100">
+              <img src={userProfile.dealer_logo} alt="Dealer Background" className="w-full h-full object-cover opacity-30" />
+            </div>
+          ) : (
+            <div className="absolute inset-0 z-0">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-600/40 via-black to-red-900/60 z-0"></div>
+              <div className="absolute top-[-50%] left-[-20%] w-[120%] h-[150%] bg-red-500/30 blur-[80px] rounded-full mix-blend-screen animate-pulse z-0"></div>
+              <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[100%] bg-white/10 blur-[60px] rounded-full mix-blend-overlay z-0" style={{ animationDelay: '2s' }}></div>
+              <div className="absolute inset-0 bg-black/10 backdrop-blur-[20px] z-0"></div>
+            </div>
+          )}
 
-        <div className="absolute inset-0 flex flex-col justify-center px-8 sm:px-12 z-10">
-          <div className="flex items-center gap-3 mb-2 opacity-80">
-            <AppLogo size={32} className="text-white drop-shadow-md" />
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest border-l border-slate-600 pl-3">Sistema de Gestión</span>
+          {/* Settings Title in Header for Mobile Vibe */}
+          <div className="absolute top-12 w-full px-6 flex justify-between items-center z-20">
+            <h1 className="text-white text-xl font-bold tracking-wide shadow-black drop-shadow-md">Ajustes</h1>
+            <button onClick={onLogout} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/40 transition-colors shadow-black drop-shadow-md border border-white/10">
+              <LogOut size={18} />
+            </button>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow-lg">
-            CarBot <span className="text-red-500">x</span> <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400">{userProfile?.dealerName || 'DEALER'}</span>
-          </h1>
-          <p className="text-slate-400 font-medium mt-2 max-w-md">Gestiona tu perfil y configuración de usuario.</p>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        {/* Left Column: Profile Card */}
-        <div className="space-y-6">
-          <Card className="p-8 border-none shadow-xl bg-white relative overflow-hidden text-center">
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-50 to-white flex items-center justify-center text-red-600 font-black text-4xl border-4 border-red-50 shadow-md mb-4">
-                {userProfile?.name?.charAt(0) || 'U'}
-              </div>
-              <h2 className="text-2xl font-black text-slate-900">{userProfile?.name || 'Usuario'}</h2>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">{userProfile?.role || 'Administrador'}</p>
-
-              <div className="w-full flex items-center justify-center gap-2 p-3 bg-slate-50 rounded-xl mb-6">
-                <Building2 size={16} className="text-slate-400" />
-                <span className="text-sm font-bold text-slate-600">{userProfile?.dealerName || 'Dealer'}</span>
-              </div>
-
-              <button onClick={onLogout} className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2">
-                <LogOut size={18} /> Cerrar Sesión
-              </button>
+          {/* Dealer Logo Centered Normal */}
+          {userProfile?.dealer_logo && (
+            <div className="absolute inset-0 z-10 w-full h-full flex items-center justify-center p-8 pt-12 pointer-events-none">
+              <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain drop-shadow-2xl" />
             </div>
-            {/* Background decoration */}
-            <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-red-600/5 to-transparent"></div>
-          </Card>
+          )}
 
-          <Card className="p-6 border-none shadow-md bg-slate-900 text-white relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-white/10 rounded-lg"><Headset size={20} className="text-white" /></div>
-                <h3 className="font-bold">Soporte Técnico</h3>
-              </div>
-              <p className="text-slate-400 text-sm mb-4">¿Necesitas ayuda con el sistema? Contacta a nuestro equipo.</p>
-              <button className="w-full py-2 bg-white text-slate-900 font-bold rounded-lg text-sm hover:bg-slate-200 transition-colors">
-                Contactar Soporte
+          {/* Edit Logo Button */}
+          {userProfile?.role === 'Admin' && (
+            <div className="absolute bottom-6 right-6 z-30">
+              <button
+                onClick={() => !isUploadingLogo && logoInputRef.current?.click()}
+                className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-black/80 transition-all cursor-pointer shadow-xl hover:scale-105 active:scale-95"
+                title="Cambiar Logo del Dealer"
+              >
+                {isUploadingLogo ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
               </button>
+              <input
+                type="file"
+                ref={logoInputRef}
+                onChange={handleLogoUpload}
+                className="hidden"
+                accept="image/*"
+              />
             </div>
-          </Card>
+          )}
         </div>
 
-        {/* Right Column: Edit Form & Stats */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="p-8 border-none shadow-xl bg-white relative overflow-hidden">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                <Settings size={22} className="text-red-600" />
-                Configuración de Cuenta
-              </h2>
-              {!isEditing && (
-                <button onClick={() => setIsEditing(true)} className="text-sm font-bold text-slate-400 hover:text-red-600 transition-colors flex items-center gap-1">
-                  <Edit size={14} /> Editar
-                </button>
+        {/* --- PROFILE OVERLAP --- */}
+        <div className="relative z-30 flex justify-center -mt-16 md:-mt-20 mb-4">
+          <div className="relative group cursor-pointer" onClick={() => !isUploading && fileInputRef.current?.click()}>
+            <div className="w-32 h-32 md:w-36 md:h-36 rounded-full border-[6px] border-[#f2f2f7] bg-gradient-to-br from-slate-200 to-slate-300 shadow-xl overflow-hidden flex items-center justify-center relative bg-white">
+              {(userProfile?.photoURL || userProfile?.avatar_url || userProfile?.foto_url) ? (
+                <img src={userProfile.photoURL || userProfile.avatar_url || userProfile.foto_url} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-slate-400 text-5xl font-black">{userProfile?.name?.charAt(0) || 'U'}</span>
               )}
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Name */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-all ${isEditing ? 'bg-white border-2 border-slate-200 focus:border-red-500' : 'bg-slate-50 border-2 border-transparent text-slate-500'}`}
-                />
-              </div>
-              {/* Job Title */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Puesto</label>
-                <input
-                  type="text"
-                  value={formData.jobTitle}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-all ${isEditing ? 'bg-white border-2 border-slate-200 focus:border-red-500' : 'bg-slate-50 border-2 border-transparent text-slate-500'}`}
-                />
-              </div>
-              {/* Email (Read only) */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                <input type="text" value={userProfile?.email || ''} disabled className="w-full px-4 py-3 bg-slate-100 rounded-xl font-bold text-slate-400 cursor-not-allowed" />
-              </div>
-              {/* Dealer (Read only) */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dealer</label>
-                <input type="text" value={userProfile?.dealerName || ''} disabled className="w-full px-4 py-3 bg-slate-100 rounded-xl font-bold text-slate-400 cursor-not-allowed" />
+              {/* Upload Overlay (Hover or Loading) */}
+              <div className={`absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 ${isUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                {isUploading ? (
+                  <Loader2 size={28} className="text-white animate-spin" />
+                ) : (
+                  <Camera size={28} className="text-white" />
+                )}
               </div>
             </div>
 
-            {isEditing && (
-              <div className="flex gap-3 mt-8 justify-end">
-                <button onClick={() => setIsEditing(false)} className="px-6 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200">Cancelar</button>
-                <button onClick={handleSave} disabled={isLoading} className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-lg shadow-red-600/20">{isLoading ? 'Guardando...' : 'Guardar Cambios'}</button>
-              </div>
-            )}
-          </Card>
+            {/* Shield Badge */}
+            <div className="absolute bottom-1 right-2 w-8 h-8 rounded-full border-2 border-[#f2f2f7] bg-red-600 flex items-center justify-center text-white shadow-md">
+              <ShieldCheck size={14} />
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <Card className="p-6 border-none shadow-md bg-blue-50/50 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-3"><Fingerprint size={24} /></div>
-              <h3 className="font-bold text-slate-700">ID de Usuario</h3>
-              <p className="text-xs font-mono text-slate-400 mt-1">{userProfile?.uid || 'Wait...'}</p>
-            </Card>
-            <Card className="p-6 border-none shadow-md bg-emerald-50/50 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3"><Sparkles size={24} /></div>
-              <h3 className="font-bold text-slate-700">Estado de Cuenta</h3>
-              <span className="mt-2 px-3 py-1 bg-emerald-200 text-emerald-800 text-xs font-black rounded-full uppercase">Activo - Premium</span>
-            </Card>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handlePhotoUpload}
+              className="hidden"
+              accept="image/*"
+            />
           </div>
         </div>
+
+        {/* --- MAIN CONTENT (iOS STYLE LISTS) --- */}
+        <div className="flex-1 px-4 sm:px-6 md:px-12 pb-12 overflow-y-auto z-20 flex flex-col">
+
+          <div className="text-center mb-8">
+            {isEditing ? (
+              <input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="text-2xl font-black text-slate-900 bg-transparent text-center border-b-2 border-red-500 outline-none px-2 py-1 focus:ring-4 ring-red-500/10 rounded-md transition-all mb-1"
+                autoFocus
+              />
+            ) : (
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-1">{formData.name || 'Usuario'}</h2>
+            )}
+
+            {isEditing ? (
+              <input
+                value={formData.jobTitle}
+                onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                className="text-sm font-bold text-slate-500 bg-transparent text-center border-b-2 border-slate-300 outline-none px-2 py-1 rounded-md transition-all"
+              />
+            ) : (
+              <p className="text-sm font-bold text-slate-500">{formData.jobTitle || 'Vendedor'}</p>
+            )}
+          </div>
+
+          {/* Edit Actions */}
+          <div className="flex justify-center gap-3 mb-8">
+            {!isEditing ? (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-6 py-2 bg-slate-200/50 hover:bg-slate-200 text-slate-700 rounded-full text-sm font-bold transition-colors"
+              >
+                Editar Perfil
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => { setIsEditing(false); setFormData({ name: userProfile?.name || '', jobTitle: userProfile?.jobTitle || 'Vendedor', newPassword: '' }); }}
+                  className="px-6 py-2 bg-slate-200/50 hover:bg-slate-200 text-slate-700 rounded-full text-sm font-bold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full text-sm font-bold transition-colors shadow-md shadow-red-600/20 disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Guardar'}
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 max-w-5xl mx-auto w-full">
+
+            {/* COLUMN 1 */}
+            <div className="space-y-6">
+
+              {/* --- LIST GROUP: ACCOUNT --- */}
+              <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
+                <div className="px-5 py-3 bg-slate-50/50 border-b border-slate-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cuenta</span>
+                </div>
+                <div className="px-5 py-4 flex items-center justify-between border-b justify-center border-slate-100">
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                      <AtSign size={16} />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-bold text-slate-900">{userProfile?.email || 'N/A'}</span>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Canal de Correo</span>
+                    </div>
+                  </div>
+                  <Lock size={14} className="text-slate-300" />
+                </div>
+                <div className="px-5 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                      <Building size={16} />
+                    </div>
+                    <div>
+                      <span className="block text-sm font-bold text-slate-900">{userProfile?.dealerName || 'CarBot Central'}</span>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dealer Asociado</span>
+                    </div>
+                  </div>
+                  <Lock size={14} className="text-slate-300" />
+                </div>
+              </div>
+
+              {/* Contraseña Edit / View block */}
+              <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
+                {isEditing ? (
+                  <div className="px-5 py-4 bg-slate-50/50 border-b border-slate-100">
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 text-red-600">
+                        <Lock size={16} />
+                      </div>
+                      <div>
+                        <span className="block text-sm font-bold text-slate-900">Cambiar Contraseña</span>
+                        <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Opcional</span>
+                      </div>
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="Nueva contraseña (Mínimo 6 chars)"
+                      value={formData.newPassword || ''}
+                      onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                      className="w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-red-500/50 focus:ring-4 focus:ring-red-500/10 transition-all"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-2 font-bold tracking-wide">Déjalo en blanco si no deseas cambiarla.</p>
+                  </div>
+                ) : (
+                  <div
+                    className="px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-100"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 text-slate-500">
+                        <Lock size={16} />
+                      </div>
+                      <div>
+                        <span className="block text-sm font-bold text-slate-900">Contraseña</span>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">••••••••</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="text-[10px] font-black tracking-widest uppercase text-red-600 hover:text-red-700 bg-red-50 px-3 py-1.5 rounded-full transition-colors"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div> {/* End Column 1 */}
+
+            {/* COLUMN 2 */}
+            <div className="space-y-6">
+
+              {/* --- LIST GROUP: HERRAMIENTAS --- */}
+              <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
+                <div className="px-5 py-3 bg-slate-50/50 border-b border-slate-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Herramientas</span>
+                </div>
+
+                {[
+                  {
+                    title: 'Bot Carbot',
+                    icon: Sparkles,
+                    color: 'text-purple-500',
+                    bg: 'bg-purple-100',
+                    action: () => {
+                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(userProfile?.dealerId || 'default')}`;
+                      navigator.clipboard.writeText(link);
+                      showToast("Enlace del Bot copiado al portapapeles");
+                    }
+                  },
+                  {
+                    title: 'Estado de Plataforma',
+                    icon: Link,
+                    color: 'text-blue-500',
+                    bg: 'bg-blue-100',
+                    isConnected: !!userProfile?.ghlLocationId,
+                    action: () => {
+                      const dId = userProfile?.dealerId || 'default';
+                      window.open(`/api/ghl/authorize?dealerId=${encodeURIComponent(dId)}`, '_blank');
+                    }
+                  },
+                  {
+                    title: 'Catálogo Público',
+                    icon: LayoutGrid,
+                    color: 'text-orange-500',
+                    bg: 'bg-orange-100',
+                    action: () => {
+                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${encodeURIComponent(userProfile?.dealerId || 'default')}`;
+                      navigator.clipboard.writeText(link);
+                      showToast("Enlace del Catálogo copiado al portapapeles");
+                    }
+                  },
+                ].map((tool, idx, arr) => (
+                  <div
+                    key={idx}
+                    onClick={tool.action}
+                    className={`px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors active:bg-slate-100 ${idx !== arr.length - 1 ? 'border-b border-slate-100' : ''}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tool.bg} ${tool.color}`}>
+                        <tool.icon size={16} />
+                      </div>
+                      <span className="text-sm font-bold text-slate-900">{tool.title}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {tool.isConnected !== undefined && (
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${tool.isConnected ? 'text-green-500' : 'text-slate-400'}`}>
+                          {tool.isConnected ? 'Conectado' : 'Reconectar'}
+                        </span>
+                      )}
+                      <ChevronRight size={16} className="text-slate-300" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div> {/* End Column 2 */}
+
+          </div> {/* End Grid */}
+
+          {/* CarBot System Version footer area inside scroll */}
+          <div className="pt-8 text-center pb-4 mt-auto">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-50">CarBot System v3.0</span>
+          </div>
+
+        </div>
       </div>
-    </div>
+    </div >
   );
 };
 
@@ -1733,23 +2896,22 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   const soldInventory = inventory.filter(i => i.status === 'sold');
 
   const activeInventory = (inventory || []).filter(i => i && i.status !== 'trash');
-  const totalValueRD = activeInventory.reduce((acc, item) => acc + (item.price_dop || 0), 0);
-  const totalValueUSD = activeInventory.reduce((acc, item) => acc + (item.price || 0), 0);
+  const totalValueRD = availableInventory.reduce((acc, item) => acc + (item.price_dop || 0), 0);
+  const totalValueUSD = availableInventory.reduce((acc, item) => acc + (item.price || 0), 0);
 
   const recentContracts = contracts.slice(0, 5);
 
-  // Prioritize URL parameters for display to ensure immediate feedback in GHL
+  // Determine names from verified backend profile first, fallback to GHL iframe parameters if missing
   const params = new URLSearchParams(window.location.search);
-  const rawDealerName = params.get('location_name') || userProfile?.dealerName || 'Tu Dealer';
-  // El titular siempre usa el nombre real (con acentos) pero limpio de asteriscos y formateado
-  const displayDealerName = rawDealerName.trim().replace(/[*_~`]/g, '').toUpperCase();
-  const displayUserName = params.get('user_name') || userProfile?.name || 'Usuario';
+  const rawDealerName = userProfile?.dealerName || params.get('location_name') || 'Tu Dealer';
+  const displayDealerName = rawDealerName.trim().replace(/[*_~\`]/g, '').toUpperCase();
+  const displayUserName = userProfile?.name || params.get('user_name') || 'Usuario';
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-      {/* Welcome Banner (Red) - Mobile Optimized */}
-      <Card className="relative overflow-hidden border-none bg-red-600 text-white shadow-xl shadow-red-600/20">
+      {/* Welcome Banner (Red Gradient) - Mobile Optimized */}
+      <Card className="relative overflow-hidden border-none bg-gradient-to-br from-red-600 to-red-800 text-white shadow-xl shadow-red-600/20">
         <div className="relative z-10 p-5 sm:p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-5 sm:gap-6">
           <div>
             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black mb-1 tracking-tight">
@@ -1787,7 +2949,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-24 -mb-24 pointer-events-none"></div>
       </Card>
 
-      {/* Row 1: Key Stats - Side by Side on Mobile */}
+      {/* Row 1: Key Stats-Side by Side on Mobile */}
       <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-6">
         {/* Inventario Card */}
         <Card className="p-4 sm:p-8 border-none shadow-sm bg-white relative overflow-hidden group cursor-pointer hover:shadow-md transition-all" onClick={() => onNavigate('inventory', 'available')}>
@@ -1807,16 +2969,16 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         <Card className="p-4 sm:p-8 border-none shadow-sm bg-white relative overflow-hidden group cursor-pointer hover:shadow-md transition-all" onClick={() => onNavigate('inventory', 'sold')}>
           <div className="flex justify-between items-start">
             <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-12 transition-transform">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-12 transition-transform">
                 <DollarSign size={16} className="sm:w-[24px] sm:h-[24px]" />
               </div>
               <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">VENDIDOS</p>
               <h2 className="text-2xl sm:text-4xl font-black text-slate-900">{soldInventory.length}</h2>
 
             </div>
-            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider">OK</span>
+            <span className="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider">OK</span>
           </div>
-          <DollarSign className="absolute -bottom-6 -right-6 text-emerald-50/50 group-hover:text-emerald-100/50 group-hover:scale-125 group-hover:-rotate-12 transition-all duration-500" size={120} />
+          <DollarSign className="absolute -bottom-6 -right-6 text-red-50/50 group-hover:text-red-100/50 group-hover:scale-125 group-hover:-rotate-12 transition-all duration-500" size={120} />
         </Card>
       </div>
 
@@ -1824,7 +2986,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       <Card className="p-8 border-none shadow-sm bg-white">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <div className="w-14 h-14 rounded-2xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/20">
               <DollarSign size={32} />
             </div>
             <div>
@@ -1916,7 +3078,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
     </div>
   );
 };
-const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation }) => {
+const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [] }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('brand_asc'); // Default alphabetical by Make
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -1971,11 +3133,11 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
     let result = inventory.filter(item => {
       // Robust Search String Construction
       const searchContent = `
-        ${item.make || ''} 
-        ${item.model || ''} 
-        ${item.year || ''} 
-        ${item.color || ''} 
-        ${item.vin || ''}
+      ${item.make || ''}
+      ${item.model || ''}
+      ${item.year || ''}
+      ${item.color || ''}
+      ${item.vin || ''}
       `.toLowerCase();
 
       const globalMatches = !searchTerm || searchContent.includes(searchTerm.toLowerCase());
@@ -2076,7 +3238,7 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4 sm:pb-6">
-        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~`]/g, '')}</span></h1><p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
+        <div><h1 className="text-xl sm:text-2xl font-bold text-slate-900">Inventario: <span className="text-red-700">{(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}</span></h1><p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">Organizado por marcas • {filteredInventory.length} vehículos</p></div>
         <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">Agregar Vehículo</Button>
       </div>
 
@@ -2125,8 +3287,8 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {groupedInventory[brand].map(item => (
                 <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
-                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1 hover:shadow-xl transition-all duration-500 border-none bg-white rounded-[2rem] overflow-hidden">
-                    <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
+                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1 hover:shadow-xl transition-all duration-500 border-none bg-white rounded-[2rem] !overflow-visible relative">
+                    <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden rounded-t-[2rem]">
                       <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" />
                       <div className="absolute top-4 right-4 shadow-xl"><Badge status={item.status} /></div>
 
@@ -2142,21 +3304,11 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h3 className="font-black text-slate-900 text-lg leading-tight">{item.make} {item.model}</h3>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.color || 'COLOR'}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.edition || 'EDICIÓN'} • {item.color || 'COLOR'}</p>
                         </div>
                       </div>
 
-                      {/* Specs Row */}
-                      <div className="flex gap-4 mb-4 py-3 border-y border-slate-50">
-                        <div className="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase">
-                          <Settings size={12} className="text-slate-300" />
-                          {item.transmision?.split(' ')[0] || '-'}
-                        </div>
-                        <div className="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 uppercase">
-                          <Zap size={12} className="text-slate-300" />
-                          {item.traccion || 'FWD'}
-                        </div>
-                      </div>
+                      {/* Precio Section */}
 
                       <div className="mb-6">
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Precio</p>
@@ -2177,7 +3329,7 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                             <FilePlus size={16} /> VENDER AHORA
                           </Button>
                         ) : (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 relative">
                             <Button
                               variant="secondary"
                               className="flex-1 text-[10px] font-black bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-900 hover:text-white rounded-2xl flex items-center justify-center gap-2 py-3 active:scale-95 transition-all"
@@ -2194,23 +3346,25 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
                               <Edit size={16} />
                             </button>
 
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                              className="p-3.5 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-2xl transition-all active:scale-90"
-                            >
-                              <MoreVertical size={16} />
-                            </button>
-                          </div>
-                        )}
+                            <div className="relative">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
+                                className="p-3.5 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-2xl transition-all active:scale-90"
+                              >
+                                <MoreVertical size={16} />
+                              </button>
 
-                        {openMenuId === item.id && (
-                          <div className="absolute bottom-full right-6 mb-4 w-48 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-3 z-[60] animate-in slide-in-from-bottom-2">
-                            <button onClick={(e) => handleDuplicate(e, item)} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-3">
-                              <Copy size={14} /> Duplicar
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3">
-                              <Trash2 size={14} /> Eliminar
-                            </button>
+                              {openMenuId === item.id && (
+                                <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-3 z-[60] animate-in slide-in-from-bottom-2">
+                                  <button onClick={(e) => handleDuplicate(e, item)} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-3">
+                                    <Copy size={14} /> Duplicar
+                                  </button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3">
+                                    <Trash2 size={14} /> Eliminar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -2226,14 +3380,14 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
 
       <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />
       <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
-      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} />
-      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} />
+      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} templates={templates} />
+      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} />
     </div>
   );
 };
 
-const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, userProfile, searchTerm, requestConfirmation }) => {
-  const [activeView, setActiveView] = useState('contracts'); // 'contracts' or 'quotes'
+const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, templates, onSaveTemplate, onDeleteTemplate, userProfile, searchTerm, requestConfirmation, showToast }) => {
+  const [activeView, setActiveView] = useState('contracts'); // 'contracts', 'quotes', or 'templates'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [selectedContractPreview, setSelectedContractPreview] = useState(null);
@@ -2241,12 +3395,17 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
   const [editingContract, setEditingContract] = useState(null);
   const [sortConfig, setSortConfig] = useState('date_desc');
 
-  const filteredData = useMemo(() => {
-    const dataToFilter = activeView === 'contracts' ? contracts : quotes;
 
-    // 1. Filtrar por búsqueda
+  const filteredData = useMemo(() => {
+    const dataToFilter = (activeView === 'contracts' ? contracts : quotes) || [];
+
+    // 1. Filtrar por búsqueda y status
     const filtered = dataToFilter.filter(item => {
+
+      if (item.status === 'deleted') return false; // Filter out deleted items
       const search = searchTerm.toLowerCase();
+
+
       if (activeView === 'contracts') {
         return (item?.client || '').toLowerCase().includes(search) ||
           (item?.vehicle || '').toLowerCase().includes(search) ||
@@ -2281,7 +3440,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     filtered.forEach(item => {
       let groupKey = "RESULTADOS DE BÚSQUEDA";
       if (sortConfig.startsWith('date')) {
-        const d = new Date(item.createdAt);
+        const d = item.createdAt ? new Date(item.createdAt) : new Date();
         const validDate = isNaN(d.getTime()) ? new Date() : d;
         groupKey = validDate.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' }).toUpperCase();
       }
@@ -2308,160 +3467,74 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
     });
   };
 
-  const downloadPDF = async (contract) => {
+  const downloadContractPDF = async (contract) => {
     const tempEl = document.createElement('div');
-    tempEl.innerHTML = `
-      <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
-          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
-              <h1>${userProfile.dealerName}</h1>
-          </div>
-          <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
-          <p>Fecha: ${new Date(contract.date || contract.createdAt).toLocaleDateString()}</p>
-          <p>Cliente: <strong>${contract.client}</strong></p>
-          <p>Vehículo: <strong>${contract.vehicle}</strong></p>
-          <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
-              Certificamos la transacción del vehículo descrito arriba.
-          </div>
-      </div>
-    `;
+    tempEl.innerHTML = generateContractHtml(contract, userProfile);
+
+    const opt = {
+      margin: [0.5, 0.5, 0.5, 0.5],
+      filename: contract.id && contract.id.startsWith('Contrato_') ? `${contract.id}.pdf` : `Contrato_${contract.client}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
     const html2pdf = (await import('html2pdf.js')).default;
-    html2pdf().set({ filename: contract.id && contract.id.startsWith('Contrato_') ? `${contract.id}.pdf` : `Contrato_${contract.client}.pdf` }).from(tempEl).save();
+    const cleanElement = prepareElementForPDF(tempEl);
+    html2pdf().set(opt).from(cleanElement).save();
   };
 
   const downloadQuotePDF = async (quote) => {
     const tempEl = document.createElement('div');
-    tempEl.innerHTML = `
-      <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
-              <div>
-                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
-                <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
-              </div>
-              <div style="text-align: right;">
-                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
-                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
-              </div>
-          </div>
-
-          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
-                </tr>
-              </table>
-          </div>
-
-          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
-              <p style="font-size: 24px; font-weight: 900; margin: 0; color: #0f172a;">${quote.vehicle}</p>
-              <div style="margin-top: 15px; display: grid; grid-template-cols: 1fr 1fr; gap: 20px;">
-                  <div style="padding: 10px; background: #fff1f2; border-radius: 8px; text-align: center;">
-                      <p style="margin: 0; font-size: 10px; color: #b91c1c; font-weight: bold; text-transform: uppercase;">Estado</p>
-                      <p style="margin: 5px 0 0; font-weight: 800;">Cotizado</p>
-                  </div>
-              </div>
-          </div>
-
-          ${quote.bank ? `
-          <div style="margin-bottom: 40px; background: #eff6ff; padding: 20px; border-radius: 12px; border: 1px solid #dbeafe;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #2563eb; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Pre-Aprobación Bancaria</h2>
-              <table style="width: 100%;">
-                <tr>
-                  <td style="padding: 5px 0; color: #60a5fa; font-size: 12px; font-weight: bold;">INSTITUCIÓN:</td>
-                  <td style="padding: 5px 0; color: #1e3a8a; font-weight: 800;">${quote.bank}</td>
-                </tr>
-              </table>
-          </div>
-          ` : ''}
-
-          <div style="margin-top: 60px; text-align: center; color: #94a3b8; font-size: 11px; line-height: 1.6;">
-            <p>Esta es una ficha de cotización informativa generada por Carbot para ${userProfile.dealerName}.<br/>
-            Los precios y la disponibilidad están sujetos a cambios sin previo aviso.</p>
-          </div>
-      </div>
-    `;
+    tempEl.innerHTML = generateQuoteHtml(quote, userProfile);
     const opt = {
-      margin: 10,
+      margin: [0.5, 0.5, 0.5, 0.5],
       filename: quote.id && quote.id.startsWith('Cotizacion_') ? `${quote.id}.pdf` : `Cotizacion_${quote.name}_${quote.lastname}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
     const html2pdf = (await import('html2pdf.js')).default;
-    html2pdf().set(opt).from(tempEl).save();
+    const cleanElement = prepareElementForPDF(tempEl);
+    html2pdf().set(opt).from(cleanElement).save();
   };
 
   const printContract = (contract) => {
-    const content = `
-      <div style="font-family: 'Times New Roman', serif; padding: 20mm; width: 210mm; min-height: 297mm; background: white; color: #000;">
-          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
-              <h1>${userProfile.dealerName}</h1>
-          </div>
-          <h2 style="text-align: center; text-transform: uppercase;">${contract.template}</h2>
-          <p>Fecha: ${new Date(contract.date || contract.createdAt).toLocaleDateString()}</p>
-          <p>Cliente: <strong>${contract.client}</strong></p>
-          <p>Vehículo: <strong>${contract.vehicle}</strong></p>
-          <div style="margin-top: 50px; text-align: justify; line-height: 1.6;">
-              Certificamos la transacción del vehículo descrito arriba.
-          </div>
-      </div>
-  `;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<html><head><title>Imprimir Contrato</title></head><body onload="window.print()">${content}</body></html>`);
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Contrato</title>
+          <style>@page {size: letter; margin: 0; }</style>
+        </head>
+        <body style="margin: 0;">${generateContractHtml(contract, userProfile)}</body>
+      </html>
+      `);
     printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
 
   const printQuote = (quote) => {
-    const content = `
-      <div style="font-family: 'Helvetica', 'Arial', sans-serif; padding: 20mm; width: 210mm; background: white; color: #334155;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 4px solid #b91c1c; padding-bottom: 20px;">
-              <div>
-                <h1 style="font-size: 28px; margin: 0; color: #0f172a; font-weight: 800;">${userProfile.dealerName}</h1>
-                <p style="margin: 5px 0 0; color: #64748b; font-size: 14px;">Ficha de Cotización de Vehículo</p>
-              </div>
-              <div style="text-align: right;">
-                <p style="margin: 0; font-weight: bold; color: #b91c1c;">FOLIO: Q-${quote.id?.slice(-6).toUpperCase()}</p>
-                <p style="margin: 5px 0 0; font-size: 12px;">${new Date(quote.createdAt).toLocaleDateString('es-DO', { long: true })}</p>
-              </div>
-          </div>
-
-          <div style="margin-bottom: 30px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Información del Cliente</h2>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">NOMBRE COMPLETO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.name} ${quote.lastname}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">TELÉFONO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.phone}</td>
-                </tr>
-              </table>
-          </div>
-          <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <h2 style="font-size: 14px; text-transform: uppercase; color: #b91c1c; margin-top: 0; margin-bottom: 15px; letter-spacing: 1px; font-weight: 800;">Vehículo de Interés</h2>
-               <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">VEHÍCULO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">${quote.vehicle}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 5px 0; color: #64748b; font-size: 12px; font-weight: bold;">PRECIO:</td>
-                  <td style="padding: 5px 0; color: #0f172a; font-weight: bold;">$${Number(quote.price).toLocaleString()} USD</td>
-                </tr>
-              </table>
-          </div>
-      </div >
-  `;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`< html ><head><title>Imprimir Cotización</title></head><body onload="window.print()">${content}</body></html > `);
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Cotización</title>
+          <style>@page {size: letter; margin: 0; }</style>
+        </head>
+        <body style="margin: 0;">${generateQuoteHtml(quote, userProfile)}</body>
+      </html>
+      `);
     printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
 
   const totalItems = Object.values(filteredData).flat().length;
@@ -2474,186 +3547,197 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
           <p className="text-slate-500 text-sm mt-1">Historial organizado • {totalItems} registros</p>
         </div>
 
-        <div className="bg-slate-200 p-1.5 rounded-xl w-full md:w-auto inline-flex relative shadow-inner">
+        <div className="bg-slate-200 p-1.5 rounded-xl w-full md:w-[400px] flex relative shadow-inner h-11">
           {/* VISUAL TOGGLE BACKGROUND RED */}
           <div
             className={`absolute top-1.5 bottom-1.5 rounded-lg bg-red-600 shadow-lg shadow-red-600/20 transition-all duration-300 ease-in-out z-0`}
             style={{
-              left: activeView === 'contracts' ? '6px' : '50%',
-              width: 'calc(50% - 6px)',
-              transform: activeView === 'contracts' ? 'translateX(0)' : 'translateX(0)'
+              left: activeView === 'contracts' ? '6px' : 'calc(50% + 2px)',
+              width: 'calc(50% - 8px)',
             }}
           />
 
           <button
             onClick={() => setActiveView('contracts')}
-            className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'contracts' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`relative z-10 flex-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'contracts' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Contratos
           </button>
           <button
             onClick={() => setActiveView('quotes')}
-            className={`relative z-10 flex-1 px-4 py-2 text-center text-xs font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'quotes' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`relative z-10 flex-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-300 ${activeView === 'quotes' ? 'text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Cotizaciones
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-bold text-slate-400 uppercase">Ordenar:</span>
-          <select
-            value={sortConfig}
-            onChange={(e) => setSortConfig(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border-none rounded-lg text-sm font-bold focus:ring-2 focus:ring-red-500/20 cursor-pointer"
-          >
-            <option value="date_desc">Recientes</option>
-            <option value="date_asc">Antiguos</option>
-            <option value="client_asc">Nombre</option>
-            <option value="vehicle_asc">Vehiculo</option>
-          </select>
-        </div>
-
-        {/* DESKTOP ACTION BUTTON */}
-        <div className="hidden sm:block">
-          {activeView === 'contracts' ? (
-            <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
-              Nuevo Contrato
-            </Button>
-          ) : (
-            <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
-              Nueva Cotización
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* MOBILE FIXED ACTION BUTTON */}
-      <div className="sm:hidden fixed bottom-28 right-4 left-4 z-[60]">
-        {activeView === 'contracts' ? (
-          <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50">
-            Nuevo Contrato
-          </Button>
-        ) : (
-          <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
-            Nueva Cotización
-          </Button>
-        )}
-      </div>
-
-      <div className="space-y-12">
-        {Object.keys(filteredData).map(groupName => (
-          <div key={groupName} className="space-y-6">
-            <div className="flex items-center gap-4">
-              <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
-              <div className="h-px flex-1 bg-slate-100"></div>
+      {activeView === 'contracts' || activeView === 'quotes' ? (
+        <>
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-bold text-slate-400 uppercase">Ordenar:</span>
+              <select
+                value={sortConfig}
+                onChange={(e) => setSortConfig(e.target.value)}
+                className="px-3 py-2 bg-slate-50 border-none rounded-lg text-sm font-bold focus:ring-2 focus:ring-red-500/20 cursor-pointer"
+              >
+                <option value="date_desc">Recientes</option>
+                <option value="date_asc">Antiguos</option>
+                <option value="client_asc">Nombre</option>
+                <option value="vehicle_asc">Vehiculo</option>
+              </select>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredData[groupName].map(item => (
-                <Card key={item.id} noPadding className="group hover:-translate-y-1 transition-all">
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className={`p - 3 rounded - 2xl shadow - sm transition - all duration - 300 group - hover: scale - 110 group - hover: rotate - 3 ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'} `}>
-                        {activeView === 'contracts' ? <FileText size={24} /> : <Send size={24} />}
-                      </div>
-                      <div className="flex gap-1">
-                        {activeView === 'contracts' ? (
-                          <>
-                            <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Contrato"><Eye size={18} /></button>
-                            <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
-                            <button onClick={() => printContract(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
-                            <button onClick={() => downloadPDF(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar PDF"><Download size={18} /></button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Cotización"><Eye size={18} /></button>
-                            <button onClick={() => printQuote(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
-                            <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar Ficha"><Download size={18} /></button>
-                          </>
-                        )}
-                        <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
-                      </div>
-                    </div>
+            {/* DESKTOP ACTION BUTTON */}
+            <div className="hidden sm:block">
+              {activeView === 'contracts' ? (
+                <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full sm:w-auto">
+                  Nuevo Contrato
+                </Button>
+              ) : (
+                <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full sm:w-auto" variant="primary">
+                  Nueva Cotización
+                </Button>
+              )}
+            </div>
+          </div>
 
-                    <h3 className="text-lg font-black text-slate-900 mb-1">
-                      {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname} `}
-                    </h3>
-                    <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
-                      <Car size={12} /> {item.vehicle}
-                    </p>
+          {/* MOBILE FIXED ACTION BUTTON */}
+          <div className="sm:hidden fixed bottom-28 right-4 left-4 z-[60]">
+            {activeView === 'contracts' ? (
+              <Button icon={FilePlus} onClick={() => { setEditingContract(null); setIsGenerateModalOpen(true); }} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50">
+                Nuevo Contrato
+              </Button>
+            ) : (
+              <Button icon={Send} onClick={() => setIsQuoteModalOpen(true)} className="w-full py-3 shadow-xl shadow-red-600/30 border-2 border-white/50" variant="primary">
+                Nueva Cotización
+              </Button>
+            )}
+          </div>
 
-                    {activeView === 'quotes' && (
-                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
-                          <span className="text-slate-700 font-bold">{item.phone}</span>
+          <div className="space-y-12">
+            {Object.keys(filteredData).map(groupName => (
+              <div key={groupName} className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-sm font-black text-slate-400 tracking-widest uppercase">{groupName}</h2>
+                  <div className="h-px flex-1 bg-slate-100"></div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {filteredData[groupName].map(item => (
+                    <div key={item.id} className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.04)] ring-1 ring-slate-100 group hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-300">
+                      <div className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className={`p-3 rounded-2xl shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${activeView === 'contracts' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                            {activeView === 'contracts' ? <FileText size={24} /> : <Send size={24} />}
+                          </div>
+                          <div className="flex gap-1">
+                            {activeView === 'contracts' ? (
+                              <>
+                                <button onClick={() => setSelectedContractPreview(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Contrato"><Eye size={18} /></button>
+                                <button onClick={() => { setEditingContract(item); setIsGenerateModalOpen(true); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Editar"><Edit size={18} /></button>
+                                <button onClick={() => printContract(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
+                                <button onClick={() => downloadContractPDF(item)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar PDF"><Download size={18} /></button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => setSelectedQuotePreview(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Ver Cotización"><Eye size={18} /></button>
+                                <button onClick={() => printQuote(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Imprimir"><Printer size={18} /></button>
+                                <button onClick={() => downloadQuotePDF(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Descargar Ficha"><Download size={18} /></button>
+                              </>
+                            )}
+                            <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transform hover:scale-110 active:scale-95 transition-all" title="Eliminar"><Trash2 size={18} /></button>
+                          </div>
                         </div>
-                        {item.bank && (
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400 font-bold uppercase">Banco:</span>
-                            <span className="text-slate-700 font-bold">{item.bank}</span>
+
+                        <h3 className="text-lg font-black text-slate-900 mb-1">
+                          {activeView === 'contracts' ? item.client : `${item.name} ${item.lastname}`}
+                        </h3>
+                        <p className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-1">
+                          <Car size={12} /> {item.vehicle}
+                        </p>
+
+                        {activeView === 'quotes' && (
+                          <div className="space-y-2 mt-4 pt-4 border-t border-slate-50">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-400 font-bold uppercase">Teléfono:</span>
+                              <span className="text-slate-700 font-bold">{item.phone}</span>
+                            </div>
+                            {item.bank && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400 font-bold uppercase">Banco:</span>
+                                <span className="text-slate-700 font-bold">{item.bank}</span>
+                              </div>
+                            )}
                           </div>
                         )}
+
+                        <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                          <div className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {item.createdAt && !isNaN(new Date(item.createdAt).getTime())
+                              ? new Date(item.createdAt).toLocaleDateString()
+                              : 'Sin fecha'}
+                          </div>
+                          {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
+                        </div>
                       </div>
-                    )}
-
-                    <div className="mt-4 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                      <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString()}</div>
-                      {activeView === 'contracts' && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{item.template}</span>}
                     </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {totalItems === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                <Files size={64} className="mb-4 opacity-20" />
+                <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
+              </div>
+            )}
           </div>
-        ))}
-        {totalItems === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-300">
-            <Files size={64} className="mb-4 opacity-20" />
-            <p className="text-lg font-medium">No hay {activeView === 'contracts' ? 'contratos' : 'cotizaciones'} registradas</p>
-          </div>
-        )}
-      </div>
 
-      {isGenerateModalOpen && (
-        <GenerateContractModal
-          isOpen={isGenerateModalOpen}
-          onClose={() => setIsGenerateModalOpen(false)}
-          inventory={inventory}
-          onGenerate={onGenerateContract}
-          initialVehicle={editingContract}
-        />
-      )}
+          {isGenerateModalOpen && (
+            <GenerateContractModal
+              isOpen={isGenerateModalOpen}
+              onClose={() => setIsGenerateModalOpen(false)}
+              inventory={inventory}
+              templates={templates} // Pass dynamic templates
+              onGenerate={onGenerateContract}
+              initialVehicle={editingContract}
+              userProfile={userProfile}
+            />
+          )}
 
-      {isQuoteModalOpen && (
-        <GenerateQuoteModal
-          isOpen={isQuoteModalOpen}
-          onClose={() => setIsQuoteModalOpen(false)}
-          inventory={inventory}
-          onSave={onGenerateQuote}
-        />
-      )}
+          {isQuoteModalOpen && (
+            <GenerateQuoteModal
+              isOpen={isQuoteModalOpen}
+              onClose={() => setIsQuoteModalOpen(false)}
+              inventory={inventory}
+              onSave={onGenerateQuote}
+              templates={templates}
+            />
+          )}
 
-      {selectedContractPreview && (
-        <ContractPreviewModal
-          isOpen={!!selectedContractPreview}
-          onClose={() => setSelectedContractPreview(null)}
-          contract={selectedContractPreview}
-          userProfile={userProfile}
-        />
-      )}
+          {selectedContractPreview && (
+            <ContractPreviewModal
+              isOpen={!!selectedContractPreview}
+              onClose={() => setSelectedContractPreview(null)}
+              contract={selectedContractPreview}
+              userProfile={userProfile}
+            />
+          )}
 
-      {selectedQuotePreview && (
-        <QuotePreviewModal
-          isOpen={!!selectedQuotePreview}
-          onClose={() => setSelectedQuotePreview(null)}
-          quote={selectedQuotePreview}
-          userProfile={userProfile}
-        />
-      )}
-    </div>
+          {selectedQuotePreview && (
+            <QuotePreviewModal
+              isOpen={!!selectedQuotePreview}
+              onClose={() => setSelectedQuotePreview(null)}
+              quote={selectedQuotePreview}
+              userProfile={userProfile}
+            />
+          )}
+        </>
+      ) : null}
+    </div >
   );
 };
 
@@ -2676,8 +3760,12 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
               <AppLogo size={50} className="sm:h-[65px]" />
               <div className="hidden lg:flex flex-col leading-none ml-2">
-                <span className="text-sm font-bold text-slate-500 tracking-[0.05em] mb-[-3px]">CarBot</span>
-                <span className="text-lg font-black text-red-600 tracking-tighter mt-[-2px]">System</span>
+                <span className="text-sm font-bold text-slate-500 tracking-[0.05em] mb-[-3px]">
+                  CarBot
+                </span>
+                <span className="text-lg font-black tracking-tighter mt-[-2px] text-red-600">
+                  System
+                </span>
               </div>
             </div>
           </div>
@@ -2708,7 +3796,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             {/* Trash Icon (Visible on all sizes, but adjusted for mobile) */}
             <button
               onClick={() => setActiveTab('trash')}
-              className={`p - 2 rounded - xl transition - all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'} `}
+              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'} `}
               title="Ir a Basurero"
             >
               <Trash2 size={18} className="sm:w-[20px] sm:h-[20px]" />
@@ -2718,30 +3806,34 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-black text-slate-900 leading-tight">
-                  {new URLSearchParams(window.location.search).get('user_name') || userProfile?.name || 'Usuario'}
+                  {userProfile?.name || new URLSearchParams(window.location.search).get('user_name') || 'Usuario'}
                 </p>
                 <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">
-                  {(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~`]/g, '')}
-                </p >
-              </div >
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100">
-                {(new URLSearchParams(window.location.search).get('user_name') || userProfile?.name || 'U').charAt(0)}
+                  {(userProfile?.dealerName || new URLSearchParams(window.location.search).get('location_name') || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}
+                </p>
+              </div>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100 overflow-hidden">
+                {userProfile?.avatar_url ? (
+                  <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (userProfile?.name || new URLSearchParams(window.location.search).get('user_name') || 'U').charAt(0)
+                )}
               </div>
               <button onClick={onLogout} className="p-1 sm:p-2 text-slate-300 hover:text-red-600 transition-colors">
                 <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
               </button>
-            </div >
-          </div >
-        </div >
-      </header >
+            </div>
+          </div>
+        </div>
+      </header>
 
       {/* Main Content Area */}
-      < main className="flex-1 p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500" >
+      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500" >
         {children}
-      </main >
+      </main>
 
       {/* Bottom Navigation (Mobile Only) */}
-      < div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90" >
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90" >
         {
           menuItems.map(item => {
             const isActive = activeTab === item.id;
@@ -2758,8 +3850,8 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             );
           })
         }
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 
@@ -2913,10 +4005,10 @@ export default function CarbotApp() {
   const vehicleIdFromPath = pathParts[0] === 'inventario' ? pathParts[2] : null;
 
   const urlLocationId = params.get('location_id');
-  // Si es ruta de tienda, intentamos inferir el nombre del dealer del slug (reemplazando guiones por espacios)
   const urlLocationName = params.get('location_name') || (isStoreRoute && storeDealerSlug ? storeDealerSlug.replace(/-/g, ' ').toUpperCase() : null);
   const urlUserName = params.get('user_name');
-  const urlUserEmail = (params.get('user_email') || '').toLowerCase(); // Emails siempre en minúsculas
+  const urlUserEmail = (params.get('user_email') || '').toLowerCase();
+  const urlUserId = params.get('user_id'); // Nuevo: ID del usuario enviado por GHL
 
   const getStandardDealerId = (name, id) => {
     // CAMBIO SOLICITADO: ID del Documento = Nombre Normalizado (Sin tildes/Ñ)
@@ -2929,10 +4021,11 @@ export default function CarbotApp() {
   };
 
   // Trigger login if location_id is present OR we have a previously saved session OR we are in Store Mode
-  const isAutoLogin = !!(urlLocationId && (urlUserEmail || localStorage.getItem('lastUserEmail'))) || isStoreRoute;
+  const isAutoLogin = !!(urlLocationId || isStoreRoute) && sessionStorage.getItem('manualLogout') !== 'true';
   const [isLoggedIn, setIsLoggedIn] = useState(isAutoLogin || !!localStorage.getItem('lastUserEmail'));
+  const [ghlSSOLoading, setGhlSSOLoading] = useState(isAutoLogin && !!urlUserEmail);
   const [activeTab, setActiveTab] = useState(() => {
-    if (isStoreRoute) return 'inventory'; // Force inventory tab in store mode
+    if (isStoreRoute) return 'inventory';
     return localStorage.getItem('activeTab') || 'dashboard';
   });
 
@@ -2962,6 +4055,7 @@ export default function CarbotApp() {
   const [legacyDocs, setLegacyDocs] = useState([]);
   const [newContracts, setNewContracts] = useState([]);
   const [newQuotes, setNewQuotes] = useState([]);
+  const [templates, setTemplates] = useState([]);
 
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(null);
@@ -2983,7 +4077,7 @@ export default function CarbotApp() {
     if ((urlLocationName || urlLocationId) && !isStoreRoute) {
       const syncActiveUser = async () => {
         try {
-          const cleanDisplayName = (urlLocationName || '').trim().replace(/[*_~`]/g, '');
+          const cleanDisplayName = (urlLocationName || '').trim().replace(/[*_~\`]/g, '');
           const stableId = getStandardDealerId(urlLocationName, urlLocationId);
 
           // VERIFICACIÓN DE UNICIDAD: ghlLocationId solo para 1 dealer
@@ -3002,6 +4096,7 @@ export default function CarbotApp() {
             location_name: cleanDisplayName,
             user_name: urlUserName || urlUserEmail?.split('@')[0] || 'Usuario GHL',
             user_email: (urlUserEmail || '').toLowerCase(),
+            user_id: urlUserId || '', // Nuevo: ID del usuario desde GHL
             lastActive: new Date().toISOString(),
             source: 'GoHighLevel',
             stableId: stableId
@@ -3014,14 +4109,66 @@ export default function CarbotApp() {
     }
   }, [urlLocationName, urlLocationId, urlUserName, urlUserEmail, isStoreRoute]);
 
+  // ── GHL Auto-Login SSO ─────────────────────────────────────────
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+    if (!urlUserEmail || !urlLocationId || sessionStorage.getItem('manualLogout') === 'true') {
+      return; // No params or manually logged out → normal login flow
+    }
+
+    const runGHLSSO = async () => {
+      setGhlSSOLoading(true);
+      try {
+        const res = await fetch(
+          'https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/ghl-autologin',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: urlUserEmail,
+              name: urlUserName || '',
+              location_id: urlLocationId,
+              location_name: urlLocationName || '',
+            }),
+          }
+        );
+        const result = await res.json();
+
+        if (result.hashed_token) {
+          // Verify OTP → creates real Supabase session
+          const { error: verifyErr } = await supabase.auth.verifyOtp({
+            token_hash: result.hashed_token,
+            type: 'email',
+          });
+          if (!verifyErr) {
+            // Clean URL params for security
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+        // Whether SSO succeeded or had error, mark as logged in (GHL trust)
+        setCurrentUserEmail(urlUserEmail);
         setIsLoggedIn(true);
-        setCurrentUserEmail(user.email);
-        localStorage.setItem('lastUserEmail', user.email);
+      } catch (e) {
+        console.error('GHL SSO error:', e);
+        // Fallback: trust GHL params anyway
+        setCurrentUserEmail(urlUserEmail);
+        setIsLoggedIn(true);
+      } finally {
+        setGhlSSOLoading(false);
+      }
+    };
+
+    runGHLSSO();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // ── Supabase Auth listener (reemplaza onAuthStateChanged de Firebase) ──
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setIsLoggedIn(true);
+        setCurrentUserEmail(session.user.email);
+        localStorage.setItem('lastUserEmail', session.user.email);
       } else if (isAutoLogin) {
-        const emailToUse = (urlUserEmail || localStorage.getItem('lastUserEmail') || '').toLowerCase();
+        const emailToUse = (urlUserEmail || localStorage.getItem('lastUserEmail') || (urlUserId ? `${urlUserId}@ghl.com` : (urlLocationId ? `admin@${urlLocationId}.com` : ''))).toLowerCase();
         if (emailToUse || isStoreRoute) {
           setCurrentUserEmail(emailToUse);
           setIsLoggedIn(true);
@@ -3033,7 +4180,7 @@ export default function CarbotApp() {
       }
       setInitializing(false);
     });
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, [isAutoLogin, urlUserEmail, isStoreRoute, urlLocationId, urlLocationName]);
 
   // --- AUTO-SELECT VEHICLE FROM URL ---
@@ -3097,7 +4244,9 @@ export default function CarbotApp() {
       name: urlUserName || urlUserEmail?.split('@')[0] || 'Usuario GHL',
       email: urlUserEmail || '',
       role: 'Admin', // Default for GHL context
-      ghlLocationId: urlLocationId || ''
+      ghlLocationId: urlLocationId || '',
+      dealer_logo: userProfile?.dealer_logo || '',
+      avatar_url: userProfile?.avatar_url || userProfile?.foto_url || ''
     };
   }, [userProfile, effectiveDealerId, urlLocationName, urlUserName, urlUserEmail, urlLocationId]);
 
@@ -3194,11 +4343,11 @@ export default function CarbotApp() {
             console.log("✨ Perfil nuevo detectado vía AutoLogin");
             const urlName = params.get('user_name');
             const urlDealerName = params.get('location_name');
-            const cleanDisplayDealerName = urlDealerName ? urlDealerName.trim().replace(/[*_~`]/g, '') : (urlLocationName || 'Mi Dealer');
+            const cleanDisplayDealerName = urlDealerName ? urlDealerName.trim().replace(/[*_~\`]/g, '') : (urlLocationName || 'Mi Dealer');
             const stableDealerId = getStandardDealerId(urlLocationName || 'Mi Dealer', urlLocationId);
 
             profileData = {
-              name: urlName || emailLower.split('@')[0],
+              name: urlName || emailLower.split('@')[0] || 'Usuario GHL',
               email: emailLower,
               dealerId: stableDealerId,
               dealerName: cleanDisplayDealerName,
@@ -3206,12 +4355,49 @@ export default function CarbotApp() {
               role: 'Admin',
               uid: auth.currentUser?.uid || null,
               createdAt: new Date().toISOString(),
-              ghlLocationId: urlLocationId || ''
+              ghlLocationId: urlLocationId || '',
+              ghlUserId: urlUserId || ''
             };
+          }
+
+          // 5. Fallback Supabase (Para usuarios sincronizados que aún no existen en Firebase local)
+          if (!profileData && !isAutoLogin) {
+            try {
+              console.log("⚡ Buscando usuario en Supabase (migración transparente)...");
+              const { data: supaUser, error: supaErr } = await supabase
+                .from('usuarios')
+                .select('nombre, correo, rol, dealer_id, avatar_url, foto_url, dealers(nombre, ghl_location_id, logo_url)')
+                .eq('correo', emailLower)
+                .maybeSingle();
+
+              if (supaUser && supaUser.dealers && supaUser.dealer_id) {
+                console.log("🎯 Usuario recuperado desde Supabase:", supaUser.dealer_id);
+                profileData = {
+                  name: supaUser.nombre || emailLower.split('@')[0],
+                  email: supaUser.correo,
+                  dealerId: supaUser.dealer_id,
+                  dealerName: supaUser.dealers.nombre || 'Mi Dealer',
+                  jobTitle: supaUser.rol || 'Asesor',
+                  role: supaUser.rol || 'Asesor',
+                  uid: auth.currentUser?.uid || null,
+                  createdAt: new Date().toISOString(),
+                  ghlLocationId: supaUser.dealers.ghl_location_id || '',
+                  ghlUserId: '',
+                  avatar_url: supaUser.avatar_url || supaUser.foto_url || '',
+                  dealer_logo: supaUser.dealers.logo_url || ''
+                };
+              }
+            } catch (err) {
+              console.error("❌ Falló búsqueda en Supabase:", err);
+            }
           }
 
           if (profileData && profileData.dealerId) {
             const userId = emailLower.replace(/\./g, '_');
+
+            // Garantizar que exista un ID válido para Storage Uploads y referencias
+            profileData.id = profileData.id || auth.currentUser?.uid || userId;
+
             const dealerUserRef = doc(db, "Dealers", profileData.dealerId, "usuarios", userId);
 
             // Verificación estricta de contraseña si no es AutoLogin
@@ -3252,12 +4438,34 @@ export default function CarbotApp() {
               console.warn("⚠️ No se pudo sincronizar data de Dealer/Bot (Permisos):", syncErr);
             }
 
+            // --- FETCH SUPABASE GHL ONBOARDING DATA ---
+            try {
+              const { data: supaUser, error: supaErr } = await supabase
+                .from('usuarios')
+                .select('avatar_url, role_en_ghl, phone, dealers(logo_url, address, website)')
+                .eq('correo', emailLower)
+                .maybeSingle();
+
+              if (supaUser) {
+                profileData.avatar_url = supaUser.avatar_url;
+                profileData.ghl_role = supaUser.role_en_ghl;
+                profileData.phone = supaUser.phone;
+                if (supaUser.dealers) {
+                  profileData.dealer_logo = supaUser.dealers.logo_url;
+                  profileData.dealer_website = supaUser.dealers.website;
+                  profileData.dealer_address = supaUser.dealers.address;
+                }
+              }
+            } catch (err) {
+              console.error("No se pudo obtener data de Supabase:", err);
+            }
+
             setUserProfile(profileData);
           } else {
             // No se pudo determinar el dealer
             if (!isAutoLogin) {
               showToast("No se encontró cuenta asociada. Contacta soporte.", "error");
-              await signOut(auth);
+              await supabase.auth.signOut();
               setIsLoggedIn(false);
             } else {
               // Si es auto-login pero falló todo, evitamos el hang poniendo isLoggedIn en false
@@ -3278,20 +4486,56 @@ export default function CarbotApp() {
   const handleUpdateProfile = async (updatedData) => {
     if (!currentUserEmail || !userProfile?.dealerId) return;
     try {
+      const emailLower = currentUserEmail.toLowerCase();
       const userId = currentUserEmail.replace(/\./g, '_');
-      const userRef = doc(db, "users", userId);
+
       const allowedUpdates = {
         name: updatedData.name,
         jobTitle: updatedData.jobTitle,
         updatedAt: new Date().toISOString()
       };
 
-      // Update Dealer Scoped Folder - Robust Update with setDoc merge
+      if (updatedData.photoURL) {
+        allowedUpdates.photoURL = updatedData.photoURL;
+        allowedUpdates.foto_url = updatedData.photoURL;
+        allowedUpdates.avatar_url = updatedData.photoURL;
+      }
+
+      if (updatedData.dealer_logo) {
+        allowedUpdates.dealer_logo = updatedData.dealer_logo;
+      }
+
+      // Update Firebase (Legacy/Main sync)
+      const userRef = doc(db, "users", userId);
       const dealerUserRef = doc(db, "Dealers", effectiveDealerId, "usuarios", userId);
       await setDoc(dealerUserRef, allowedUpdates, { merge: true });
+      try { await setDoc(userRef, allowedUpdates, { merge: true }); } catch (e) { }
 
+      // Update Supabase (New Identity Provider)
+      const supaUpdates = {
+        nombre: updatedData.name,
+        rol: updatedData.jobTitle,
+      };
+      if (updatedData.photoURL) {
+        supaUpdates.avatar_url = updatedData.photoURL;
+      }
+      await supabase.from('usuarios').update(supaUpdates).eq('correo', emailLower);
+
+      // Password Reset
       if (updatedData.newPassword && updatedData.newPassword.length >= 6) {
-        await updatePassword(auth.currentUser, updatedData.newPassword);
+        if (auth.currentUser) {
+          try { await updatePassword(auth.currentUser, updatedData.newPassword); } catch (e) { }
+        }
+
+        const { error: supaErr } = await supabase.auth.updateUser({
+          password: updatedData.newPassword
+        });
+
+        if (supaErr) {
+          console.error("Supabase password error:", supaErr);
+          showToast("Error actualizando la contraseña", "error");
+          return;
+        }
       }
 
       setUserProfile(prev => ({ ...prev, ...allowedUpdates }));
@@ -3306,25 +4550,13 @@ export default function CarbotApp() {
 
   // ... (rest of functions)
 
-  const handleLogin = async ({ email, password }) => {
-    try {
-      if (!email || !password) {
-        showToast("Email y contraseña requeridos", "error");
-        return;
-      }
-      const normalizedEmail = email.toLowerCase().trim();
-
-      // FIREBASE AUTH REAL
-      await signInWithEmailAndPassword(auth, normalizedEmail, password);
-      showToast("Sesión iniciada correctamente");
-    } catch (error) {
-      console.error("Error en login:", error);
-      let msg = "Error al iniciar sesión";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        msg = "Credenciales incorrectas";
-      }
-      showToast(msg, "error");
-    }
+  // handleLogin is now handled inside LoginView (Supabase auth)
+  // onLoginSuccess is called by LoginView after successful auth
+  const handleLoginSuccess = (supUser) => {
+    setIsLoggedIn(true);
+    setCurrentUserEmail(supUser.email);
+    localStorage.setItem('lastUserEmail', supUser.email);
+    setInitializing(false);
   };
 
   const handleLogout = () => {
@@ -3334,14 +4566,17 @@ export default function CarbotApp() {
       isDestructive: true,
       onConfirm: async () => {
         try {
-          await signOut(auth);
+          await supabase.auth.signOut();
         } catch (error) {
           console.error("Error signing out", error);
         }
         localStorage.removeItem('lastUserEmail');
+        sessionStorage.setItem('manualLogout', 'true');
         setIsLoggedIn(false);
         setUserProfile(null);
         setCurrentUserEmail('');
+        // Force redirect to clean URL without GHL parameters to prevent auto-login
+        window.location.href = window.location.origin + window.location.pathname;
       }
     });
   };
@@ -3355,33 +4590,93 @@ export default function CarbotApp() {
 
     console.log("📡 [LISTENERS] Iniciando para Dealer:", effectiveDealerId, "(GHL Mode:", !!urlLocationId, ")");
 
-    // 1. Listen to Vehicles
-    const vehRef = collection(db, "Dealers", effectiveDealerId, "vehiculos");
+    // 1. Listen to Vehicles (Migrado a Supabase ✅)
+    const fetchVehiclesFromSupabase = async () => {
+      try {
+        let query = supabase.from('vehiculos').select('*').order('created_at', { ascending: false });
 
-    const unsubscribeVehicles = onSnapshot(vehRef, (snapshot) => {
-      let vehiclesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      // FILTRADO ESTRICTO EN MEMORIA: Permite la transición de datos antiguos
-      if (urlLocationId) {
-        // Mostramos si coincide el ID OR si no tiene tag (pendiente de reparación)
-        vehiclesData = vehiclesData.filter(v =>
-          v.ghlLocationId === urlLocationId || !v.ghlLocationId
-        );
-      }
-
-      setInventory(vehiclesData);
-
-      // Auto-limpieza de basura (>15 días)
-      const now = new Date();
-      vehiclesData.forEach(async (v) => {
-        if (v.status === 'trash' && v.deletedAt) {
-          const deleteDate = new Date(v.deletedAt);
-          if ((now - deleteDate) / (1000 * 60 * 60 * 24) > 15) {
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", v.id));
-          }
+        // El RLS ya filtra auto-mágicamente por dealer_id si hay sesión activa,
+        // pero incluimos filtro por si estamos en vista pública / GHL
+        if (effectiveDealerId) {
+          query = query.eq('dealer_id', effectiveDealerId);
+        } else if (urlLocationId) {
+          query = query.eq('ghl_location_id', urlLocationId);
         }
-      });
-    });
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        let vehiclesData = (data || []).map(v => {
+          const makeFromTitle = v.detalles?.make || v.titulo_vehiculo?.split(' ')[1] || 'N/A';
+          const modelFromTitle = v.detalles?.model || v.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
+          const yearFromTitle = v.detalles?.year || v.titulo_vehiculo?.split(' ')[0] || '';
+
+          return {
+            ...v,
+            ...(v.detalles || {}),
+            make: makeFromTitle,
+            marca: makeFromTitle,
+            model: modelFromTitle,
+            modelo: modelFromTitle,
+            year: yearFromTitle,
+
+            price: parseFloat(v.precio || 0),
+            status: v.estado === 'Vendido' ? 'sold' : 'available',
+            images: v.fotos || [],
+            documents: v.documentos || [],
+
+            exteriorColor: v.color,
+            carfaxCondition: v.condicion_carfax,
+            vin: v.chasis_vin,
+            drivetrain: v.traccion,
+            transmission: v.transmision,
+            engine: v.motor,
+            roof: v.techo,
+            fuelType: v.combustible,
+            keyType: v.llave,
+            camera: v.camara,
+            interiorMaterial: v.material_asientos,
+
+            initial_payment: parseFloat(v.inicial || 0),
+            mileage: parseFloat(v.millas || 0),
+            seats: parseInt(v.cantidad_asientos || 0),
+
+            powerTrunk: v.baul_electrico,
+            sensors: v.sensores,
+            appleCarplay: v.carplay,
+            powerWindows: v.vidrios_electricos,
+
+            ghlLocationId: v.ghl_location_id,
+            createdAt: v.created_at,
+            updatedAt: v.created_at
+          };
+        });
+
+        // Filtro estricto local de seguridad extra
+        if (urlLocationId) {
+          vehiclesData = vehiclesData.filter(v => v.ghl_location_id === urlLocationId || v.ghlLocationId === urlLocationId);
+        }
+        setInventory(vehiclesData);
+
+      } catch (err) {
+        console.error("❌ Error fetch Supabase Vehiculos:", err);
+      }
+    };
+
+    fetchVehiclesFromSupabase();
+
+    // Supabase Realtime Subscription para vehiculos
+    const vehicleSubscription = supabase
+      .channel(`vehiculos_dealer_${effectiveDealerId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'vehiculos',
+        filter: `dealer_id=eq.${effectiveDealerId}`
+      }, (payload) => {
+        fetchVehiclesFromSupabase();
+      })
+      .subscribe();
 
     // 2. Listen to Documents
     const newConRef = collection(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items");
@@ -3411,13 +4706,21 @@ export default function CarbotApp() {
       setLegacyDocs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // 5. Listen to Templates
+    const tempRef = collection(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items");
+    const unsubscribeTemplates = onSnapshot(tempRef, (snapshot) => {
+      setTemplates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
-      unsubscribeVehicles();
+      console.log("🛑 Limpiando listeners de Dealer:", effectiveDealerId);
+      supabase.removeChannel(vehicleSubscription);
       unsubscribeNewContracts();
       unsubscribeNewQuotes();
       unsubscribeLegacyContracts();
       unsubscribeLegacyQuotes();
       unsubscribeLegacyDocs();
+      unsubscribeTemplates();
     };
   }, [effectiveDealerId, urlLocationId]); // Re-activar si cambia el contexto
 
@@ -3471,7 +4774,7 @@ export default function CarbotApp() {
   }, [legacyQuotes, legacyDocs, newQuotes]);
 
 
-  // 3. GUARDAR (Crear o Editar en Firebase)
+  // 3. GUARDAR (Crear o Editar en Supabase)
   const handleSaveVehicle = async (vehicleData) => {
     if (!effectiveDealerId) {
       console.error("No effectiveDealerId available");
@@ -3480,57 +4783,72 @@ export default function CarbotApp() {
     }
     const existingId = vehicleData.id;
     try {
-      if (existingId) {
-        const vehicleRef = doc(db, "Dealers", effectiveDealerId, "vehiculos", existingId);
-        const { id: _removedId, ...dataToUpdate } = vehicleData;
-        await updateDoc(vehicleRef, {
-          ...dataToUpdate,
-          ghlLocationId: urlLocationId || dataToUpdate.ghlLocationId || shadowProfile?.ghlLocationId || '',
-          updatedAt: new Date().toISOString()
-        });
+      const titulo = vehicleData.titulo_vehiculo ||
+        `${vehicleData.year || ''} ${vehicleData.make || vehicleData.marca || ''} ${vehicleData.model || vehicleData.modelo || ''}`.trim() || 'Vehículo Sin Título';
+
+      const dataToSave = {
+        dealer_id: effectiveDealerId,
+        titulo_vehiculo: titulo.toUpperCase(),
+        estado: (vehicleData.status === 'sold' || vehicleData.estado === 'Vendido') ? 'Vendido' : 'Disponible',
+
+        color: vehicleData.exteriorColor || vehicleData.color || null,
+        condicion_carfax: vehicleData.carfaxCondition || vehicleData.condicion_carfax || null,
+        chasis_vin: vehicleData.vin || vehicleData.chasis_vin || null,
+        traccion: vehicleData.drivetrain || vehicleData.traccion || null,
+        transmision: vehicleData.transmission || vehicleData.transmision || null,
+        motor: vehicleData.engine || vehicleData.motor || null,
+        techo: vehicleData.roof || vehicleData.techo || null,
+        combustible: vehicleData.fuelType || vehicleData.combustible || null,
+        llave: vehicleData.keyType || vehicleData.llave || null,
+        camara: vehicleData.camera || vehicleData.camara || null,
+        material_asientos: vehicleData.interiorMaterial || vehicleData.material_asientos || null,
+
+        precio: parseFloat(vehicleData.price_unified || vehicleData.precio || vehicleData.price) || 0,
+        inicial: parseFloat(vehicleData.initial_unified || vehicleData.inicial || vehicleData.initial_payment) || 0,
+        millas: parseFloat(vehicleData.mileage || vehicleData.millas) || 0,
+        cantidad_asientos: parseInt(vehicleData.seats || vehicleData.cantidad_asientos) || null,
+
+        baul_electrico: !!(vehicleData.powerTrunk || vehicleData.baul_electrico),
+        sensores: !!(vehicleData.sensors || vehicleData.sensores),
+        carplay: !!(vehicleData.appleCarplay || vehicleData.carplay),
+        vidrios_electricos: !!(vehicleData.powerWindows || vehicleData.vidrios_electricos),
+
+        fotos: vehicleData.images || vehicleData.fotos || (vehicleData.image ? [vehicleData.image] : []),
+        documentos: vehicleData.documents || vehicleData.documentos || []
+      };
+
+      if (vehicleData.status === 'sold' && !existingId) {
+        dataToSave.fecha_venta = new Date().toISOString();
+      }
+
+      if (existingId && existingId.length > 20) {
+        // En Supabase el ID debe existir (escription UUID o texto compatible). Update.
+        const { error } = await supabase.from('vehiculos').update(dataToSave).eq('id', existingId);
+        if (error) throw error;
         showToast("Vehículo actualizado con éxito");
       } else {
-        // Generate Custom ID: YEAR-MAKE-MODEL-COLOR-LAST4VIN
-        const year = (vehicleData.year || '0000').toString();
-        const make = (vehicleData.make || 'UNKNOWN').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const model = (vehicleData.model || 'UNKNOWN').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const color = (vehicleData.color || 'UNKNOWN').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const vin = (vehicleData.vin || '0000').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const last4Vin = vin.slice(-4);
+        // Create new
+        dataToSave.created_at = new Date().toISOString();
+        dataToSave.status = vehicleData.status || 'available';
 
-        // Fallback for empty strings after cleanup
-        const cleanMake = make || 'UNKNOWN';
-        const cleanModel = model || 'UNKNOWN';
-        const cleanColor = color || 'UNKNOWN';
-
-        const customId = `${year}-${cleanMake}-${cleanModel}-${cleanColor}-${last4Vin}`;
-
-        const newVehicle = {
-          ...vehicleData,
-          id: customId,
-          createdAt: new Date().toISOString(),
-          status: vehicleData.status || 'available',
-          ghlLocationId: urlLocationId || shadowProfile?.ghlLocationId || ''
-        };
-
-        // Use setDoc with the custom ID
-        await setDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", customId), newVehicle);
+        const { error } = await supabase.from('vehiculos').insert([dataToSave]);
+        if (error) throw error;
         showToast("Vehículo guardado con éxito");
       }
     } catch (error) {
-      console.error("Error al guardar:", error);
-      showToast("Error al guardar en el Dealer", "error");
+      console.error("Error al guardar en Supabase:", error);
+      showToast(`Error: ${error?.message || 'Error al guardar en el Dealer'}`, "error");
     }
   };
 
   const handleDeleteVehicle = async (id) => {
     if (!userProfile?.dealerId) return;
     try {
-      const vehicleRef = doc(db, "Dealers", effectiveDealerId, "vehiculos", id);
-      await updateDoc(vehicleRef, {
+      const { error } = await supabase.from('vehiculos').update({
         status: 'trash',
-        deletedAt: new Date().toISOString()
-      });
+        deleted_at: new Date().toISOString()
+      }).eq('id', id);
+      if (error) throw error;
       showToast("Vehículo movido a la papelera");
     } catch (error) {
       console.error(error);
@@ -3541,32 +4859,98 @@ export default function CarbotApp() {
   const handleRestoreVehicle = async (id) => {
     if (!userProfile?.dealerId) return;
     try {
-      const vehicleRef = doc(db, "Dealers", effectiveDealerId, "vehiculos", id);
-      await updateDoc(vehicleRef, {
+      const { error } = await supabase.from('vehiculos').update({
         status: 'available',
-        deletedAt: null
-      });
+        deleted_at: null
+      }).eq('id', id);
+      if (error) throw error;
       showToast("Vehículo restaurado");
     } catch (e) {
       showToast("Error al restaurar", "error");
     }
   };
 
-  const handlePermanentDelete = (id) => {
+  const handlePermanentDelete = (id, force = false) => {
     if (!userProfile?.dealerId) return;
+
+    const doDelete = async () => {
+      try {
+        const { error } = await supabase.from('vehiculos').delete().eq('id', id);
+        if (error) throw error;
+        if (!force) showToast("Eliminado permanentemente");
+      } catch (error) {
+        showToast("Error al eliminar", "error");
+      }
+    };
+
+    if (force) return doDelete();
+
     requestConfirmation({
       title: 'Eliminar Permanentemente',
       message: '¿ESTÁS SEGURO? Esta acción no se puede deshacer.',
       confirmText: 'Eliminar para Siempre',
       isDestructive: true,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", id));
-          showToast("Eliminado permanentemente");
-        } catch (error) {
-          showToast("Error al eliminar", "error");
-        }
+      onConfirm: doDelete
+    });
+  };
+
+  const handleRestoreDocument = async (item) => {
+    if (!effectiveDealerId) return;
+    try {
+      let ref;
+      // Determinar la referencia correcta basada en el ID y la lógica de colecciones
+      if (item.id.startsWith('Contrato')) {
+        ref = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+      } else if (item.id.startsWith('Cotizacion')) {
+        ref = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+      } else {
+        // Legacy fallback
+        const isContract = item.type === 'contract' || (item.client && !item.name);
+        ref = doc(db, "Dealers", effectiveDealerId, isContract ? "contracts" : "quotes", item.id);
       }
+
+      await updateDoc(ref, { status: 'active' });
+      showToast("Documento restaurado");
+    } catch (e) {
+      console.error(e);
+      showToast("Error al restaurar documento", "error");
+    }
+  };
+
+  const handlePermanentDeleteDocument = (item, force = false) => {
+    if (!effectiveDealerId) return;
+
+    const doDelete = async () => {
+      try {
+        let ref;
+        if (item.id.startsWith('Contrato')) {
+          ref = doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", item.id);
+        } else if (item.id.startsWith('Cotizacion')) {
+          ref = doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", item.id);
+        } else {
+          const isContract = item.type === 'contract' || (item.client && !item.name);
+          ref = doc(db, "Dealers", effectiveDealerId, isContract ? "contracts" : "quotes", item.id);
+        }
+
+        await deleteDoc(ref);
+        // También intentar borrar de la colección raíz 'documentos' por si acaso es legacy
+        try { await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", item.id)); } catch (e) { }
+
+        if (!force) showToast("Documento eliminado permanentemente");
+      } catch (e) {
+        console.error(e);
+        showToast("Error al eliminar documento", "error");
+      }
+    };
+
+    if (force) return doDelete();
+
+    requestConfirmation({
+      title: '¿Eliminar Documento?',
+      message: 'Esta acción es irreversible.',
+      confirmText: 'Eliminar Definitivamente',
+      isDestructive: true,
+      onConfirm: doDelete
     });
   };
 
@@ -3580,8 +4964,10 @@ export default function CarbotApp() {
       onConfirm: async () => {
         try {
           const trashItems = inventory.filter(i => i.status === 'trash');
-          for (const item of trashItems) {
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "vehiculos", item.id));
+          if (trashItems.length > 0) {
+            const idsToDelete = trashItems.map(i => i.id);
+            const { error } = await supabase.from('vehiculos').delete().in('id', idsToDelete);
+            if (error) throw error;
           }
           showToast("Papelera vaciada");
         } catch (e) {
@@ -3645,8 +5031,9 @@ export default function CarbotApp() {
       await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", customId), newQuote);
 
       if (vId) {
-        const vehicleRef = doc(db, "Dealers", effectiveDealerId, "vehiculos", vId);
-        await updateDoc(vehicleRef, { status: 'quoted', updatedAt: new Date().toISOString() });
+        await supabase.from('vehiculos')
+          .update({ status: 'quoted', updated_at: new Date().toISOString() })
+          .eq('id', vId);
       }
       requestConfirmation({
         title: 'Cotización Enviada',
@@ -3661,8 +5048,101 @@ export default function CarbotApp() {
     }
   };
 
-  const handleGenerateContract = async (contractData) => {
+  const handleGenerateMultiContract = async (contractsArray) => {
+    console.log("handleGenerateMultiContract called with:", contractsArray);
+    if (!userProfile?.dealerId) {
+      console.error("MultiGen: Missing dealerId", userProfile);
+      showToast("Error critico: No hay perfil de usuario cargado", "error");
+      return;
+    }
+    if (!Array.isArray(contractsArray)) {
+      console.error("MultiGen: Input is not an array", contractsArray);
+      return;
+    }
+
+    try {
+      let generatedCount = 0;
+      let firstVehicleId = null;
+
+      for (const contractData of contractsArray) {
+        // Reuse the single contract logic structure
+        // Clean data
+        const cleanData = Object.fromEntries(
+          Object.entries(contractData).filter(([_, v]) => v !== undefined)
+        );
+        const { id, category, ...data } = cleanData;
+
+        // GENERAR ID DINÁMICO
+        const clientName = (data.client || 'Cliente').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        let make = 'MARCA';
+        let model = 'MODELO';
+        let last4Vin = '0000';
+
+        if (contractData.vehicleId) {
+          firstVehicleId = contractData.vehicleId;
+          const vehicleObj = activeInventory.find(v => v.id === contractData.vehicleId);
+          if (vehicleObj) {
+            make = (vehicleObj.make || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            model = (vehicleObj.model || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            last4Vin = (vehicleObj.vin || '0000').slice(-4);
+          } else if (data.vehicle) {
+            const parts = data.vehicle.split(' ');
+            if (parts.length >= 2) {
+              make = parts[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+              model = parts[1].toUpperCase().replace(/[^A-Z0-9]/g, '');
+            }
+          }
+        }
+
+        const docType = category === 'quote' ? 'Cotizacion' : 'Contrato';
+        const docCollection = category === 'quote' ? 'cotizaciones' : 'contratos';
+
+        // Unique ID including Template Name to avoid collision if multiple docs for same car/client
+        const templateTag = (data.template || 'Doc').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 5);
+        const customId = `${docType}_${clientName}_${make}_${model}_${last4Vin}_${templateTag}_${Date.now().toString().slice(-4)}`;
+
+        const newDoc = {
+          ...data,
+          id: customId,
+          type: category || 'contract',
+          category: category || 'contract',
+          createdAt: new Date().toISOString()
+        };
+
+        // Guardar
+        await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", docCollection, "items", customId), newDoc);
+        generatedCount++;
+      }
+
+      // Update vehicle status ONLY if at least one contract was generated (not just quotes)
+      // If mixed, mark as sold? Or let user decide? For now, if any contract, mark sold.
+      const hasContract = contractsArray.some(c => c.category === 'contract' || !c.category);
+      if (firstVehicleId) {
+        const newStatus = hasContract ? 'sold' : 'quoted';
+        await supabase.from('vehiculos')
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq('id', firstVehicleId);
+      }
+
+      showToast(`${generatedCount} documentos generados con éxito`);
+      setIsContractModalOpen(false);
+
+    } catch (error) {
+      console.error("Error multi-gen:", error);
+      showToast("Error generando documentos: " + error.message, "error");
+    }
+  };
+
+  const handleGenerateContract = async (contractDataInput) => {
     if (!userProfile?.dealerId) return;
+
+    // Support Input Array for multi-gen
+    if (Array.isArray(contractDataInput)) {
+      return handleGenerateMultiContract(contractDataInput);
+    }
+
+    const contractData = contractDataInput; // Single object case
+
     try {
       // Limpiar undefined antes de enviar a Firestore
       const cleanData = Object.fromEntries(
@@ -3719,52 +5199,79 @@ export default function CarbotApp() {
         await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", customId), newContract);
 
         if (contractData.vehicleId) {
-          const vehicleRef = doc(db, "Dealers", effectiveDealerId, "vehiculos", contractData.vehicleId);
-          await updateDoc(vehicleRef, { status: 'sold', updatedAt: new Date().toISOString() });
+          await supabase.from('vehiculos')
+            .update({ status: 'sold', updated_at: new Date().toISOString() })
+            .eq('id', contractData.vehicleId);
         }
         showToast("Contrato generado");
       }
+      showToast("Contrato generado");
     } catch (error) {
       console.error(error);
       showToast("Error: " + error.message, "error");
     }
   };
 
-  const handleDeleteContract = (id) => {
-    if (!userProfile?.dealerId) return;
-    requestConfirmation({
-      title: '¿Eliminar Contrato?',
-      message: '¿Estás seguro?',
-      confirmText: 'Eliminar',
-      isDestructive: true,
-      onConfirm: async () => {
-        try {
-          // Intentar borrar de todas las posibles ubicaciones para seguridad o usar el ID para inferir
-          if (id.startsWith('Contrato')) {
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", id));
-          } else {
-            // Fallback legacy
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "contracts", id));
-            await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", id));
-          }
-          showToast("Contrato eliminado");
-        } catch (error) {
-          showToast("Error al eliminar: " + error.message, "error");
-        }
+
+  const handleDeleteContract = async (id) => {
+    if (!effectiveDealerId) return; // Usar effectiveDealerId
+    try {
+      if (id.startsWith('Contrato')) {
+        await updateDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", id), { status: 'deleted' });
+      } else {
+        await updateDoc(doc(db, "Dealers", effectiveDealerId, "contracts", id), { status: 'deleted' });
       }
-    });
+      showToast("Contrato movido a papelera");
+    } catch (error) {
+      console.error(error);
+      showToast("Error al eliminar: " + error.message, "error");
+    }
   };
 
   const handleDeleteQuote = async (id) => {
-    if (!userProfile?.dealerId) return;
+    if (!effectiveDealerId) return;
     try {
       if (id.startsWith('Cotizacion')) {
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", id));
+        await updateDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", id), { status: 'deleted' });
       } else {
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "quotes", id));
-        await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", id));
+        await updateDoc(doc(db, "Dealers", effectiveDealerId, "quotes", id), { status: 'deleted' });
       }
-      showToast("Cotización eliminada");
+      showToast("Cotización movida a papelera");
+    } catch (error) {
+      console.error(error);
+      showToast("Error al eliminar: " + error.message, "error");
+    }
+  };
+
+  const handleSaveTemplate = async (templateData) => {
+    if (!effectiveDealerId) return;
+    try {
+      const { id, ...data } = templateData;
+      // Normalizar nombre para el ID o usar timestamp
+      const nameSlug = (data.name || 'Plantilla').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+      const templateId = id || `Plantilla_${nameSlug}_${Date.now()}`;
+
+      const tempRef = doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", templateId);
+
+      await setDoc(tempRef, {
+        ...data,
+        id: templateId,
+        updatedAt: new Date().toISOString(),
+        createdAt: data.createdAt || new Date().toISOString()
+      }, { merge: true });
+
+      showToast(id ? "Plantilla actualizada" : "Plantilla creada");
+    } catch (error) {
+      console.error("Error saving template:", error);
+      showToast("Error al guardar la plantilla", "error");
+    }
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    if (!effectiveDealerId) return;
+    try {
+      await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "plantillas", "items", id));
+      showToast("Plantilla eliminada");
     } catch (error) {
       showToast("Error al eliminar: " + error.message, "error");
     }
@@ -3797,11 +5304,13 @@ export default function CarbotApp() {
       );
     }
     switch (activeTab) {
-      case 'settings': return <SettingsViewFixed userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} />;
+      case 'settings': return <SettingsView userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} />;
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={shadowProfile} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} inventory={activeInventory} onGenerateContract={handleGenerateContract} onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
-      case 'trash': return <TrashView trash={trashInventory} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
+      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} templates={templates} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={templates} inventory={activeInventory}
+        onGenerateContract={handleGenerateContract}
+        onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} onSaveTemplate={handleSaveTemplate} onDeleteTemplate={handleDeleteTemplate} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} showToast={showToast} />;
+      case 'trash': return <TrashView trash={trashInventory} contracts={contracts} quotes={quotes} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onRestoreDocument={handleRestoreDocument} onPermanentDeleteDocument={handlePermanentDeleteDocument} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
       default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={shadowProfile} />;
     }
   };
@@ -3819,11 +5328,37 @@ export default function CarbotApp() {
     );
   }
 
-  // Si no hay login NI contexto de URL, pedimos login
+  // GHL SSO: autenticando silenciosamente con parámetros de URL
+  if (ghlSSOLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#060608',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        fontFamily: "'Outfit', system-ui, sans-serif",
+      }}>
+        <img src="/logo.png" alt="CarBot"
+          style={{ width: 120, marginBottom: 32, mixBlendMode: 'multiply', filter: 'drop-shadow(0 4px 24px rgba(220,38,38,0.5))' }} />
+        <div style={{
+          width: 48, height: 48, borderRadius: '50%',
+          border: '3px solid rgba(220,38,38,0.2)',
+          borderTopColor: '#DC2626',
+          animation: 'spin 0.8s linear infinite',
+          marginBottom: 24,
+        }} />
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 500, letterSpacing: '0.05em' }}>
+          Autenticando de forma segura...
+        </p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // Sin parámetros GHL y sin sesión → mostrar Login manual
   if (!isLoggedIn && !shadowProfile) {
     return (
       <>
-        <LoginScreen onLogin={handleLogin} />
+        <LoginView onLoginSuccess={handleLoginSuccess} />
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       </>
     );
@@ -3857,166 +5392,4 @@ export default function CarbotApp() {
   );
 }
 
-const SettingsViewFixed = ({ userProfile, onLogout, onUpdateProfile, showToast }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    name: userProfile?.name || '',
-    jobTitle: userProfile?.jobTitle || 'Vendedor'
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (userProfile) {
-      setFormData(prev => ({
-        ...prev,
-        name: userProfile.name || '',
-        jobTitle: userProfile.jobTitle || 'Vendedor'
-      }));
-    }
-  }, [userProfile]);
-
-  const handleSave = async () => {
-    setIsLoading(true);
-    await onUpdateProfile(formData);
-    setIsEditing(false);
-    setIsLoading(false);
-  };
-
-  const handleCopyLink = () => {
-    if (!userProfile?.dealerId) return;
-    const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(userProfile.dealerId)}`;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 sm:pb-0 pt-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="rounded-[32px] shadow-2xl bg-white overflow-hidden flex flex-col md:flex-row min-h-[500px]">
-
-          {/* LEFT: Profile Sidebar (Neutral/Dark) */}
-          <div className="w-full md:w-80 bg-neutral-900 relative p-8 flex flex-col items-center text-center text-white shrink-0">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-red-600 rounded-full blur-[80px] opacity-20 -mr-10 -mt-10"></div>
-
-            <div className="relative z-10 w-full flex flex-col items-center h-full">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white font-black text-6xl border-[6px] border-neutral-800 shadow-2xl mb-4 group hover:scale-105 transition-transform duration-300">
-                {userProfile?.name?.charAt(0) || 'U'}
-              </div>
-
-              <h2 className="text-2xl font-black tracking-tight mb-1">{userProfile?.name || 'Usuario'}</h2>
-              <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-8 bg-neutral-800/50 px-3 py-1 rounded-full">{userProfile?.jobTitle || 'Vendedor'}</p>
-
-              <div className="w-full bg-neutral-800/30 rounded-2xl p-5 mb-auto border border-neutral-700/30 backdrop-blur-sm">
-                <div className="flex items-center gap-4 mb-4 pb-4 border-b border-neutral-700/50">
-                  <div className="p-2 bg-neutral-700/50 rounded-lg"><Building2 size={18} className="text-red-500" /></div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Dealer</p>
-                    <p className="text-sm font-bold text-neutral-100">{userProfile?.dealerName || 'Dealer'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-neutral-700/50 rounded-lg"><User size={18} className="text-red-500" /></div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Nombre de Usuario</p>
-                    <p className="text-xs font-bold text-neutral-400 break-all">{userProfile?.name || '...'}</p>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3 border-t border-neutral-700/50 mt-4 pt-4">
-                  <button
-                    onClick={handleCopyLink}
-                    className={`w-full py-2.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border-2 ${copied ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'bg-red-600/10 border-red-600/20 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 group/link'}`}
-                  >
-                    {copied ? <Check size={14} /> : <Copy size={14} className="group-hover/link:animate-pulse" />}
-                    {copied ? '¡Copiado!' : 'Link Bot GHL'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!userProfile?.dealerId) return;
-                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${encodeURIComponent(userProfile.dealerId)}`;
-                      navigator.clipboard.writeText(link);
-                      showToast("Link del Catálogo copiado!");
-                    }}
-                    className="w-full py-2.5 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 border-2 bg-white/5 border-white/10 text-white hover:bg-white hover:text-neutral-900 hover:border-white group/catalog"
-                  >
-                    <Share2 size={14} className="group-hover/catalog:rotate-12 transition-transform" />
-                    Catálogo Público
-                  </button>
-                </div>
-              </div>
-
-              <div className="w-full mt-6 space-y-3">
-                <button onClick={onLogout} className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 group active:scale-95">
-                  <LogOut size={18} /> <span className="text-xs uppercase tracking-widest">Cerrar Sesión</span>
-                </button>
-                <p className="text-[10px] text-neutral-600 font-medium">CarBot System v3.0</p>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT: Settings Form (White) */}
-          <div className="flex-1 p-8 md:p-12 bg-white flex flex-col">
-            <div className="flex justify-between items-center mb-10 border-b border-gray-100 pb-6">
-              <div>
-                <h2 className="text-2xl font-black text-neutral-900 flex items-center gap-2">
-                  <Settings size={24} className="text-red-600" /> Configuración
-                </h2>
-                <p className="text-neutral-400 text-sm mt-1 font-medium">Gestiona tu información personal</p>
-              </div>
-              {!isEditing && (
-                <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 text-xs font-black text-neutral-500 hover:text-red-600 transition-colors uppercase tracking-wider bg-neutral-50 hover:bg-red-50 px-4 py-2 rounded-2xl active:scale-95">
-                  <Edit size={14} /> Editar
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-neutral-400 uppercase tracking-widest ml-1">Nombre Completo</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    disabled={!isEditing}
-                    className={`w-full pl-4 pr-4 py-3.5 rounded-xl text-sm font-bold transition-all ${isEditing ? 'bg-white border-2 border-neutral-200 focus:border-red-500 focus:ring-4 focus:ring-red-500/10' : 'bg-neutral-50 border-2 border-transparent text-neutral-500'}`}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Select
-                  label="Puesto / Cargo"
-                  value={formData.jobTitle}
-                  options={['CEO', 'Vendedor']}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  disabled={!isEditing}
-                />
-              </div>
-              <div className="space-y-2 opacity-60">
-                <label className="text-[11px] font-black text-neutral-400 uppercase tracking-widest ml-1">Email (Solo Lectura) <Lock size={10} className="inline ml-1 mb-0.5" /></label>
-                <input type="text" value={userProfile?.email || ''} disabled className="w-full px-4 py-3.5 rounded-xl text-sm font-bold bg-neutral-100 border-2 border-transparent text-neutral-400 cursor-not-allowed" />
-              </div>
-              <div className="space-y-2 opacity-60">
-                <label className="text-[11px] font-black text-neutral-400 uppercase tracking-widest ml-1">Dealer Asociado <Lock size={10} className="inline ml-1 mb-0.5" /></label>
-                <input type="text" value={userProfile?.dealerName || ''} disabled className="w-full px-4 py-3.5 rounded-xl text-sm font-bold bg-neutral-100 border-2 border-transparent text-neutral-400 cursor-not-allowed" />
-              </div>
-
-            </div>
-
-            {isEditing && (
-              <div className="flex gap-4 mt-auto pt-8 border-t border-gray-100 justify-end animate-in fade-in slide-in-from-bottom-2">
-                <button onClick={() => { setIsEditing(false); }} className="px-6 py-3 bg-white border-2 border-neutral-100 text-neutral-500 font-black rounded-2xl hover:bg-neutral-50 text-xs uppercase tracking-wide active:scale-95 transition-all">Cancelar</button>
-                <button onClick={handleSave} disabled={isLoading} className="px-8 py-3 bg-red-600 text-white font-black rounded-2xl hover:bg-red-700 shadow-xl shadow-red-600/30 text-xs uppercase tracking-wide flex items-center gap-2 active:scale-95 transition-all">
-                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Guardar Cambios
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 

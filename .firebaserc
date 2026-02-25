@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "carbot-5d709"
+  },
   "targets": {
     "carbot-5d709": {
       "hosting": {

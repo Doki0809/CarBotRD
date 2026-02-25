@@ -1,0 +1,1 @@
+ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS detalles JSONB DEFAULT '{}'::jsonb;

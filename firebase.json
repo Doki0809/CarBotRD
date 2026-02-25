@@ -18,6 +18,38 @@
           "function": "inventarioIA"
         },
         {
+          "source": "/api/ghl/authorize",
+          "function": "ghlAuthorize"
+        },
+        {
+          "source": "/api/ghl/callback",
+          "function": "ghlCallback"
+        },
+        {
+          "source": "/api/ghl/templates",
+          "function": "ghlTemplates"
+        },
+        {
+          "source": "/api/auth/callback",
+          "function": "ghlCallback"
+        },
+        {
+          "source": "/api/ghl/generar-contrato",
+          "function": "apiGHL"
+        },
+        {
+          "source": "/api/ghl/auth",
+          "function": "ghlAuth"
+        },
+        {
+          "source": "/api/ghl/token",
+          "function": "ghlToken"
+        },
+        {
+          "source": "/api/ghl/debugUsers",
+          "function": "debugUsers"
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
