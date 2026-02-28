@@ -2640,20 +2640,12 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
             </div>
           )}
 
-          {/* Settings Title in Header for Mobile Vibe */}
-          <div className="absolute top-12 w-full px-6 flex justify-between items-center z-20">
-            <h1 className="text-white text-xl font-bold tracking-wide shadow-black drop-shadow-md">Ajustes</h1>
-            <button onClick={onLogout} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/40 transition-colors shadow-black drop-shadow-md border border-white/10">
-              <LogOut size={18} />
+          <div className="absolute top-8 w-full px-6 md:px-12 flex justify-between items-center z-20">
+            <h1 className="text-slate-900 text-2xl md:text-3xl font-black tracking-wider shadow-sm drop-shadow-sm bg-white/70 backdrop-blur-md px-6 py-2 rounded-full border border-white/40">Ajustes</h1>
+            <button onClick={onLogout} className="w-12 h-12 rounded-full bg-white/70 backdrop-blur-md flex items-center justify-center text-red-600 hover:bg-white hover:text-red-700 transition-colors shadow-sm drop-shadow-sm border border-white/40">
+              <LogOut size={20} />
             </button>
           </div>
-
-          {/* Dealer Logo Centered Normal */}
-          {userProfile?.dealer_logo && (
-            <div className="absolute inset-0 z-10 w-full h-full flex items-center justify-center p-8 pt-12 pointer-events-none">
-              <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain drop-shadow-2xl" />
-            </div>
-          )}
 
           {/* Edit Logo Button */}
           {userProfile?.role === 'Admin' && (
