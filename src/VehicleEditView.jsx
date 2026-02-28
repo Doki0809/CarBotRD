@@ -121,7 +121,7 @@ const FormInput = ({ label, icon: Icon, name, value, onChange, type = "text", di
   </div>
 );
 
-export default function VehicleEditView({ vehicle, contract, onBack, onSave, readOnly = false }) {
+export default function VehicleEditView({ vehicle, contract, onBack, onSave, readOnly = false, userProfile }) {
   const [loading, setLoading] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.currency || (vehicle?.price_dop > 0 ? 'DOP' : 'USD'));
@@ -218,17 +218,34 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     try {
       const priceVal = Number(formData.price_unified);
       const initialVal = Number(formData.initial_unified);
-      const { price_unified: _tmp, initial_unified: _tmp2, ...dataToSave } = {
+
+      const dataToSave = {
         ...formData,
         image: formData.images?.[0] || formData.image,
-        price: currency === 'USD' ? priceVal : 0,
-        price_dop: currency === 'DOP' ? priceVal : 0,
+
+        // Mapeo rídigo para asegurar persistencia en App.jsx/Supabase
+        price: priceVal,
         currency: currency,
-        initial_payment: downPaymentCurrency === 'USD' ? initialVal : 0,
-        initial_payment_dop: downPaymentCurrency === 'DOP' ? initialVal : 0,
+        initial_payment: initialVal,
         downPaymentCurrency: downPaymentCurrency,
-        mileage_unit: mileageUnit
+        mileage_unit: mileageUnit,
+
+        // Mapeo de campos técnicos (EditView -> Database)
+        drivetrain: formData.traction || formData.traccion,
+        fuelType: formData.fuel || formData.combustible,
+        engine: formData.engine_type || formData.motor,
+        interiorMaterial: formData.seat_material || formData.material_asientos,
+        roof: formData.roof_type || formData.techo,
+        powerTrunk: formData.trunk === 'Sí' || formData.baul_electrico,
+        powerWindows: formData.electric_windows === 'Sí' || formData.vidrios_electricos,
+        keyType: formData.key_type || formData.llave,
+
+        // Aseguramos que los campos originales también vayan por si acaso
+        precio: priceVal,
+        inicial: initialVal,
+        millas: Number(formData.mileage)
       };
+
       if (!readOnly) await onSave(dataToSave);
     } catch (error) {
       console.error("Error saving vehicle:", error);
@@ -303,13 +320,26 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
           {/* LEFT: MEDIA GALLERY */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="relative group rounded-[2rem] overflow-hidden bg-slate-100 aspect-[16/10] shadow-2xl border border-slate-100">
-              <img
-                src={formData.images[activePhotoIndex] || 'https://via.placeholder.com/800x500'}
-                alt="Main"
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                onClick={() => setIsLightboxOpen(true)}
-              />
+            <div className="relative group rounded-[2rem] overflow-hidden bg-slate-100 aspect-[16/10] shadow-2xl border border-slate-100 flex items-center justify-center">
+              {(formData.images[activePhotoIndex] && !formData.images[activePhotoIndex].includes('unsplash')) ? (
+                <img
+                  src={formData.images[activePhotoIndex]}
+                  alt="Main"
+                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                  onClick={() => setIsLightboxOpen(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50 transition-transform duration-1000 group-hover:scale-105" onClick={() => formData.images.length > 0 && setIsLightboxOpen(true)}>
+                  {userProfile?.dealer_logo ? (
+                    <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-300">
+                      <Camera size={64} className="mb-4 opacity-50" />
+                      <p className="font-bold text-lg opacity-50">Sin Imágenes</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="absolute inset-x-0 bottom-0 p-8 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
                 <div className="flex justify-between items-end">
@@ -502,16 +532,22 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         <div className="xl:col-span-8 space-y-4 md:space-y-8">
           <div className="relative bg-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white h-[400px] md:h-[650px]">
             <div className="w-full h-full relative group cursor-zoom-in flex items-center justify-center" onClick={() => formData.images.length > 0 && setIsLightboxOpen(true)}>
-              {formData.images.length > 0 ? (
+              {formData.images.length > 0 && !formData.images[0]?.includes('unsplash') ? (
                 <img
                   src={formData.images[activePhotoIndex]}
                   className='max-w-full max-h-full object-contain'
                   alt="Vista principal"
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center text-slate-300">
-                  <Camera size={64} className="mb-4 opacity-50" />
-                  <p className="font-bold text-lg">Sin Imágenes</p>
+                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50">
+                  {userProfile?.dealer_logo ? (
+                    <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-300">
+                      <Camera size={64} className="mb-4 opacity-50" />
+                      <p className="font-bold text-lg opacity-50">Sin Imágenes</p>
+                    </div>
+                  )}
                 </div>
               )}
               {formData.images.length > 0 && (
@@ -746,7 +782,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <IdCard size={14} /> Información Básica
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormInput label="Año" name="year" value={formData.year} onChange={handleChange} />
+                  <FormInput label="Año" name="year" type="number" onWheel={(e) => e.target.blur()} value={formData.year} onChange={handleChange} />
                   <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} />
                 </div>
                 <FormInput label="Edición / Versión" name="edition" value={formData.edition} onChange={handleChange} />

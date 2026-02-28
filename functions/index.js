@@ -2120,7 +2120,7 @@ exports.ghlAuthorize = onRequest({ cors: true, secrets: [ghlClientSecret, ghlCli
   const CLIENT_ID = ghlClientId.value();
   const dealerId = req.query.dealerId || 'default';
   const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write";
-  const REDIRECT_URI = "https://ghlcallback-gzhz2ynksa-uc.a.run.app";
+  const REDIRECT_URI = "https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback";
 
   const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${dealerId}`;
   res.redirect(authUrl);
@@ -2133,7 +2133,7 @@ exports.ghlCallback = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
 
   const CLIENT_ID = ghlClientId.value();
   const CLIENT_SECRET = ghlClientSecret.value();
-  const REDIRECT_URI = "https://ghlcallback-gzhz2ynksa-uc.a.run.app";
+  const REDIRECT_URI = "https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback";
 
   console.log("--- GHL OAuth Diagnostic ---");
   console.log("CLIENT_ID length:", CLIENT_ID ? CLIENT_ID.length : 0);
@@ -2283,18 +2283,21 @@ async function getGHLConfig(dealerId) {
 
 exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId] }, async (req, res) => {
   try {
-    const dealerId = req.query.dealerId;
-    const config = await getGHLConfig(dealerId);
-    const accessToken = config.access_token;
+    const { ghl_access_token, locationId } = req.query;
 
-    // Asumimos que la lista de plantillas está bajo /documents/templates o similar
-    // GHL V2 API for custom documents/templates list
-    const response = await fetch('https://services.leadconnectorhq.com/documents/templates', {
-      method: 'GET',
+    if (!ghl_access_token || !locationId) {
+      return res.status(400).json({ error: "Faltan parámetros requeridos: ghl_access_token y/o locationId" });
+    }
+
+    const response = await fetch(`https://services.leadconnectorhq.com/documents/contracts/templates/search?locationId=${locationId}`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Version': '2021-07-28'
-      }
+        'Authorization': `Bearer ${ghl_access_token}`,
+        'Version': '2021-07-28',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({})
     });
 
     const data = await response.json();
@@ -2306,10 +2309,10 @@ exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlCli
       name: t.name
     }));
 
-    res.json(templates);
+    return res.status(200).json(templates);
   } catch (err) {
     console.error("❌ Error fetching GHL templates:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -2320,7 +2323,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId]
   }
 
   try {
-    const { contactData, templateId } = req.body;
+    const { contactData, templateId, ghl_access_token } = req.body;
 
     if (!contactData || !templateId) {
       return res.status(400).json({ error: "Faltan datos de contacto o templateId" });
@@ -2329,11 +2332,18 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId]
     const { locationId, dealerId: contactDealerId } = contactData;
     const dealerId = req.query.dealerId || contactDealerId;
 
-    // 1. Obtener Config via OAuth (Firestore) por Dealer
-    const config = await getGHLConfig(dealerId);
-    const accessToken = config.access_token;
-    // Usar locationId de Firestore si no viene en el payload o para verificar
-    const finalLocationId = config.locationId || contactData.locationId;
+    let accessToken = ghl_access_token;
+    let finalLocationId = locationId;
+
+    if (!accessToken) {
+      // 1. Obtener Config via OAuth (Firestore) por Dealer
+      const config = await getGHLConfig(dealerId);
+      accessToken = config.access_token;
+      // Usar locationId de Firestore si no viene en el payload o para verificar
+      if (!finalLocationId) {
+        finalLocationId = config.locationId;
+      }
+    }
 
     if (!finalLocationId) {
       throw new Error("No se encontró Location ID para este Dealer");

@@ -5452,6 +5452,7 @@ export default function CarbotApp() {
             await handleSaveVehicle(data);
             setSelectedVehicle(null);
           }}
+          userProfile={shadowProfile}
         />
       );
     }

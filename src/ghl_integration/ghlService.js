@@ -42,13 +42,13 @@ export const prepararPayloadGHL = (cliente, vehiculo, locationId) => {
     };
 };
 
-export const generarContratoEnGHL = async (cliente, vehiculo, locationId, templateId, dealerId) => {
+export const generarContratoEnGHL = async (cliente, vehiculo, locationId, templateId, dealerId, accessToken) => {
     const payload = { ...prepararPayloadGHL(cliente, vehiculo, locationId), dealerId: dealerId };
     try {
         const response = await fetch('/api/ghl/generar-contrato', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contactData: payload, templateId: templateId })
+            body: JSON.stringify({ contactData: payload, templateId: templateId, ghl_access_token: accessToken })
         });
         if (!response.ok) throw new Error("Error al comunicar con el backend");
         const data = await response.json();
