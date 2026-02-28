@@ -280,7 +280,7 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
+        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] bg-white border-0 shadow-2xl">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800">Seleccionar Acción</h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
