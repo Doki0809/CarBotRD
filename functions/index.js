@@ -2281,7 +2281,7 @@ exports.migrarEstructura = onRequest({ cors: true }, async (req, res) => {
 exports.ghlAuthorize = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, (req, res) => {
   const CLIENT_ID = ghlClientId.value();
   const dealerId = req.query.dealerId || 'default';
-  const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write proposals.readonly proposals.write";
+  const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly documents_contracts_template/sendLink.write locations.readonly users.readonly";
   const REDIRECT_URI = "https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback";
 
   const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${dealerId}`;

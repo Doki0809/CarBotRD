@@ -2963,10 +2963,12 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                       } else {
                         // 1. Iniciar flujo OAuth de GHL
                         const dId = userProfile?.dealerId || userProfile?.id || 'default';
-                        const CLIENT_ID = '699b6f13fb99957c718a1e38-mly8nscv';
+                        const CLIENT_ID = '699b6f13fb99957c718a1e38-mma1agkx';
+                        // Scopes updated to match exact Marketplace installation link
+                        const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly locations.readonly users.readonly documents_contracts_template/sendLink.write';
+                        const encodedLocationId = encodeURIComponent(userProfile.dealerId);
                         const REDIRECT_URI = 'https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback';
-                        const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly documents_contracts_template/sendLink.write locations.readonly users.readonly proposals.readonly proposals.write';
-                        const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${dId}`;
+                        const authUrl = `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_id=${CLIENT_ID}&scope=${encodeURIComponent(scope)}&state=${dId}&version_id=69a64bce1125fb881ec65bda`;
                         window.open(authUrl, '_blank');
                       }
                     }

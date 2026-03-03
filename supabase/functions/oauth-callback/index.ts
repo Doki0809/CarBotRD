@@ -60,6 +60,7 @@ serve(async (req) => {
             refresh_token,
             expires_in,    // segundos
             locationId,
+            userId,        // GHL devuelve el ID del usuario que autorizó
         } = await tokenRes.json();
 
         const expiresAt = new Date(Date.now() + (expires_in - TOKEN_REFRESH_MARGIN_SECONDS) * 1000);
@@ -132,6 +133,7 @@ serve(async (req) => {
         const validDealerId = dealerData.id;
 
         // ── 4. Sincronización Masiva de Usuarios ───────────────────────
+        let fetchedUserData: any = null;
         try {
             const userRes = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${locationId}`, {
                 headers: { 'Authorization': `Bearer ${access_token}`, 'Version': '2021-07-28', 'Accept': 'application/json' }
@@ -139,6 +141,7 @@ serve(async (req) => {
 
             if (userRes.ok) {
                 const userData = await userRes.json();
+                fetchedUserData = userData;
                 if (userData.users && Array.isArray(userData.users)) {
 
                     // Obtener TODOS los usuarios ya existentes en la DB (no solo del dealer actual)
@@ -223,13 +226,22 @@ serve(async (req) => {
         let installerEmail = '';
         let installerName = '';
         try {
-            const meRes = await fetch('https://services.leadconnectorhq.com/users/me', {
-                headers: { Authorization: `Bearer ${access_token}`, Version: '2021-07-28' }
-            });
-            if (meRes.ok) {
-                const meData = await meRes.json();
-                installerEmail = meData.email || meData.user?.email || '';
-                installerName = meData.name || meData.user?.name || `${meData.firstName || ''} ${meData.lastName || ''}`.trim() || '';
+            if (userId && fetchedUserData && fetchedUserData.users) {
+                const installer = fetchedUserData.users.find((u: any) => u.id === userId);
+                if (installer) {
+                    installerEmail = (installer.email || '').trim().toLowerCase();
+                    installerName = installer.name || `${installer.firstName || ''} ${installer.lastName || ''}`.trim() || '';
+                }
+            } else {
+                // Fallback attempt (aunque /users/me falla con tokens de Location)
+                const meRes = await fetch('https://services.leadconnectorhq.com/users/me', {
+                    headers: { Authorization: `Bearer ${access_token}`, Version: '2021-07-28' }
+                });
+                if (meRes.ok) {
+                    const meData = await meRes.json();
+                    installerEmail = meData.email || meData.user?.email || '';
+                    installerName = meData.name || meData.user?.name || `${meData.firstName || ''} ${meData.lastName || ''}`.trim() || '';
+                }
             }
         } catch (e) {
             console.warn('Could not fetch installer user info:', e);
