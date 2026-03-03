@@ -157,7 +157,29 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     photos: vehicle?.photos || [],
     documents: vehicle?.documents || [],
     price_unified: (vehicle?.price_dop > 0 ? vehicle.price_dop : (vehicle?.price || 0)).toString(),
-    initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString()
+    initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString(),
+
+    // Defaults for selects
+    transmission: vehicle?.transmission || '-',
+    fuel: vehicle?.fuel || '-',
+    traction: vehicle?.traction || '-',
+    engine_type: vehicle?.engine_type || '-',
+    seat_material: vehicle?.seat_material || '-',
+    roof_type: vehicle?.roof_type || '-',
+    camera: vehicle?.camera || '-',
+    key_type: vehicle?.key_type || '-',
+    seats: vehicle?.seats || '-',
+    condition: vehicle?.condition || '-',
+
+    // Convert boolean flags to "Sí" / "No" / "-" for the dropdowns
+    carplay: (vehicle?.appleCarplay === true || vehicle?.carplay === true || vehicle?.carplay === 'Sí' || vehicle?.apple_android === 'Sí') ? 'Sí' :
+      (vehicle?.appleCarplay === false || vehicle?.carplay === false || vehicle?.carplay === 'No' || vehicle?.apple_android === 'No') ? 'No' : '-',
+    sensors: (vehicle?.sensores === true || vehicle?.sensores === 'Sí' || vehicle?.sensors === true || vehicle?.sensors === 'Sí') ? 'Sí' :
+      (vehicle?.sensores === false || vehicle?.sensores === 'No' || vehicle?.sensors === false || vehicle?.sensors === 'No') ? 'No' : '-',
+    trunk: (vehicle?.powerTrunk === true || vehicle?.baul_electrico === true || vehicle?.baul_electrico === 'Sí' || vehicle?.trunk === 'Sí' || vehicle?.baul === 'Sí') ? 'Sí' :
+      (vehicle?.powerTrunk === false || vehicle?.baul_electrico === false || vehicle?.baul_electrico === 'No' || vehicle?.trunk === 'No' || vehicle?.baul === 'No') ? 'No' : '-',
+    electric_windows: (vehicle?.powerWindows === true || vehicle?.vidrios_electricos === true || vehicle?.vidrios_electricos === 'Sí' || vehicle?.electric_windows === 'Sí' || vehicle?.vidrios === 'Sí') ? 'Sí' :
+      (vehicle?.powerWindows === false || vehicle?.vidrios_electricos === false || vehicle?.vidrios_electricos === 'No' || vehicle?.electric_windows === 'No' || vehicle?.vidrios === 'No') ? 'No' : '-'
   });
 
   useEffect(() => {
@@ -167,7 +189,29 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         ...vehicle,
         images: vehicle?.images || (vehicle?.image ? [vehicle.image] : []),
         price_unified: (vehicle?.price_dop > 0 ? vehicle.price_dop : (vehicle?.price || 0)).toString(),
-        initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString()
+        initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString(),
+
+        // Defaults for selects
+        transmission: vehicle?.transmission || '-',
+        fuel: vehicle?.fuel || '-',
+        traction: vehicle?.traction || '-',
+        engine_type: vehicle?.engine_type || '-',
+        seat_material: vehicle?.seat_material || '-',
+        roof_type: vehicle?.roof_type || '-',
+        camera: vehicle?.camera || '-',
+        key_type: vehicle?.key_type || '-',
+        seats: vehicle?.seats || '-',
+        condition: vehicle?.condition || '-',
+
+        // Convert boolean flags to "Sí" / "No" / "-" for the dropdowns
+        carplay: (vehicle?.appleCarplay === true || vehicle?.carplay === true || vehicle?.carplay === 'Sí' || vehicle?.apple_android === 'Sí') ? 'Sí' :
+          (vehicle?.appleCarplay === false || vehicle?.carplay === false || vehicle?.carplay === 'No' || vehicle?.apple_android === 'No') ? 'No' : '-',
+        sensors: (vehicle?.sensores === true || vehicle?.sensores === 'Sí' || vehicle?.sensors === true || vehicle?.sensors === 'Sí') ? 'Sí' :
+          (vehicle?.sensores === false || vehicle?.sensores === 'No' || vehicle?.sensors === false || vehicle?.sensors === 'No') ? 'No' : '-',
+        trunk: (vehicle?.powerTrunk === true || vehicle?.baul_electrico === true || vehicle?.baul_electrico === 'Sí' || vehicle?.trunk === 'Sí' || vehicle?.baul === 'Sí') ? 'Sí' :
+          (vehicle?.powerTrunk === false || vehicle?.baul_electrico === false || vehicle?.baul_electrico === 'No' || vehicle?.trunk === 'No' || vehicle?.baul === 'No') ? 'No' : '-',
+        electric_windows: (vehicle?.powerWindows === true || vehicle?.vidrios_electricos === true || vehicle?.vidrios_electricos === 'Sí' || vehicle?.electric_windows === 'Sí' || vehicle?.vidrios === 'Sí') ? 'Sí' :
+          (vehicle?.powerWindows === false || vehicle?.vidrios_electricos === false || vehicle?.vidrios_electricos === 'No' || vehicle?.electric_windows === 'No' || vehicle?.vidrios === 'No') ? 'No' : '-'
       }));
       setCurrency(vehicle.currency || (vehicle.price_dop > 0 ? 'DOP' : 'USD'));
       setDownPaymentCurrency(vehicle.downPaymentCurrency || (vehicle.initial_payment_dop > 0 ? 'DOP' : 'USD'));
@@ -216,34 +260,58 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     if (loading || isSold) return;
     setLoading(true);
     try {
-      const priceVal = Number(formData.price_unified);
-      const initialVal = Number(formData.initial_unified);
+      const finalData = { ...formData };
+
+      // --- CLEANUP "-" VALUES ---
+      Object.keys(finalData).forEach(key => {
+        if (finalData[key] === '-') finalData[key] = '';
+      });
+
+      const priceVal = Number(finalData.price_unified);
+      const initialVal = Number(finalData.initial_unified);
 
       const dataToSave = {
-        ...formData,
-        image: formData.images?.[0] || formData.image,
+        ...finalData,
+        image: finalData.images?.[0] || finalData.image,
 
-        // Mapeo rídigo para asegurar persistencia en App.jsx/Supabase
-        price: priceVal,
+        // Lógica de divisas rigurosa: Guardar en el campo correcto y limpiar el otro
+        price: currency === 'USD' ? priceVal : 0,
+        price_dop: currency === 'DOP' ? priceVal : 0,
         currency: currency,
-        initial_payment: initialVal,
+
+        initial_payment: downPaymentCurrency === 'USD' ? initialVal : 0,
+        initial_payment_dop: downPaymentCurrency === 'DOP' ? initialVal : 0,
         downPaymentCurrency: downPaymentCurrency,
+
         mileage_unit: mileageUnit,
 
-        // Mapeo de campos técnicos (EditView -> Database)
-        drivetrain: formData.traction || formData.traccion,
-        fuelType: formData.fuel || formData.combustible,
-        engine: formData.engine_type || formData.motor,
-        interiorMaterial: formData.seat_material || formData.material_asientos,
-        roof: formData.roof_type || formData.techo,
-        powerTrunk: formData.trunk === 'Sí' || formData.baul_electrico,
-        powerWindows: formData.electric_windows === 'Sí' || formData.vidrios_electricos,
-        keyType: formData.key_type || formData.llave,
+        // Mapeo detallado de campos técnicos para Backend/Catalog
+        drivetrain: finalData.traction || finalData.traccion,
+        fuelType: finalData.fuel || finalData.combustible,
+        engine: finalData.engine_type || finalData.motor,
+        interiorMaterial: finalData.seat_material || finalData.material_asientos,
+        roof: finalData.roof_type || finalData.techo,
 
-        // Aseguramos que los campos originales también vayan por si acaso
+        // Mapeo de booleanos (UI -> DB)
+        sensores: finalData.sensors,
+        carplay: finalData.carplay,
+        camara: finalData.camera,
+        baul_electrico: finalData.trunk,
+        vidrios_electricos: finalData.electric_windows,
+        material_asientos: finalData.seat_material,
+        traccion: finalData.traction,
+        transmision: finalData.transmission,
+        combustible: finalData.fuel,
+        motor: finalData.engine_type,
+        techo: finalData.roof_type,
+        llave: finalData.key_type,
+        millas: Number(finalData.mileage),
+        unit: mileageUnit,
+        cantidad_asientos: finalData.seats,
+
+        // Compatibilidad legacy
         precio: priceVal,
-        inicial: initialVal,
-        millas: Number(formData.mileage)
+        inicial: initialVal
       };
 
       if (!readOnly) await onSave(dataToSave);
@@ -823,12 +891,12 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <Settings size={14} /> Mecánica
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['Automática', 'Manual', 'CVT', 'Tiptronic']} />
-                  <Select label="Tracción" name="traction" value={formData.traction} onChange={handleChange} options={['FWD', 'RWD', 'AWD', '4x4']} />
+                  <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic']} />
+                  <Select label="Tracción" name="traction" value={formData.traction} onChange={handleChange} options={['-', 'FWD', 'RWD', 'AWD', '4x4']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Combustible" name="fuel" value={formData.fuel} onChange={handleChange} options={['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} />
-                  <Select label="Motor" name="engine_type" value={formData.engine_type} onChange={handleChange} options={['Normal', 'Turbo', 'Supercharged', 'Híbrido']} />
+                  <Select label="Combustible" name="fuel" value={formData.fuel} onChange={handleChange} options={['-', 'Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} />
+                  <Select label="Motor" name="engine_type" value={formData.engine_type} onChange={handleChange} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormInput label="Cilindros" name="engine_cyl" value={formData.engine_cyl || ''} onChange={handleChange} placeholder="4 Cil" />
@@ -843,22 +911,22 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <CheckCircle size={14} /> Confort y Extras
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Interior" name="seat_material" value={formData.seat_material} onChange={handleChange} options={['Piel', 'Tela', 'Alcántara']} />
-                  <Select label="Techo" name="roof_type" value={formData.roof_type} onChange={handleChange} options={['Normal', 'Sunroof', 'Panorámico']} />
+                  <Select label="Interior" name="seat_material" value={formData.seat_material} onChange={handleChange} options={['-', 'Piel', 'Tela', 'Alcántara']} />
+                  <Select label="Techo" name="roof_type" value={formData.roof_type} onChange={handleChange} options={['-', 'Normal', 'Sunroof', 'Panorámico']} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="CarPlay" name="carplay" value={formData.carplay} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Cámara" name="camera" value={formData.camera} onChange={handleChange} options={['No', 'Reversa', '360°']} />
+                  <Select label="CarPlay" name="carplay" value={formData.carplay} onChange={handleChange} options={['-', 'Sí', 'No']} />
+                  <Select label="Cámara" name="camera" value={formData.camera} onChange={handleChange} options={['-', 'No', 'Reversa', '360°']} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Sensores" name="sensors" value={formData.sensors} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk} onChange={handleChange} options={['No', 'Sí']} />
+                  <Select label="Sensores" name="sensors" value={formData.sensors} onChange={handleChange} options={['-', 'Sí', 'No']} />
+                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk} onChange={handleChange} options={['-', 'No', 'Sí']} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Cristales Eléct." name="electric_windows" value={formData.electric_windows} onChange={handleChange} options={['Sí', 'No']} />
-                  <Select label="Llave" name="key_type" value={formData.key_type} onChange={handleChange} options={['Llave Normal', 'Push Button']} />
+                  <Select label="Cristales Eléct." name="electric_windows" value={formData.electric_windows} onChange={handleChange} options={['-', 'Sí', 'No']} />
+                  <Select label="Llave" name="key_type" value={formData.key_type} onChange={handleChange} options={['-', 'Llave Normal', 'Push Button']} />
                 </div>
-                <Select label="Filas de Asientos" name="seats" value={formData.seats} onChange={handleChange} options={['2', '3', '4', '5']} />
+                <Select label="Filas de Asientos" name="seats" value={formData.seats} onChange={handleChange} options={['-', '2', '3', '4', '5']} />
               </div>
 
             </div>

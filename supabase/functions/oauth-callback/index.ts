@@ -45,7 +45,7 @@ serve(async (req) => {
                 client_secret: GHL_CLIENT_SECRET,
                 grant_type: "authorization_code",
                 code,
-                redirect_uri: `${SUPABASE_URL}/functions/v1/oauth-ghl-callback`,
+                redirect_uri: `${SUPABASE_URL}/functions/v1/oauth-callback`,
             }),
         });
 
@@ -90,32 +90,43 @@ serve(async (req) => {
         }
 
         // ── 3. Upsert en tabla dealers ─────────────────────────────────
-        const dealerIdToUse = (stateDealerId && stateDealerId.length > 5 && stateDealerId !== 'undefined') ? stateDealerId : undefined;
+        const dealerIdToUse = (stateDealerId && stateDealerId.length > 5 && stateDealerId !== 'undefined') ? stateDealerId : locationId;
+
+        function toUuid(uid: string) {
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) return uid;
+            let hex = '';
+            for (let i = 0; i < uid.length; i++) {
+                hex += uid.charCodeAt(i).toString(16).padStart(2, '0');
+            }
+            hex = hex.padEnd(32, '0').slice(0, 32);
+            return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+        }
+
+        const validUuid = toUuid(dealerIdToUse);
+
+        const dealerPayload: any = {
+            id: validUuid,
+            nombre: locationName,
+            ghl_location_id: locationId,
+            ghl_access_token: access_token,
+            ghl_refresh_token: refresh_token,
+            ghl_token_expires_at: expiresAt.toISOString(),
+            phone: locationPhone,
+            logo_url: locationLogo,
+            address: locationAddress,
+            website: locationWebsite,
+            activo: true,
+        };
 
         const { data: dealerData, error: upsertErr } = await admin
             .from("dealers")
-            .upsert(
-                {
-                    id: dealerIdToUse, // si existe lo actualiza, sino genera UUID nuevo
-                    nombre: locationName,
-                    ghl_location_id: locationId,
-                    ghl_access_token: access_token,
-                    ghl_refresh_token: refresh_token,
-                    ghl_token_expires_at: expiresAt.toISOString(),
-                    phone: locationPhone,
-                    logo_url: locationLogo,
-                    address: locationAddress,
-                    website: locationWebsite,
-                    activo: true,
-                },
-                { onConflict: "ghl_location_id" }
-            )
+            .upsert(dealerPayload, { onConflict: "id" })
             .select()
             .single();
 
         if (upsertErr || !dealerData) {
             console.error("Supabase upsert error:", upsertErr);
-            return errorResponse("DB_ERROR", "Error guardando datos del dealer.", 500);
+            return errorResponse("DB_ERROR", `Error guardando datos del dealer: ${upsertErr?.message || 'Unknown error'} | Detalles: ${upsertErr?.details || ''}`, 500);
         }
 
         const validDealerId = dealerData.id;
@@ -130,9 +141,14 @@ serve(async (req) => {
                 const userData = await userRes.json();
                 if (userData.users && Array.isArray(userData.users)) {
 
-                    // Obtener usuarios existentes
-                    const { data: existingUsers } = await admin.from('usuarios').select('id, correo').eq('dealer_id', validDealerId);
-                    const existingMap = new Map((existingUsers || []).map((u: any) => [u.correo.toLowerCase(), u.id]));
+                    // Obtener TODOS los usuarios ya existentes en la DB (no solo del dealer actual)
+                    const allEmails = userData.users.map((u: any) => (u.email || '').trim().toLowerCase()).filter(Boolean);
+                    const { data: existingUsersAll } = await admin
+                        .from('usuarios')
+                        .select('id, correo, dealer_id')
+                        .in('correo', allEmails);
+                    // Mapa: email → { id, dealer_id }
+                    const existingMap = new Map((existingUsersAll || []).map((u: any) => [u.correo.toLowerCase(), { id: u.id, dealer_id: u.dealer_id }]));
 
                     const upsertBatch = [];
 
@@ -140,9 +156,12 @@ serve(async (req) => {
                         const uEmail = (u.email || '').trim().toLowerCase();
                         if (!uEmail) continue;
 
-                        let userId = existingMap.get(uEmail);
+                        const existing = existingMap.get(uEmail);
+                        let userId = existing?.id;
+                        // Si el usuario ya existe en OTRO dealer, no reasignar — solo actualizar perfil
+                        const alreadyInOtherDealer = existing && existing.dealer_id && existing.dealer_id !== validDealerId;
 
-                        // Si no existe, crearlo silenciosamente
+                        // Si no existe en Auth, crearlo
                         if (!userId) {
                             const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
                                 type: 'magiclink',
@@ -152,7 +171,7 @@ serve(async (req) => {
 
                             if (linkData?.user) {
                                 userId = linkData.user.id;
-                                existingMap.set(uEmail, userId); // map to prevent duplicate loops
+                                existingMap.set(uEmail, { id: userId, dealer_id: null });
                             } else {
                                 console.warn("Skip mass sync user", uEmail, linkErr?.message);
                                 continue;
@@ -168,23 +187,29 @@ serve(async (req) => {
                             mappedRol = 'admin';
                         }
 
-                        upsertBatch.push({
+                        const userRecord: any = {
                             id: userId,
                             correo: uEmail,
                             nombre: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || uEmail.split('@')[0],
-                            dealer_id: validDealerId,
                             phone: u.phone || null,
                             avatar_url: u.profilePhoto || null,
                             role_en_ghl: ghlRole,
                             rol: mappedRol
-                        });
+                        };
+
+                        // Solo asignar dealer_id si el usuario no pertenece a ningún dealer aún
+                        if (!alreadyInOtherDealer) {
+                            userRecord.dealer_id = validDealerId;
+                        }
+
+                        upsertBatch.push(userRecord);
                     }
 
                     // Upsert masivo a la DB
                     if (upsertBatch.length > 0) {
                         const { error: bulkErr } = await admin.from('usuarios').upsert(upsertBatch, { onConflict: 'id' });
                         if (bulkErr) console.error("Mass upsert error:", bulkErr);
-                        else console.log(`Mass sync done for ${upsertBatch.length} users.`);
+                        else console.log(`Mass sync done for ${upsertBatch.length} users (${upsertBatch.filter((u: any) => u.dealer_id).length} with dealer assigned).`);
                     }
                 }
             } else {
@@ -194,8 +219,33 @@ serve(async (req) => {
             console.error("Error fetching GHL users:", e);
         }
 
-        // ── 5. Redirigir al usuario al dashboard ───────────────────────
-        return Response.redirect("https://carbotsystem.com?oauth=success", 302);
+        // ── 5. Obtener email del admin instalador y redirigir con AutoLogin ──
+        let installerEmail = '';
+        let installerName = '';
+        try {
+            const meRes = await fetch('https://services.leadconnectorhq.com/users/me', {
+                headers: { Authorization: `Bearer ${access_token}`, Version: '2021-07-28' }
+            });
+            if (meRes.ok) {
+                const meData = await meRes.json();
+                installerEmail = meData.email || meData.user?.email || '';
+                installerName = meData.name || meData.user?.name || `${meData.firstName || ''} ${meData.lastName || ''}`.trim() || '';
+            }
+        } catch (e) {
+            console.warn('Could not fetch installer user info:', e);
+        }
+
+        // Construir URL de redirección con params de AutoLogin
+        const redirectBase = 'https://carbotsystem.com';
+        const redirectParams = new URLSearchParams({
+            oauth: 'success',
+            location_id: locationId,
+            location_name: locationName,
+        });
+        if (installerEmail) redirectParams.set('user_email', installerEmail);
+        if (installerName) redirectParams.set('user_name', installerName);
+
+        return Response.redirect(`${redirectBase}?${redirectParams.toString()}`, 302);
 
     } catch (err) {
         console.error("Unexpected error:", err);

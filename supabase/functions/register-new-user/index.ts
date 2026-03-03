@@ -52,7 +52,8 @@ serve(async (req) => {
       dealer = newDealer;
     }
 
-    // 2. Crear usuario de Auth (si ya existe, esto fallará o lo devolverá, pero createUser es seguro)
+    // 2. Crear usuario de Auth (si ya existe, reusar el existente)
+    let userId: string;
     const { data: authData, error: authErr } = await admin.auth.admin.createUser({
       email: safeEmail,
       password: password,
@@ -61,10 +62,25 @@ serve(async (req) => {
     });
 
     if (authErr) {
-      return new Response(JSON.stringify({ found: false, error: authErr.message }), { status: 400, headers: CORS });
+      // Si ya existe, intentar obtener el usuario existente y actualizar su password
+      if (authErr.message?.includes('already') || authErr.message?.includes('existe') || authErr.status === 422) {
+        console.log("Usuario auth ya existe, buscando por email...");
+        // Buscar usuario existente por email usando listUsers con filtro
+        const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 });
+        const existingUser = listData?.users?.find((u: any) => u.email === safeEmail);
+        if (existingUser) {
+          // Actualizar password del usuario existente — método correcto en Supabase JS v2
+          await admin.auth.admin.updateUserById(existingUser.id, { password: password });
+          userId = existingUser.id;
+        } else {
+          return new Response(JSON.stringify({ found: false, error: "Usuario no encontrado para actualizar." }), { status: 400, headers: CORS });
+        }
+      } else {
+        return new Response(JSON.stringify({ found: false, error: authErr.message }), { status: 400, headers: CORS });
+      }
+    } else {
+      userId = authData.user.id;
     }
-
-    const userId = authData.user.id;
 
     // 3. Insertar registro en la tabla usuarios
     const { error: insertErr } = await admin.from('usuarios').upsert({

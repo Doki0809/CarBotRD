@@ -434,6 +434,11 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    // --- CLEANUP "-" VALUES ---
+    Object.keys(data).forEach(key => {
+      if (data[key] === '-') data[key] = '';
+    });
+
     // --- PRECIO ---
     const priceValue = Number(prices.price);
     data.price = priceValue;
@@ -633,29 +638,53 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
                 {/* FILA 1 */}
-                <Select name="condition" label="Condición" defaultValue={initialData?.condition || 'Usado'} options={['Usado', 'Recién Importado', 'Nuevo', 'Certificado']} disabled={isLocked} />
-                <Select name="clean_carfax" label="Clean Carfax" defaultValue={initialData?.clean_carfax || 'No'} options={['Sí', 'No']} disabled={isLocked} />
-                <Select name="transmission" label="Transmisión" defaultValue={initialData?.transmission || 'Automática'} options={['Automática', 'Manual', 'CVT', 'Tiptronic', 'DSG']} disabled={isLocked} />
+                <Select name="condition" label="Condición" defaultValue={initialData?.condition || '-'} options={['-', 'Usado', 'Recién Importado', 'Nuevo', 'Certificado']} disabled={isLocked} />
+                <Select name="clean_carfax" label="Clean Carfax" defaultValue={initialData?.clean_carfax || '-'} options={['-', 'Sí', 'No']} disabled={isLocked} />
+                <Select name="transmission" label="Transmisión" defaultValue={initialData?.transmission || '-'} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic', 'DSG']} disabled={isLocked} />
 
-                <Select name="fuel" label="Combustible" defaultValue={initialData?.fuel || 'Gasolina'} options={['Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} disabled={isLocked} />
-                <Select name="traction" label="Tracción" defaultValue={initialData?.traction || 'FWD'} options={['FWD', 'RWD', 'AWD', '4x4']} disabled={isLocked} />
-                <Select name="engine_type" label="Aspiración/Tipo" defaultValue={initialData?.engine_type || 'Normal'} options={['Normal', 'Turbo', 'Supercharged', 'Híbrido', 'Eléctrico']} disabled={isLocked} />
+                <Select name="fuel" label="Combustible" defaultValue={initialData?.fuel || '-'} options={['-', 'Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} disabled={isLocked} />
+                <Select name="traction" label="Tracción" defaultValue={initialData?.traction || '-'} options={['-', 'FWD', 'RWD', 'AWD', '4x4']} disabled={isLocked} />
+                <Select name="engine_type" label="Aspiración/Tipo" defaultValue={initialData?.engine_type || '-'} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido', 'Eléctrico']} disabled={isLocked} />
 
                 <Input name="engine_cyl" label="Cilindros" defaultValue={initialData?.engine_cyl} placeholder="4 Cil" disabled={isLocked} />
                 <Input name="engine_cc" label="Cilindrada" defaultValue={initialData?.engine_cc} placeholder="2.0L" disabled={isLocked} />
-                <Select name="carplay" label="CarPlay / Android" defaultValue={initialData?.carplay || 'No'} options={['Sí', 'No']} disabled={isLocked} />
+                <Select
+                  name="carplay"
+                  label="CarPlay / Android"
+                  defaultValue={(initialData?.carplay === true || initialData?.carplay === 'Sí') ? 'Sí' : (initialData?.carplay === false || initialData?.carplay === 'No') ? 'No' : '-'}
+                  options={['-', 'Sí', 'No']}
+                  disabled={isLocked}
+                />
 
                 {/* INTERIOR */}
-                <Select name="seat_material" label="Interior" defaultValue={initialData?.seat_material || 'Piel'} options={['Piel', 'Tela', 'Alcántara', 'Piel/Tela', 'Vinil']} disabled={isLocked} />
-                <Select name="roof_type" label="Techo" defaultValue={initialData?.roof_type || 'Panorámico'} options={['Normal', 'Panorámico', 'Sunroof', 'Convertible', 'Targa']} disabled={isLocked} />
+                <Select name="seat_material" label="Interior" defaultValue={initialData?.seat_material || '-'} options={['-', 'Piel', 'Tela', 'Alcántara', 'Piel/Tela', 'Vinil']} disabled={isLocked} />
+                <Select name="roof_type" label="Techo" defaultValue={initialData?.roof_type || '-'} options={['-', 'Normal', 'Panorámico', 'Sunroof', 'Convertible', 'Targa']} disabled={isLocked} />
 
                 {/* EXTRAS */}
-                <Select name="camera" label="Cámara" defaultValue={initialData?.camera || 'No'} options={['No', 'Reversa', '360°', 'Frontal + Reversa']} disabled={isLocked} />
-                <Select name="sensors" label="Sensores" defaultValue={initialData?.sensors || 'No'} options={['Sí', 'No']} disabled={isLocked} />
-                <Select name="is_electric_trunk" label="Baúl Eléctrico" defaultValue={initialData?.trunk_type === 'Eléctrica' ? 'Sí' : 'No'} options={['Sí', 'No']} disabled={isLocked} />
-                <Select name="electric_windows" label="Cristales Eléctricos" defaultValue={initialData?.electric_windows || 'Sí'} options={['Sí', 'No']} disabled={isLocked} />
-                <Select name="key_type" label="Llave" defaultValue={initialData?.key_type || 'Llave Normal'} options={['Llave Normal', 'Push Button']} disabled={isLocked} />
-                <Select name="seats" label="Filas Asientos" defaultValue={initialData?.seats || '2'} options={['1', '2', '3', '4', '5']} disabled={isLocked} />
+                <Select name="camera" label="Cámara" defaultValue={initialData?.camera || '-'} options={['-', 'No', 'Reversa', '360°', 'Frontal + Reversa']} disabled={isLocked} />
+                <Select
+                  name="sensors"
+                  label="Sensores"
+                  defaultValue={(initialData?.sensors === true || initialData?.sensors === 'Sí' || initialData?.sensores === true || initialData?.sensores === 'Sí') ? 'Sí' : (initialData?.sensors === false || initialData?.sensors === 'No' || initialData?.sensores === false || initialData?.sensores === 'No') ? 'No' : '-'}
+                  options={['-', 'Sí', 'No']}
+                  disabled={isLocked}
+                />
+                <Select
+                  name="is_electric_trunk"
+                  label="Baúl Eléctrico"
+                  defaultValue={(initialData?.is_electric_trunk === 'Sí' || initialData?.trunk_type === 'Eléctrica' || initialData?.baul_electrico === true || initialData?.baul_electrico === 'Sí') ? 'Sí' : (initialData?.is_electric_trunk === 'No' || initialData?.trunk_type === 'Manual' || initialData?.baul_electrico === false || initialData?.baul_electrico === 'No') ? 'No' : '-'}
+                  options={['-', 'Sí', 'No']}
+                  disabled={isLocked}
+                />
+                <Select
+                  name="electric_windows"
+                  label="Cristales Eléctricos"
+                  defaultValue={(initialData?.electric_windows === true || initialData?.electric_windows === 'Sí' || initialData?.vidrios_electricos === true || initialData?.vidrios_electricos === 'Sí') ? 'Sí' : (initialData?.electric_windows === false || initialData?.electric_windows === 'No' || initialData?.vidrios_electricos === false || initialData?.vidrios_electricos === 'No') ? 'No' : '-'}
+                  options={['-', 'Sí', 'No']}
+                  disabled={isLocked}
+                />
+                <Select name="key_type" label="Llave" defaultValue={initialData?.key_type || '-'} options={['-', 'Llave Normal', 'Push Button']} disabled={isLocked} />
+                <Select name="seats" label="Filas Asientos" defaultValue={initialData?.seats || '-'} options={['-', '1', '2', '3', '4', '5']} disabled={isLocked} />
               </div>
             </div>
 
@@ -952,7 +981,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, template
   );
 };
 
-const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = [] }) => {
+const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = [], showToast }) => {
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
@@ -969,7 +998,8 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   // Auto-fill price when vehicle selected
   useEffect(() => {
     if (selectedVehicleId) {
-      const v = inventory.find(i => i.id === selectedVehicleId);
+      // Loose equality to handle potential type mismatch
+      const v = inventory.find(i => String(i.id) === String(selectedVehicleId));
       if (v) {
         const autoPrice = v.price_dop > 0 ? v.price_dop : (v.price || '');
         setPrice(autoPrice);
@@ -989,10 +1019,33 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   const availableVehicles = inventory.filter(v => v.status !== 'sold');
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!selectedVehicleId) return;
+    if (e && e.preventDefault) e.preventDefault();
+
+    // VALIDACIÓN MANUAL EXPLICITA
+    if (!selectedVehicleId) {
+      if (showToast) showToast("Por favor selecciona un vehículo", "error");
+      return;
+    }
+    if (!name || !lastname) {
+      if (showToast) showToast("Nombre y Apellido son obligatorios", "error");
+      return;
+    }
+    if (!phone) {
+      if (showToast) showToast("El teléfono es obligatorio", "error");
+      return;
+    }
+    if (!price || price <= 0) {
+      if (showToast) showToast("El precio es obligatorio", "error");
+      return;
+    }
+
     setLoading(true);
-    const vehicle = inventory.find(v => v.id === selectedVehicleId);
+    const vehicle = inventory.find(v => String(v.id) === String(selectedVehicleId));
+    if (!vehicle) {
+      if (showToast) showToast("Vehículo no encontrado en inventario", "error");
+      setLoading(false);
+      return;
+    }
 
     // Find selected template data
     const templateObj = templates.find(t => t.id === selectedTemplateId);
@@ -1039,14 +1092,13 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-5">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">1. Vehículo de Interés</label>
               <select
                 className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold"
                 value={selectedVehicleId}
                 onChange={(e) => setSelectedVehicleId(e.target.value)}
-                required
               >
                 <option value="">-- Seleccionar vehículo --</option>
                 {availableVehicles.map(v => (
@@ -1076,23 +1128,23 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
             <div className="space-y-4">
               <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos del Prospecto</label>
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
-                <Input label="Apellido" value={lastname} onChange={(e) => setLastname(e.target.value)} required />
+                <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input label="Apellido" value={lastname} onChange={(e) => setLastname(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <Input label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} />
                 <Input label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Precio" type="number" value={price} onChange={(e) => setPrice(e.target.value)} required />
+                <Input label="Precio" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
                 <Input label="Banco Dirigido" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej. Banco Popular" />
               </div>
             </div>
             <div className="pt-4 flex justify-end gap-3">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
-              <Button type="submit" disabled={loading} className="bg-red-600 text-white hover:bg-red-700">{loading ? 'Guardando...' : 'Guardar Cotización'}</Button>
+              <Button type="button" onClick={handleSubmit} disabled={loading} className="bg-red-600 text-white hover:bg-red-700">{loading ? 'Guardando...' : 'Guardar Cotización'}</Button>
             </div>
-          </form>
+          </div>
         </Card>
       </div>
     </div>
@@ -1126,20 +1178,24 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
           if (dealerIdToFetch) {
             const { data: dealerData, error: dealerError } = await supabase
               .from('dealers')
-              .select('ghl_access_token, location_id')
+              .select('ghl_access_token, ghl_location_id')
               .eq('id', dealerIdToFetch)
               .single();
 
             if (!dealerError && dealerData) {
-              token = dealerData.ghl_access_token || '';
-              locId = dealerData.location_id || '';
+              token = dealerData.ghl_access_token || userProfile?.ghl_access_token || '';
+              locId = dealerData.ghl_location_id || userProfile?.ghlLocationId || '';
+              setGhlToken(token);
+            } else {
+              token = userProfile?.ghl_access_token || '';
+              locId = userProfile?.ghlLocationId || '';
               setGhlToken(token);
             }
           }
 
           const params = new URLSearchParams({
             dealerId: userProfile.dealerId,
-            locationId: locId
+            locationId: locId || userProfile?.ghlLocationId || ''
           });
 
           if (token) {
@@ -1234,23 +1290,57 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (selectedTemplates.length === 0 || !selectedVehicleId) return;
+    if (e && e.preventDefault) e.preventDefault();
+
+    // VALIDACIÓN MANUAL EXPLICITA (Para evitar bloqueos silenciosos del navegador)
+    if (!selectedVehicleId) {
+      showToast("Por favor selecciona un vehículo", "error");
+      return;
+    }
+    if (selectedTemplates.length === 0) {
+      showToast("Selecciona al menos un documento para generar", "error");
+      return;
+    }
+    if (!clientName || !clientLastName) {
+      showToast("El Nombre y Apellido del cliente son obligatorios", "error");
+      return;
+    }
+    if (!clientCedula) {
+      showToast("La Cédula o Pasaporte es obligatorio", "error");
+      return;
+    }
+    if (!finalPrice || finalPrice <= 0) {
+      showToast("El Precio Final de Venta es obligatorio", "error");
+      return;
+    }
 
     setLoading(true);
     try {
-      const vehicle = inventory.find(v => v.id === selectedVehicleId);
-      if (!vehicle) throw new Error("Vehículo no encontrado");
+      console.log("Submit Document Generation:", { selectedVehicleId, selectedTemplates });
+      showToast("Solicitando generación de documentos...", "info");
+
+      // Usamos loose equality (==) por si el ID es numérico en inventory pero string en selectedVehicleId
+      const vehicle = inventory.find(v => String(v.id) === String(selectedVehicleId));
+      if (!vehicle) throw new Error("Vehículo no encontrado en el inventario actual");
 
       const cliente = {
         nombre: clientName,
         apellido: clientLastName,
         telefono: clientPhone,
-        email: clientEmail
+        email: clientEmail,
+        cedula: clientCedula,
+        banco: bankName,
+        precioFinal: finalPrice,
+        inicial: downPayment
       };
 
       // GHL Location ID resolution
       const locationId = userProfile?.ghlLocationId || userProfile?.dealerId || 'DURAN-FERNANDEZ-AUTO-SRL';
+
+      // Validar Email (solo formato básico si existe)
+      if (clientEmail && (!clientEmail.includes('@') || clientEmail.endsWith('@'))) {
+        throw new Error("El email parece estar incompleto o ser inválido.");
+      }
 
       console.log(`🚀 Generando contrato(s) en GHL para: ${clientName} ${clientLastName}`);
 
@@ -1304,14 +1394,13 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">1. Selecciona el Vehículo</label>
               <select
                 className={`w-full px-3 py-3 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${!!initialVehicle ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-gray-50'}`}
                 value={selectedVehicleId}
                 onChange={(e) => setSelectedVehicleId(e.target.value)}
-                required
                 disabled={!!initialVehicle}
               >
                 <option value="">-- Seleccionar vehículo disponible --</option>
@@ -1327,9 +1416,9 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 2. Datos del Cliente</label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} required />
-                  <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} required />
-                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} required />
+                  <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+                  <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} />
+                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} />
                   <Input label="Teléfono" placeholder="809-555-5555" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
                   <Input label="Email" type="email" placeholder="email@ejemplo.com" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
                 </div>
@@ -1340,7 +1429,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                 <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 3. Términos Financieros</label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Input label="Banco / Financiera" placeholder="Ej. Banco Popular" value={bankName} onChange={(e) => setBankName(e.target.value)} />
-                  <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} required />
+                  <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} />
                   <Input label="Inicial / Avance" type="number" placeholder="Ej. 150000" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
                 </div>
               </div>
@@ -1380,11 +1469,11 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>Cancelar</Button>
-              <Button type="submit" disabled={loading || selectedTemplates.length === 0 || !selectedVehicleId} className="bg-slate-900 text-white hover:bg-slate-800">
+              <Button type="button" onClick={handleSubmit} disabled={loading || selectedTemplates.length === 0 || !selectedVehicleId} className="bg-slate-900 text-white hover:bg-slate-800">
                 {loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Procesando...</> : `Generar ${selectedTemplates.length} Documento(s)`}
               </Button>
             </div>
-          </form>
+          </div>
         </Card>
       </div>
     </div>
@@ -2872,10 +2961,11 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                       if (!!userProfile?.ghlLocationId) {
                         if (onDisconnectGhl) onDisconnectGhl();
                       } else {
-                        const dId = userProfile?.dealerId || 'default';
+                        // 1. Iniciar flujo OAuth de GHL
+                        const dId = userProfile?.dealerId || userProfile?.id || 'default';
                         const CLIENT_ID = '699b6f13fb99957c718a1e38-mly8nscv';
                         const REDIRECT_URI = 'https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback';
-                        const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write';
+                        const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly documents_contracts_template/sendLink.write locations.readonly users.readonly proposals.readonly proposals.write';
                         const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${dId}`;
                         window.open(authUrl, '_blank');
                       }
@@ -3435,7 +3525,7 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
       <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />
       <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
       <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} templates={templates} />
-      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} />
+      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} showToast={showToast} />
     </div>
   );
 };
@@ -3759,6 +3849,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               onGenerate={onGenerateContract}
               initialVehicle={editingContract}
               userProfile={userProfile}
+              showToast={showToast}
             />
           )}
 
@@ -3769,6 +3860,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               inventory={inventory}
               onSave={onGenerateQuote}
               templates={templates}
+              showToast={showToast}
             />
           )}
 
@@ -4335,8 +4427,52 @@ export default function CarbotApp() {
           // ESTRATEGIA DE BÚSQUEDA ROBUSTA (MIGRACIÓN):
           console.log("🔍 Iniciando búsqueda de perfil para:", emailLower);
 
-          // 1. Scoped: Dealers/[ID]/usuarios/[USER_ID]
-          if (dealerIdToUse) {
+          // ═══ STEP 0: AUTOLOGIN URL CONTEXT (MÁXIMA PRIORIDAD) ═══
+          // Cuando GHL pasa location_id via URL, ESA es la fuente de verdad.
+          // NO buscamos en Firebase para evitar cargar datos de otro dealer.
+          if (urlLocationId && isAutoLogin) {
+            console.log('🎯 AutoLogin activo — perfil construido desde URL params, location_id:', urlLocationId);
+            const urlName = params.get('user_name');
+            const cleanDealerName = (urlLocationName || 'Mi Dealer').trim().replace(/[*_~`]/g, '');
+
+            // Intentar enriquecer con datos de Supabase (logo, etc.) — no bloqueante
+            let supaLogo = '';
+            let supaUuid = dealerIdToUse;
+            try {
+              const { data: supaDealer } = await supabase
+                .from('dealers')
+                .select('id, nombre, logo_url')
+                .eq('ghl_location_id', urlLocationId)
+                .maybeSingle();
+              if (supaDealer) {
+                supaLogo = supaDealer.logo_url || '';
+                supaUuid = supaDealer.id;
+                console.log('✅ Supabase enriqueció con logo y UUID:', supaDealer.nombre);
+              }
+            } catch (e) {
+              console.warn('⚠️ Supabase lookup failed (RLS?) — continuando sin logo:', e.message);
+            }
+
+            profileData = {
+              name: urlName || emailLower.split('@')[0] || 'Usuario GHL',
+              email: emailLower,
+              dealerId: supaUuid,
+              dealerName: cleanDealerName,
+              jobTitle: 'Admin',
+              role: 'Admin',
+              uid: auth.currentUser?.uid || null,
+              createdAt: new Date().toISOString(),
+              ghlLocationId: urlLocationId,
+              supabaseDealerId: supaUuid,
+              dealer_logo: supaLogo,
+              ghlUserId: urlUserId || ''
+            };
+            dealerIdToUse = supaUuid;
+            // ⚡ SKIP steps 1-3 — la URL es la fuente de verdad en AutoLogin
+          }
+
+          // 1. Scoped: Dealers/[ID]/usuarios/[USER_ID] — Solo para LOGIN MANUAL
+          if (!profileData && dealerIdToUse) {
             const diRef = doc(db, "Dealers", dealerIdToUse, "usuarios", userId);
             const diSnap = await getDoc(diRef);
             if (diSnap.exists()) {
@@ -4493,10 +4629,12 @@ export default function CarbotApp() {
             }
 
             // --- FETCH SUPABASE GHL ONBOARDING DATA ---
+            // IMPORTANT: Use ghlLocationId from Firebase profile to identify the correct dealer
+            // Do NOT rely on supaUser.dealer_id which may be stale/cross-dealer
             try {
               const { data: supaUser, error: supaErr } = await supabase
                 .from('usuarios')
-                .select('dealer_id, avatar_url, role_en_ghl, phone, dealers(logo_url, address, website)')
+                .select('dealer_id, avatar_url, role_en_ghl, phone')
                 .eq('correo', emailLower)
                 .maybeSingle();
 
@@ -4504,31 +4642,45 @@ export default function CarbotApp() {
                 profileData.avatar_url = supaUser.avatar_url;
                 profileData.ghl_role = supaUser.role_en_ghl;
                 profileData.phone = supaUser.phone;
-                if (supaUser.dealer_id) {
+                // Only accept the Supabase dealer_id if we don't already have a Firebase dealer
+                if (supaUser.dealer_id && !profileData.dealerId) {
                   profileData.supabaseDealerId = supaUser.dealer_id;
-                }
-                if (supaUser.dealers) {
-                  profileData.dealer_logo = supaUser.dealers.logo_url;
-                  profileData.dealer_website = supaUser.dealers.website;
-                  profileData.dealer_address = supaUser.dealers.address;
+                } else if (supaUser.dealer_id) {
+                  profileData.supabaseDealerId = supaUser.dealer_id;
                 }
               }
 
-              // --- DEEP RESOLUTION FALLBACK (RESOLVER UUID POR GHL LOCATION ID) ---
-              if (!profileData.supabaseDealerId && urlLocationId) {
-                console.log("🔍 Buscando UUID del dealer por GHL Location ID:", urlLocationId);
-                const { data: dealerData, error: dealerErr } = await supabase
+              // --- LOAD DEALER LOGO/DATA BY GHL LOCATION ID (correct dealer, not user's stale dealer_id) ---
+              const locationIdToSearch = profileData.ghlLocationId || urlLocationId;
+              if (locationIdToSearch) {
+                const { data: dealerData } = await supabase
                   .from('dealers')
-                  .select('id, logo_url, address, website')
-                  .eq('ghl_location_id', urlLocationId)
+                  .select('id, logo_url, address, website, ghl_location_id')
+                  .eq('ghl_location_id', locationIdToSearch)
                   .maybeSingle();
 
                 if (dealerData) {
-                  console.log("✅ UUID de Dealer resuelto:", dealerData.id);
+                  console.log('✅ Dealer data cargado por ghl_location_id:', locationIdToSearch);
+                  profileData.dealer_logo = dealerData.logo_url || '';
+                  profileData.dealer_address = dealerData.address || '';
+                  profileData.dealer_website = dealerData.website || '';
                   profileData.supabaseDealerId = dealerData.id;
-                  profileData.dealer_logo = profileData.dealer_logo || dealerData.logo_url;
-                  profileData.dealer_address = profileData.dealer_address || dealerData.address;
-                  profileData.dealer_website = profileData.dealer_website || dealerData.website;
+                }
+              } else if (profileData.supabaseDealerId) {
+                // Fallback: load dealer data by supabase dealer_id
+                const { data: dealerData } = await supabase
+                  .from('dealers')
+                  .select('logo_url, address, website, ghl_location_id')
+                  .eq('id', profileData.supabaseDealerId)
+                  .maybeSingle();
+
+                if (dealerData) {
+                  profileData.dealer_logo = dealerData.logo_url || '';
+                  profileData.dealer_address = dealerData.address || '';
+                  profileData.dealer_website = dealerData.website || '';
+                  if (dealerData.ghl_location_id && !profileData.ghlLocationId) {
+                    profileData.ghlLocationId = dealerData.ghl_location_id;
+                  }
                 }
               }
             } catch (err) {
@@ -4650,6 +4802,8 @@ export default function CarbotApp() {
               .from('dealers')
               .update({
                 ghl_access_token: null,
+                ghl_refresh_token: null,
+                ghl_token_expires_at: null,
                 location_id: null,
                 ghl_location_id: null
               })
@@ -4659,13 +4813,25 @@ export default function CarbotApp() {
               console.warn("Supabase auth cleanup failed (Check RLS or Null constraints):", supaErr);
               hasSupaError = true;
               supaErrorMsg = supaErr.message || supaErr.code || "Error en Supabase";
-              // We intentionally don't throw here to allow Firestore fallback to clear the local UI block
             }
           }
 
           if (userProfile?.dealerId) {
+            // 1. Borrar el doc llave_ghl/config — aquí viven los tokens reales
+            const llavePath = doc(db, "Dealers", userProfile.dealerId, "llave_ghl", "config");
+            await deleteDoc(llavePath).catch(e => console.warn("⚠️ No se pudo borrar llave_ghl/config:", e.message));
+
+            // 2. Limpiar ghlLocationId del dealer padre
             const dealerRef = doc(db, "Dealers", userProfile.dealerId);
             await setDoc(dealerRef, { ghlLocationId: '' }, { merge: true });
+
+            // 3. Limpiar perfil del usuario
+            if (currentUserEmail) {
+              const emailLower = currentUserEmail.toLowerCase();
+              const userId = emailLower.replace(/\./g, '_');
+              const dealerUserRef = doc(db, "Dealers", userProfile.dealerId, "usuarios", userId);
+              await setDoc(dealerUserRef, { ghlLocationId: '', location_id: '', ghl_access_token: '' }, { merge: true });
+            }
           }
 
           setUserProfile(prev => ({ ...prev, ghlLocationId: '', location_id: '', ghl_access_token: '' }));
@@ -4739,7 +4905,6 @@ export default function CarbotApp() {
           modelo: modelFromTitle,
           year: yearFromTitle,
 
-          price: parseFloat(v.precio || 0),
           status: v.deleted_at ? 'trash' : (v.estado === 'Vendido' ? 'sold' : (v.estado === 'Cotizado' ? 'quoted' : 'available')),
           images: v.fotos || [],
           image: (v.fotos && v.fotos.length > 0 ? v.fotos[0] : null),
@@ -4757,7 +4922,14 @@ export default function CarbotApp() {
           camera: v.camara,
           interiorMaterial: v.material_asientos,
 
-          initial_payment: parseFloat(v.inicial || 0),
+          // Logic to preserve backwards compatibility for price_dop/initial_payment_dop
+          currency: v.detalles?.currency || 'USD',
+          downPaymentCurrency: v.detalles?.downPaymentCurrency || 'USD',
+          price: v.detalles?.currency === 'DOP' ? 0 : parseFloat(v.precio || 0),
+          price_dop: v.detalles?.currency === 'DOP' ? parseFloat(v.precio || 0) : 0,
+          initial_payment: v.detalles?.downPaymentCurrency === 'DOP' ? 0 : parseFloat(v.inicial || 0),
+          initial_payment_dop: v.detalles?.downPaymentCurrency === 'DOP' ? parseFloat(v.inicial || 0) : 0,
+
           mileage: parseFloat(v.millas || 0),
           seats: parseInt(v.cantidad_asientos || 0),
 
@@ -4930,6 +5102,11 @@ export default function CarbotApp() {
         throw new Error("UUID de Dealer inválido. No se puede guardar en Supabase.");
       }
 
+      const {
+        fotos, images, documentos, documents, image, // Exclude large blobs/arrays
+        ...restDetails
+      } = vehicleData;
+
       const dataToSave = {
         dealer_id: dealerUuid,
         titulo_vehiculo: titulo.toUpperCase(),
@@ -4947,18 +5124,20 @@ export default function CarbotApp() {
         camara: vehicleData.camera || vehicleData.camara || null,
         material_asientos: vehicleData.interiorMaterial || vehicleData.material_asientos || null,
 
-        precio: parseFloat(vehicleData.price_unified || vehicleData.precio || vehicleData.price) || 0,
-        inicial: parseFloat(vehicleData.initial_unified || vehicleData.inicial || vehicleData.initial_payment) || 0,
-        millas: parseFloat(vehicleData.mileage || vehicleData.millas) || 0,
-        cantidad_asientos: parseInt(vehicleData.seats || vehicleData.cantidad_asientos) || null,
+        precio: vehicleData.currency === 'DOP' ? (parseFloat(vehicleData.price_dop) || parseFloat(vehicleData.precio) || 0) : (parseFloat(vehicleData.price) || parseFloat(vehicleData.precio) || 0),
+        inicial: vehicleData.downPaymentCurrency === 'DOP' ? (parseFloat(vehicleData.initial_payment_dop) || parseFloat(vehicleData.inicial) || 0) : (parseFloat(vehicleData.initial_payment) || parseFloat(vehicleData.inicial) || 0),
+        millas: parseFloat(vehicleData.millas || vehicleData.mileage || 0),
+        cantidad_asientos: parseInt(vehicleData.cantidad_asientos || vehicleData.seats) || null,
 
-        baul_electrico: !!(vehicleData.powerTrunk || vehicleData.baul_electrico),
-        sensores: !!(vehicleData.sensors || vehicleData.sensores),
-        carplay: !!(vehicleData.appleCarplay || vehicleData.carplay),
-        vidrios_electricos: !!(vehicleData.powerWindows || vehicleData.vidrios_electricos),
+        baul_electrico: vehicleData.baul_electrico === 'Sí' || vehicleData.baul === 'Sí' || !!vehicleData.powerTrunk,
+        sensores: vehicleData.sensores === 'Sí' || vehicleData.sensors === 'Sí' || !!vehicleData.sensors_bool,
+        carplay: vehicleData.carplay === 'Sí' || vehicleData.appleCarplay === true || !!vehicleData.carplay_bool,
+        vidrios_electricos: vehicleData.vidrios_electricos === 'Sí' || vehicleData.vidrios === 'Sí' || !!vehicleData.powerWindows,
 
         fotos: vehicleData.images || vehicleData.fotos || (vehicleData.image ? [vehicleData.image] : []),
-        documentos: vehicleData.documents || vehicleData.documentos || []
+        documentos: vehicleData.documents || vehicleData.documentos || [],
+
+        detalles: restDetails
       };
 
       if (vehicleData.status === 'sold' && !existingId) {

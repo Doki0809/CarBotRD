@@ -9,3 +9,25 @@ entrypoint = "./functions/register-new-user/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/register-new-user/*.html" ]
+
+[functions.fix-db]
+enabled = true
+verify_jwt = true
+import_map = "./functions/fix-db/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/fix-db/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/fix-db/*.html" ]
+
+[functions.inspect-db]
+enabled = true
+verify_jwt = true
+import_map = "./functions/inspect-db/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/inspect-db/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/inspect-db/*.html" ]

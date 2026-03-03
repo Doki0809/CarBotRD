@@ -3,13 +3,21 @@ const { defineSecret } = require("firebase-functions/params");
 const functions = require("firebase-functions");
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
+const { createClient } = require('@supabase/supabase-js');
+
 admin.initializeApp();
 
 const db = admin.firestore();
 
+// Supabase Configuration
+const SUPABASE_URL = 'https://lpiwkennlavpzisdvnnh.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwaXdrZW5ubGF2cHppc2R2bm5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODE4MTEsImV4cCI6MjA4NzM1NzgxMX0.HMVGq8E2Lf5utJGxWsO8FEnJXCBzwSHVNEzeuoSm4y8';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
 // GHL Secrets for Gen 2
 const ghlClientSecret = defineSecret("GHL_CLIENT_SECRET");
 const ghlClientId = defineSecret("GHL_CLIENT_ID");
+const supabaseServiceKey = defineSecret("SUPABASE_SERVICE_ROLE_KEY");
 
 // Función auxiliar para normalizar texto (quitar acentos y pasar a minúsculas)
 // Función auxiliar para normalizar texto (quitar acentos, puntuación y normalizar espacios)
@@ -27,6 +35,18 @@ const normalize = (text) => {
 
 // Función para crear un "Slug" limpio y estandarizado
 const normalizeText = (text) => text ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+
+function toUuid(uid) {
+  if (!uid) return null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) return uid;
+  let hex = '';
+  for (let i = 0; i < uid.length; i++) {
+    hex += uid.charCodeAt(i).toString(16).padStart(2, '0');
+  }
+  hex = hex.padEnd(32, '0').slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
 const slugify = (text) => {
   if (!text) return "";
   const normalized = text.toUpperCase().trim()
@@ -226,7 +246,124 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
       }
     });
 
-    console.log(`✅ ${inventory.length} vehículos encontrados para ${matchedDealerId} en ${collectionName}`);
+    console.log(`✅ ${inventory.length} vehículos encontrados en Firestore para ${matchedDealerId} en ${collectionName}`);
+
+    // --- INTEGRACIÓN SUPABASE ---
+    // The original code had a nested try-catch here.
+    // To "fix the double try block" while maintaining the non-critical nature of Supabase,
+    // we'll keep the Supabase logic within a single try-catch block that logs errors
+    // but allows the rest of the function to proceed.
+    // This ensures that Supabase issues don't halt the entire inventory retrieval.
+    const dealerUuid = dealerData.supabaseDealerId || toUuid(matchedDealerId);
+
+    if (dealerUuid) {
+      try { // This try-catch specifically for Supabase operations
+        console.log(`📡 Consultando Supabase para Dealer UUID: ${dealerUuid}`);
+        const { data: supabaseVehicles, error: sbError } = await supabase
+          .from('vehiculos')
+          .select('*')
+          .eq('dealer_id', dealerUuid);
+
+        if (sbError) {
+          console.error("❌ Error consultando Supabase:", sbError);
+        } else if (supabaseVehicles && supabaseVehicles.length > 0) {
+          console.log(`✅ ${supabaseVehicles.length} vehículos encontrados en Supabase`);
+
+          supabaseVehicles.forEach(v => {
+            // Mapeo idéntico al de App.jsx para consistencia
+            const makeFromTitle = v.detalles?.make || v.titulo_vehiculo?.split(' ')[1] || 'N/A';
+            const modelFromTitle = v.detalles?.model || v.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
+            const yearFromTitle = v.detalles?.year || v.titulo_vehiculo?.split(' ')[0] || '';
+
+            // Monedas
+            const currency = v.detalles?.currency || 'USD';
+            const downPaymentCurrency = v.detalles?.downPaymentCurrency || 'USD';
+            const priceVal = parseFloat(v.precio || 0);
+            const initialVal = parseFloat(v.inicial || 0);
+
+            // Determinar precios formateados
+            const priceFormatted = (currency === 'DOP' || currency === 'RD$')
+              ? `RD$ ${priceVal.toLocaleString()} Pesos`
+              : `US$ ${priceVal.toLocaleString()} Dólares`;
+
+            const initialFormatted = (downPaymentCurrency === 'DOP' || downPaymentCurrency === 'RD$')
+              ? `RD$ ${initialVal.toLocaleString()} Pesos`
+              : `US$ ${initialVal.toLocaleString()} Dólares`;
+
+            // Status similar a Firestore (disponible, cotizado)
+            const s = (v.estado || '').toLowerCase().trim();
+            const allowed = ['available', 'disponible', 'quoted', 'cotizado'];
+
+            if (allowed.includes(s) && !v.deleted_at) {
+              const isTurbo = (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || v.detalles?.engine_type === "Turbo");
+              const turboStr = isTurbo ? "Turbo" : "Aspirado";
+
+              inventory.push({
+                id: v.id, // ID numérico de Supabase
+                is_supabase: true,
+                nombre: `${yearFromTitle} ${makeFromTitle} ${modelFromTitle} ${v.detalles?.edition || ""} ${v.color || ""}`.trim().toUpperCase(),
+                precio: priceFormatted,
+                carfax_status: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true) ? "Sí" : (v.condicion_carfax === "No" || v.condicion_carfax === false) ? "No" : capitalize(v.condicion_carfax || "-"),
+                mileage_formatted: `${Number(v.millas || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
+                link_catalogo: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${v.id}&source=supabase`,
+
+                // Visual Details (fmt)
+                color_fmt: capitalize(v.color),
+                transmision_fmt: capitalize(v.transmision),
+                traccion_fmt: (v.traccion || "").toUpperCase() || "-",
+                motor_fmt: `${v.detalles?.engine_liters ? v.detalles.engine_liters + ' L, ' : ''}${v.detalles?.engine_cyl ? v.detalles.engine_cyl + ' Cilindros, ' : ''}${turboStr}`,
+                techo_fmt: capitalize(v.techo),
+                combustible_fmt: capitalize(v.combustible),
+                llave_fmt: capitalize(v.llave),
+                baul_fmt: (v.baul_electrico === true || v.baul_electrico === "Sí" || v.baul_electrico === "Si") ? "Sí" : "No",
+                camera_fmt: capitalize(v.camara),
+                sensores_fmt: (v.sensores === true || v.sensores === "Sí" || v.sensores === "Si") ? "Sí" : "No",
+                carplay_fmt: (v.carplay === true || v.carplay === "Sí" || v.carplay === "Si") ? "Sí" : "No",
+                asientos_fmt: String(v.cantidad_asientos || "-"),
+                vidrios_fmt: (v.vidrios_electricos === true || v.vidrios_electricos === "Sí" || v.vidrios_electricos === "Si") ? "Sí" : "No",
+                material_fmt: capitalize(v.material_asientos),
+                vin_fmt: (v.chasis_vin || "").toUpperCase() || "-",
+                inicial_fmt: initialFormatted,
+
+                // Metadata & Template compatibility
+                imagen: (v.fotos && v.fotos.length > 0) ? v.fotos[0] : "",
+                has_images: (v.fotos && v.fotos.length > 0),
+                marca: makeFromTitle,
+                modelo: modelFromTitle,
+                edicion: v.detalles?.edition || v.detalles?.version || "-",
+                anio: yearFromTitle,
+                anio_num: parseInt(yearFromTitle) || 0,
+                color: v.color,
+                transmision: v.transmision,
+                traccion: v.traccion,
+                combustible: v.combustible,
+                motor: `${v.detalles?.engine_liters ? v.detalles.engine_liters + ' L, ' : ''}${v.detalles?.engine_cyl ? v.detalles.engine_cyl + ' Cilindros, ' : ''}${turboStr}`,
+                condicion: v.condicion || 'Usado Importado',
+                carfax: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true) ? "Sí" : (v.condicion_carfax === "No" || v.condicion_carfax === false) ? "No" : capitalize(v.condicion_carfax || "-"),
+                asientos: v.cantidad_asientos || "-",
+                asientos_num: parseInt(v.cantidad_asientos) || 0,
+                material_interior: v.material_asientos || "-",
+                techo: v.techo || "-",
+                baul: (v.baul_electrico === true || v.baul_electrico === "Sí" || v.baul_electrico === "Si") ? "Sí" : "No",
+                llave: v.llave || "-",
+                camera: v.camara || "-",
+                sensores: (v.sensores === true || v.sensores === "Sí" || v.sensores === "Si") ? "Sí" : "No",
+                carplay: (v.carplay === true || v.carplay === "Sí" || v.carplay === "Si") ? "Sí" : "No",
+                electric_windows: (v.vidrios_electricos === true || v.vidrios_electricos === "Sí" || v.vidrios_electricos === "Si") ? "Sí" : "No",
+                mileage: v.millas || "0",
+                unit: (["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km",
+                vin: v.chasis_vin,
+                inicial_calculado: initialFormatted,
+                precio_num: priceVal,
+                precio_dop_ref: (currency === 'USD' ? priceVal * 60 : priceVal)
+              });
+            }
+          });
+        }
+      } catch (sbErr) {
+        console.error("❌ Fallo crítico de Supabase en inventarioIA:", sbErr);
+      }
+    }
 
     // 3. Formatear respuesta (JSON por defecto, HTML opcional)
     const isCatalogPath = req.path === '/catalogo' || req.query.view === 'catalog';
@@ -356,25 +493,50 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
 
       if (vehicleId) {
         // --- MODO DETALLE ---
-        const v = inventory.find(item => item.id === vehicleId);
+        const v = inventory.find(item => String(item.id) === String(vehicleId));
         if (!v) return res.status(404).send("Vehículo no encontrado");
 
-        // Obtener datos crudos para ficha técnica completa
-        const vDoc = await db.collection("Dealers").doc(matchedDealerId).collection(collectionName).doc(vehicleId).get();
-        const raw = vDoc.exists ? vDoc.data() : {};
+        let raw = {};
+        if (v.is_supabase) {
+          // Fetch raw from Supabase
+          const { data, error } = await supabase.from('vehiculos').select('*').eq('id', vehicleId).single();
+          if (!error && data) {
+            const makeFromTitle = data.detalles?.make || data.titulo_vehiculo?.split(' ')[1] || 'N/A';
+            const modelFromTitle = data.detalles?.model || data.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
+            const yearFromTitle = data.detalles?.year || data.titulo_vehiculo?.split(' ')[0] || '';
+
+            raw = {
+              ...data,
+              ...data.detalles,
+              make: makeFromTitle,
+              model: modelFromTitle,
+              year: yearFromTitle,
+              images: data.fotos,
+              image: data.fotos && data.fotos.length > 0 ? data.fotos[0] : null,
+              price: data.precio,
+              initial_payment: data.inicial,
+              currency: data.detalles?.currency || 'USD',
+              body_type: data.detalles?.body_type || data.tipo
+            };
+          }
+        } else {
+          // Fetch raw from Firestore
+          const vDoc = await db.collection("Dealers").doc(matchedDealerId).collection(collectionName).doc(vehicleId).get();
+          raw = vDoc.exists ? vDoc.data() : {};
+        }
 
         // Galería de fotos (carrete)
         const photos = raw.images || (raw.image ? [raw.image] : []);
 
         // --- SMART RELATED LOGIC ---
-        const precioBase = getPrecioEnPesos(raw.price || 0, raw.currency);
+        const precioBase = getPrecioEnPesos(raw.price || raw.precio || 0, raw.currency);
         // data.body_type suele venir en inglés o español, normalizamos
-        const tipoBase = (raw.body_type || raw.type || '').split(' ')[0].toLowerCase();
-        const asientosBase = parseInt(raw.seats || raw.seatRows || 0);
+        const tipoBase = (raw.body_type || raw.type || raw.tipo || '').split(' ')[0].toLowerCase();
+        const asientosBase = parseInt(raw.seats || raw.seatRows || raw.cantidad_asientos || 0);
 
         const related = inventory.filter(item => {
           // 1. No incluir el mismo carro
-          if (item.id === vehicleId) return false;
+          if (String(item.id) === String(vehicleId)) return false;
 
           // --- FILTRO DE PRECIO (Regla de los 200k) ---
           // item.precio_dop_ref ya viene calculado en el map
@@ -2116,17 +2278,17 @@ exports.migrarEstructura = onRequest({ cors: true }, async (req, res) => {
 // --- GHL OAUTH2 INTEGRATION ---
 // GHL_CLIENT_ID and GHL_CLIENT_SECRET are managed as Firebase secrets
 
-exports.ghlAuthorize = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId] }, (req, res) => {
+exports.ghlAuthorize = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, (req, res) => {
   const CLIENT_ID = ghlClientId.value();
   const dealerId = req.query.dealerId || 'default';
-  const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write";
+  const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write proposals.readonly proposals.write";
   const REDIRECT_URI = "https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback";
 
   const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${dealerId}`;
   res.redirect(authUrl);
 });
 
-exports.ghlCallback = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId] }, async (req, res) => {
+exports.ghlCallback = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
   const code = req.query.code;
   const dealerId = req.query.state || 'default';
   if (!code) return res.status(400).send("Falta el código de autorización");
@@ -2180,8 +2342,29 @@ exports.ghlCallback = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
 
     console.log("✅ Conexión establecida para:", locationId, "Usuario:", userId);
 
-    // Guardar tokens en subcolección Dealers/{dealerId}/llave_ghl
+    // Guardar tokens en Supabase
+    const supabaseAdmin = createClient(SUPABASE_URL, supabaseServiceKey.value());
+    const dealerUuid = toUuid(dealerId);
     const expiresAt = new Date(Date.now() + (data.expires_in * 1000));
+
+    const { error: sbError } = await supabaseAdmin
+      .from('dealers')
+      .update({
+        ghl_access_token: data.access_token,
+        ghl_refresh_token: data.refresh_token,
+        ghl_token_expires_at: expiresAt.toISOString(),
+        ghl_location_id: locationId,
+        location_id: locationId, // Also update the general location_id if it's used elsewhere
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', dealerUuid);
+
+    if (sbError) {
+      console.error("❌ Error guardando tokens en Supabase:", sbError);
+      // Fallback a Firestore si falla Supabase (opcional, pero mantengamos compatibilidad por ahora)
+    } else {
+      console.log("✅ Tokens guardados en Supabase para:", dealerUuid);
+    }
 
     // Función auxiliar para limpiar objetos de valores undefined para Firestore
     const cleanData = (obj) => {
@@ -2194,84 +2377,129 @@ exports.ghlCallback = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
       return newObj;
     };
 
-    const ghlConfig = cleanData({
+    // Mantener Firestore por ahora como backup o si el sistema lo requiere
+    const tokenRef = admin.firestore().collection("Dealers").doc(dealerId).collection("llave_ghl").doc("config");
+    await tokenRef.set(cleanData({
       access_token: data.access_token,
       refresh_token: data.refresh_token,
-      locationId: locationId,
-      userId: userId,
-      userType: data.userType,
       expires_in: data.expires_in,
       expires_at: admin.firestore.Timestamp.fromDate(expiresAt),
+      locationId: locationId,
+      companyId: data.companyId,
+      userId: userId,
+      userType: data.userType,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    }));
 
-    await admin.firestore().collection("Dealers").doc(dealerId).collection("llave_ghl").doc("config").set(ghlConfig);
-
-    res.send("<h1>Conexión con GHL Exitosa</h1><p>GHL ha sido vinculado con éxito a este Dealer. Puedes cerrar esta ventana.</p>");
-  } catch (err) {
-    console.error("❌ Fallo OAuth GHL:", err);
-    res.status(500).send("Error en la conexión con GHL: " + err.message);
+    res.send(`
+      <div style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+        <h1 style="color: #4CAF50;">✅ ¡Conexión Exitosa con GoHighLevel!</h1>
+        <p>Ya puedes cerrar esta ventana y volver al sistema.</p>
+        <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">Cerrar Ventana</button>
+      </div>
+    `);
+  } catch (error) {
+    console.error("❌ Error en GHL Callback:", error);
+    res.status(500).send("Error procesando la conexión con GHL: " + error.message);
   }
 });
 
 // Helper para obtener/refrescar token
-// Helper para obtener/refrescar token por Dealer
-async function getGHLConfig(dealerId) {
+// Helper para obtener/refrescar token por Dealer (Migrado a Supabase)
+async function getGHLConfig(dealerId, clientId, clientSecret, serviceKey) {
   if (!dealerId) throw new Error("Dealer ID es requerido");
+  if (!clientId || !clientSecret || !serviceKey) {
+    throw new Error("GHL Client ID, Secret y Supabase Service Key son requeridos");
+  }
 
-  const tokenRef = admin.firestore().collection("Dealers").doc(dealerId).collection("llave_ghl").doc("config");
-  let tokenSnap = await tokenRef.get();
+  const supabaseAdmin = createClient(SUPABASE_URL, serviceKey);
 
-  if (!tokenSnap.exists) {
-    // Fallback temporal a 'default' si no existe el específico
-    console.warn(`⚠️ No se encontró config para Dealer: ${dealerId}. Probando 'default'...`);
-    const defaultRef = admin.firestore().collection("Dealers").doc("default").collection("llave_ghl").doc("config");
-    tokenSnap = await defaultRef.get();
+  // Intentar obtener por ID (Slug o UUID)
+  const dealerUuid = toUuid(dealerId);
+  console.log(`📡 Buscando Dealer en Supabase: ${dealerId} (UUID: ${dealerUuid})`);
 
-    if (!tokenSnap.exists) {
-      throw new Error("GHL no está conectado para este Dealer (ni existe fallback 'default')");
+  let { data: dealer, error } = await supabaseAdmin
+    .from('dealers')
+    .select('*')
+    .or(`id.eq.${dealerUuid},ghl_location_id.eq.${dealerId},location_id.eq.${dealerId}`)
+    .maybeSingle();
+
+  if (error || !dealer) {
+    console.warn(`⚠️ No se encontró dealer en Supabase por ID/UUID/GHL_ID: ${dealerId}. Error: ${error?.message}`);
+    // Fallback: buscar por nombre si dealerId es un slug-pero-no-exacto
+    const { data: dealerByName } = await supabaseAdmin
+      .from('dealers')
+      .select('*')
+      .ilike('nombre', `%${dealerId}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (dealerByName) {
+      dealer = dealerByName;
+    } else {
+      throw new Error(`GHL no está conectado para este Dealer (${dealerId}) en Supabase`);
     }
   }
 
-  let tokens = tokenSnap.data();
-  const now = Date.now();
-  // Buffer de 5 minutos para el refresh
-  const expiresAt = tokens.expires_at ? tokens.expires_at.toMillis() : 0;
+  // Normalizar nombres de columnas dinámicamente
+  const tokens = {
+    access_token: dealer.ghl_access_token || dealer.access_token,
+    refresh_token: dealer.ghl_refresh_token || dealer.refresh_token,
+    expires_at: dealer.ghl_token_expires_at || dealer.ghl_expires_at || dealer.expires_at,
+    locationId: dealer.ghl_location_id || dealer.location_id
+  };
 
+  if (!tokens.access_token) {
+    throw new Error(`Dealer ${dealerId} no tiene token de GHL en Supabase`);
+  }
+
+  const now = Date.now();
+  const expiresAt = tokens.expires_at ? new Date(tokens.expires_at).getTime() : 0;
+
+  // Buffer de 5 minutos para el refresh
   if (now >= (expiresAt - 300000)) {
-    console.log(`🔄 Refrescando config GHL para Dealer: ${dealerId}`);
+    console.log(`🔄 Refrescando token GHL para Dealer: ${dealerId}`);
     try {
       const response = await fetch('https://services.leadconnectorhq.com/oauth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: ghlClientId.value(),
-          client_secret: ghlClientSecret.value(),
+          client_id: clientId,
+          client_secret: clientSecret,
           grant_type: 'refresh_token',
           refresh_token: tokens.refresh_token,
-          user_type: 'Location'
+          user_type: tokens.userType || 'Location'
         })
       });
 
       const data = await response.json();
       if (!response.ok) {
         console.error("❌ Error al refrescar token GHL:", data);
-        throw new Error(data.error_description || "Error refrescando token");
+        throw new Error(data.error_description || data.message || "Error refrescando token");
       }
 
       const newExpiresAt = new Date(Date.now() + (data.expires_in * 1000));
-      const updatedData = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        expires_at: admin.firestore.Timestamp.fromDate(newExpiresAt),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        locationId: tokens.locationId // Mantener locationId
-      };
 
-      await tokenRef.update(updatedData);
-      console.log("✅ Config GHL refrescada exitosamente");
-      return updatedData;
+      // Actualizar en Supabase
+      const { error: updateError } = await supabaseAdmin
+        .from('dealers')
+        .update({
+          ghl_access_token: data.access_token,
+          ghl_refresh_token: data.refresh_token,
+          ghl_token_expires_at: newExpiresAt.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', dealer.id);
+
+      if (updateError) {
+        console.error("❌ Error actualizando token en Supabase:", updateError);
+      }
+
+      console.log("✅ Token GHL refrescado y guardado en Supabase");
+      return {
+        access_token: data.access_token,
+        locationId: tokens.locationId
+      };
     } catch (err) {
       console.error("❌ Fallo el flujo de refresh GHL:", err);
       throw err;
@@ -2281,31 +2509,42 @@ async function getGHLConfig(dealerId) {
   return tokens;
 }
 
-exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId] }, async (req, res) => {
+exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
   try {
-    const { ghl_access_token, locationId } = req.query;
+    const { ghl_access_token, locationId, dealerId } = req.query;
 
-    if (!ghl_access_token || !locationId) {
+    let accessToken = ghl_access_token;
+    let finalLocationId = locationId;
+
+    try {
+      if (dealerId) {
+        const config = await getGHLConfig(dealerId, ghlClientId.value(), ghlClientSecret.value(), supabaseServiceKey.value());
+        accessToken = config.access_token;
+        finalLocationId = config.locationId || finalLocationId;
+      }
+    } catch (e) {
+      console.warn("⚠️ No se pudo obtener config de GHL del backend:", e.message);
+    }
+
+    if (!accessToken || !finalLocationId) {
       return res.status(400).json({ error: "Faltan parámetros requeridos: ghl_access_token y/o locationId" });
     }
 
-    const response = await fetch(`https://services.leadconnectorhq.com/documents/contracts/templates/search?locationId=${locationId}`, {
-      method: 'POST',
+    const response = await fetch(`https://services.leadconnectorhq.com/proposals/templates?locationId=${finalLocationId}`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${ghl_access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Version': '2021-07-28',
-        'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      body: JSON.stringify({})
+      }
     });
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Error al obtener plantillas de GHL");
 
     // Mapear a formato simple { id, name }
-    const templates = (data.templates || []).map(t => ({
-      id: t.id,
+    const templates = (data.data || []).map(t => ({
+      id: t._id || t.id,
       name: t.name
     }));
 
@@ -2317,7 +2556,7 @@ exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlCli
 });
 
 // 2. Función para Enviar a GHL (Sustituye el placeholder anterior)
-exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId] }, async (req, res) => {
+exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: "Método no permitido" });
   }
@@ -2330,51 +2569,94 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId]
     }
 
     const { locationId, dealerId: contactDealerId } = contactData;
-    const dealerId = req.query.dealerId || contactDealerId;
+    const queryDealerId = req.query.dealerId;
+    const dealerId = queryDealerId || contactDealerId;
 
     let accessToken = ghl_access_token;
     let finalLocationId = locationId;
 
-    if (!accessToken) {
-      // 1. Obtener Config via OAuth (Firestore) por Dealer
-      const config = await getGHLConfig(dealerId);
-      accessToken = config.access_token;
-      // Usar locationId de Firestore si no viene en el payload o para verificar
-      if (!finalLocationId) {
-        finalLocationId = config.locationId;
+    try {
+      if (dealerId) {
+        console.log(`🔍 Intentando obtener config GHL oficial para Dealer: ${dealerId}`);
+        const config = await getGHLConfig(dealerId, ghlClientId.value(), ghlClientSecret.value(), supabaseServiceKey.value());
+        accessToken = config.access_token;
+        finalLocationId = config.locationId || finalLocationId;
+        console.log("✅ Usando Token de base de datos (Backend Managed)");
+      } else if (accessToken) {
+        console.log("ℹ️ Usando Token proporcionado por el Frontend (Auth Pass-through)");
       }
+    } catch (e) {
+      console.warn("⚠️ No se pudo obtener config de GHL del backend:", e.message);
     }
 
     if (!finalLocationId) {
       throw new Error("No se encontró Location ID para este Dealer");
     }
 
-    console.log(`🚀 Generando Documento para Location: ${finalLocationId}`);
+    console.log(`🚀 Procesando Contacto para Location: ${finalLocationId}`);
 
-    // 2. Upsert Contact
-    const contactRes = await fetch(`https://services.leadconnectorhq.com/contacts/upsert`, {
+    // 2. Upsert Contact (GHL V2)
+    // Limpiar contactData de campos no permitidos por GHL V2 en el root del contacto
+    const cleanContactData = { ...contactData };
+    delete cleanContactData.dealerId;
+    delete cleanContactData.ghl_access_token;
+    delete cleanContactData.locationId;
+
+    const finalPayload = { ...cleanContactData, locationId: finalLocationId };
+    console.log("📤 Enviando Upsert Contact a GHL:", {
+      firstName: finalPayload.firstName,
+      lastName: finalPayload.lastName,
+      email: finalPayload.email || 'N/A',
+      phone: finalPayload.phone || 'N/A',
+      locationId: finalPayload.locationId
+    });
+
+    let contactRes = await fetch(`https://services.leadconnectorhq.com/contacts/upsert`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'Version': '2021-07-28'
       },
-      body: JSON.stringify({ ...contactData, locationId: finalLocationId })
+      body: JSON.stringify(finalPayload)
     });
 
-    const contactResult = await contactRes.json();
+    let contactResult = await contactRes.json();
+
+    // Si falla por email, reintentar sin email (pero SOLO si hay otro identificador como phone)
+    if (!contactRes.ok && (JSON.stringify(contactResult).toLowerCase().includes("email"))) {
+      if (cleanContactData.phone) {
+        console.log("⚠️ Reintentando sin email por error de validación (usando phone como backup)...");
+        delete cleanContactData.email;
+        const retryPayload = { ...cleanContactData, locationId: finalLocationId };
+        contactRes = await fetch(`https://services.leadconnectorhq.com/contacts/upsert`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Version': '2021-07-28'
+          },
+          body: JSON.stringify(retryPayload)
+        });
+        contactResult = await contactRes.json();
+      } else {
+        console.warn("⚠️ Falló por email y no hay teléfono para reintentar.");
+      }
+    }
+
     if (!contactRes.ok) {
       console.error("❌ Error Upsert Contact GHL:", contactResult);
       throw new Error(contactResult.message || "Error al crear/actualizar contacto");
     }
 
-    const contactId = contactResult.contact?.id;
+    const contactId = contactResult.contact?.id || contactResult.id;
+    if (!contactId) {
+      throw new Error("No se pudo identificar el contacto en GHL");
+    }
     console.log(`✅ Contacto procesado: ${contactId}`);
 
-    // 3. Generar Documento (Basado en la API de Documentos de GHL si está disponible, 
-    // o disparar un workflow/trigger si es vía Custom API)
-    // Nota: GHL Doc Generation API V2 es específica. Asumimos el endpoint propuesto por la lógica de negocio.
-    const docRes = await fetch(`https://services.leadconnectorhq.com/documents/generate`, {
+    // 3. Generar Documento desde Template (GHL V2 Proposals API)
+    const docRes = await fetch(`https://services.leadconnectorhq.com/proposals/document`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -2384,26 +2666,33 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId]
       body: JSON.stringify({
         templateId: templateId,
         contactId: contactId,
-        locationId: finalLocationId
+        locationId: finalLocationId,
+        name: `Contrato - ${contactData.firstName || 'Cliente'} ${contactData.lastName || ''}`
       })
     });
 
     const docResult = await docRes.json();
     if (!docRes.ok) {
       console.error("❌ Error Generate Document GHL:", docResult);
-      // Fallback: Si el endpoint no existe o falla, devolvemos un mensaje informativo
-      // return res.status(docRes.status).json(docResult);
+      throw new Error(docResult.message || docResult.error || "Error al generar documento en GHL");
     }
 
-    // El frontend espera documentUrl
     res.json({
-      documentUrl: docResult.documentUrl || docResult.url || `https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contactId}`,
-      status: "ok"
+      documentUrl: docResult.url || docResult.documentUrl || (docResult.document && docResult.document.url) || `https://app.gohighlevel.com/v2/location/${finalLocationId}/contacts/detail/${contactId}`,
+      status: "ok",
+      ghlDocumentId: docResult.id || (docResult.document && docResult.document.id)
     });
 
   } catch (error) {
-    console.error("❌ Fallo en apiGHL:", error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ Fallo crítico en apiGHL:", {
+      message: error.message,
+      stack: error.stack,
+      ghlResponse: error.response?.data || 'N/A'
+    });
+    res.status(500).json({
+      error: error.message,
+      details: error.response?.data || null
+    });
   }
 });
 
@@ -2649,3 +2938,4 @@ exports.repairDealerData = onRequest(async (req, res) => {
 
 
 
+exports.testSecrets = require('./test_secrets').testSecrets;
