@@ -19,6 +19,8 @@ import {
   getDocs
 } from 'firebase/firestore';
 
+import confetti from 'canvas-confetti';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import {
   LayoutDashboard, Car, FileText, LogOut, Plus, Search, Edit, Trash2,
@@ -26,7 +28,8 @@ import {
   CreditCard, FileSignature, Files, Fuel, Settings, IdCard, Trash, Undo, Printer, Eye, Download,
   PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy, Link,
   AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
-  ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode, AtSign, Building, LayoutGrid, ShieldCheck
+  ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode, AtSign, Building, LayoutGrid, ShieldCheck,
+  Phone, Mail, RefreshCw
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
 import { generarContratoEnGHL } from './ghl_integration/ghlService';
@@ -148,11 +151,11 @@ const Card = ({ children, className = '', noPadding = false }) => {
 
 const Badge = ({ status }) => {
   const styles = {
-    available: "bg-red-600/15 text-red-400 border-red-600/20 ring-1 ring-red-600/20",
-    quoted: "bg-amber-500/15 text-amber-400 border-amber-500/20 ring-1 ring-amber-500/20",
-    sold: "bg-white/5 text-white/40 border-white/10 ring-1 ring-white/10",
-    pending: "bg-orange-500/15 text-orange-400 border-orange-500/20 ring-1 ring-orange-500/20",
-    signed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20 ring-1 ring-emerald-500/20",
+    available: "bg-gradient-to-br from-red-500 to-rose-700 text-white px-3 py-1 font-black shadow-[0_0_12px_rgba(225,29,72,0.35)] border-red-400/30 uppercase tracking-tighter ring-1 ring-white/10",
+    quoted: "bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1 font-black shadow-[0_0_15px_rgba(245,158,11,0.3)] border-amber-400/50 uppercase tracking-tighter ring-1 ring-white/20",
+    sold: "bg-gradient-to-br from-emerald-500 to-teal-700 text-white px-3 py-1 font-black shadow-[0_0_12px_rgba(16,185,129,0.35)] border-emerald-400/30 uppercase tracking-tighter ring-1 ring-white/10",
+    pending: "bg-gradient-to-br from-orange-400 to-orange-600 text-white px-3 py-1 font-black shadow-[0_0_12px_rgba(249,115,22,0.3)] border-orange-400/30 uppercase tracking-tighter ring-1 ring-white/10",
+    signed: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white px-3 py-1 font-black shadow-[0_0_12px_rgba(59,130,246,0.3)] border-blue-400/30 uppercase tracking-tighter ring-1 ring-white/10",
   };
   const labels = { available: "Disponible", quoted: "Cotizado", sold: "Vendido", pending: "Pendiente Firma", signed: "Firmado" };
   return (
@@ -162,18 +165,22 @@ const Badge = ({ status }) => {
   );
 };
 
-const Input = ({ label, className = "", type = "text", ...props }) => (
+const Input = ({ label, className = "", type = "text", error, ...props }) => (
   <div className="mb-4 group text-left">
     {label && (
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">
+      <label className={`block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors ${error ? 'text-red-500' : 'text-slate-400 group-focus-within:text-red-500'}`}>
         {label}
       </label>
     )}
     <input
       type={type}
-      className={`w-full relative items-stretch shadow-sm rounded-xl px-4 py-3 border border-slate-200 outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-white font-bold text-slate-800 text-sm placeholder:text-slate-300 transition-all ${className}`}
+      className={`w-full relative items-stretch shadow-sm rounded-xl px-4 py-3 border outline-none focus:ring-2 focus:ring-red-500/20 bg-white font-bold text-slate-800 text-sm placeholder:text-slate-300 transition-all ${error
+        ? 'border-red-500 focus:border-red-600 bg-red-50'
+        : 'border-slate-200 focus:border-red-500'
+        } ${className}`}
       {...props}
     />
+    {error && <span className="text-[10px] font-bold text-red-500 ml-1 mt-1 block">{error}</span>}
   </div>
 );
 
@@ -278,21 +285,29 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full h-full sm:h-auto sm:max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px] bg-white border-0 shadow-2xl">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300">
+      <div className="w-[95%] max-w-sm animate-in zoom-in-95 duration-200">
+        <Card className="rounded-[32px] bg-white/95 backdrop-blur-md border-0 shadow-2xl overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800">Seleccionar Acción</h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
           <div className="grid gap-4">
-            <button onClick={() => onSelect('quote')} className="flex items-center p-4 rounded-xl border border-gray-200 hover:border-red-500 hover:bg-red-50 transition-all group">
-              <div className="p-3 bg-red-100 rounded-lg text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors"><Send size={24} /></div>
-              <div className="ml-4 text-left"><h4 className="font-bold text-slate-800 group-hover:text-red-700">Cotización</h4><p className="text-xs text-slate-500">Enviar ficha técnica y precio</p></div>
+            <button onClick={() => onSelect('quote')} className="flex items-center p-5 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 group-hover:bg-red-100 transition-colors"></div>
+              <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10"><Send size={24} /></div>
+              <div className="ml-5 text-left relative z-10">
+                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Cotización</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviar ficha técnica y precio</p>
+              </div>
             </button>
-            <button onClick={() => onSelect('contract')} className="flex items-center p-4 rounded-xl border border-gray-200 hover:border-red-500 hover:bg-red-50 transition-all group">
-              <div className="p-3 bg-red-100 rounded-lg text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors"><FilePlus size={24} /></div>
-              <div className="ml-4 text-left"><h4 className="font-bold text-slate-800 group-hover:text-red-700">Contrato</h4><p className="text-xs text-slate-500">Generar documento legal</p></div>
+            <button onClick={() => onSelect('contract')} className="flex items-center p-5 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 group-hover:bg-red-100 transition-colors"></div>
+              <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10"><FilePlus size={24} /></div>
+              <div className="ml-5 text-left relative z-10">
+                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Contrato</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generar documento legal</p>
+              </div>
             </button>
           </div>
         </Card>
@@ -434,6 +449,10 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
+    // Preserve status
+    data.status = status;
+    data.estado = status === 'sold' ? 'Vendido' : (status === 'quoted' ? 'Cotizado' : 'Disponible');
+
     // --- CLEANUP "-" VALUES ---
     Object.keys(data).forEach(key => {
       if (data[key] === '-') data[key] = '';
@@ -487,22 +506,11 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
             const cleanName = (item.file.name || `image_${i}.jpg`).replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase();
             const storagePath = `${baseStoragePath}/${Date.now()}_${cleanName}`;
 
-            const { data: uploadData, error: uploadErr } = await supabase.storage
-              .from('fotos_vehiculos')
-              .upload(storagePath, item.file, {
-                cacheControl: '3600',
-                upsert: true
-              });
+            const storageRef = ref(storage, storagePath);
+            await uploadBytes(storageRef, item.file);
+            const downloadUrl = await getDownloadURL(storageRef);
 
-            if (uploadErr) throw uploadErr;
-
-            const { data: publicUrlData } = supabase.storage
-              .from('fotos_vehiculos')
-              .getPublicUrl(storagePath);
-
-            if (publicUrlData && publicUrlData.publicUrl) {
-              uploadedUrls.push(publicUrlData.publicUrl);
-            }
+            uploadedUrls.push(downloadUrl);
           } catch (err) {
             console.error("Error uploading photo to Supabase:", err);
           }
@@ -534,8 +542,8 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     </div>
   );
 
-  // Determine if editing is locked (only status can unlock it)
-  const isLocked = status === 'sold';
+  // Determine if editing is locked (only if it was ALREADY sold when opening)
+  const isLocked = initialData?.status === 'sold';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300">
@@ -616,16 +624,29 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                   </div>
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                   <Input
                     name="vin"
                     label="VIN / Chasis"
                     defaultValue={initialData?.vin}
                     className="font-mono uppercase tracking-wider"
-                    placeholder="Número de Chasis"
+                    placeholder="NÚMERO DE CHASIS"
                     disabled={isLocked}
                     onInput={(e) => {
                       e.target.value = e.target.value.toUpperCase().replace(/[O]/g, '');
+                    }}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <Input
+                    name="plate"
+                    label="Placa"
+                    defaultValue={initialData?.plate || initialData?.placa}
+                    className="font-mono uppercase tracking-wider"
+                    placeholder="PLACA"
+                    disabled={isLocked}
+                    onInput={(e) => {
+                      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
                     }}
                   />
                 </div>
@@ -640,12 +661,15 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                 {/* FILA 1 */}
                 <Select name="condition" label="Condición" defaultValue={initialData?.condition || '-'} options={['-', 'Usado', 'Recién Importado', 'Nuevo', 'Certificado']} disabled={isLocked} />
                 <Select name="clean_carfax" label="Clean Carfax" defaultValue={initialData?.clean_carfax || '-'} options={['-', 'Sí', 'No']} disabled={isLocked} />
-                <Select name="transmission" label="Transmisión" defaultValue={initialData?.transmission || '-'} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic', 'DSG']} disabled={isLocked} />
+                <Select name="type" label="Tipo de Vehículo" defaultValue={initialData?.type || initialData?.bodyType || initialData?.tipo_vehiculo || '-'} options={['-', 'Automóvil', 'Jeepeta', 'Camioneta', 'Moto', 'Camión', 'Bus', 'Vehículos Pesados']} disabled={isLocked} />
 
+                {/* FILA 2 */}
+                <Select name="transmission" label="Transmisión" defaultValue={initialData?.transmission || '-'} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic', 'DSG']} disabled={isLocked} />
                 <Select name="fuel" label="Combustible" defaultValue={initialData?.fuel || '-'} options={['-', 'Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} disabled={isLocked} />
                 <Select name="traction" label="Tracción" defaultValue={initialData?.traction || '-'} options={['-', 'FWD', 'RWD', 'AWD', '4x4']} disabled={isLocked} />
-                <Select name="engine_type" label="Aspiración/Tipo" defaultValue={initialData?.engine_type || '-'} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido', 'Eléctrico']} disabled={isLocked} />
 
+                {/* FILA 3 */}
+                <Select name="engine_type" label="Aspiración/Tipo" defaultValue={initialData?.engine_type || '-'} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido', 'Eléctrico']} disabled={isLocked} />
                 <Input name="engine_cyl" label="Cilindros" defaultValue={initialData?.engine_cyl} placeholder="4 Cil" disabled={isLocked} />
                 <Input name="engine_cc" label="Cilindrada" defaultValue={initialData?.engine_cc} placeholder="2.0L" disabled={isLocked} />
                 <Select
@@ -670,9 +694,9 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                   disabled={isLocked}
                 />
                 <Select
-                  name="is_electric_trunk"
+                  name="trunk"
                   label="Baúl Eléctrico"
-                  defaultValue={(initialData?.is_electric_trunk === 'Sí' || initialData?.trunk_type === 'Eléctrica' || initialData?.baul_electrico === true || initialData?.baul_electrico === 'Sí') ? 'Sí' : (initialData?.is_electric_trunk === 'No' || initialData?.trunk_type === 'Manual' || initialData?.baul_electrico === false || initialData?.baul_electrico === 'No') ? 'No' : '-'}
+                  defaultValue={(initialData?.trunk === 'Sí' || initialData?.is_electric_trunk === 'Sí' || initialData?.trunk_type === 'Eléctrica' || initialData?.baul_electrico === true || initialData?.baul_electrico === 'Sí') ? 'Sí' : (initialData?.trunk === 'No' || initialData?.is_electric_trunk === 'No' || initialData?.trunk_type === 'Manual' || initialData?.baul_electrico === false || initialData?.baul_electrico === 'No') ? 'No' : '-'}
                   options={['-', 'Sí', 'No']}
                   disabled={isLocked}
                 />
@@ -711,8 +735,8 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                             key={c}
                             type="button"
                             disabled={isLocked}
-                            onClick={() => setDownPaymentCurrency(c)}
-                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${downPaymentCurrency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
+                            onClick={() => setCurrency(c)}
+                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${currency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
                           >
                             {c === 'USD' ? 'US$' : 'RD$'}
                           </button>
@@ -759,7 +783,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                   <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                     {[
                       { value: 'available', label: 'Disponible', color: 'bg-red-500', text: 'text-red-600', border: 'border-transparent', bg: 'bg-red-50' },
-                      { value: 'quoted', label: 'Cotizado', color: 'bg-amber-500', text: 'text-amber-600', border: 'border-transparent', bg: 'bg-amber-50' },
+                      { value: 'quoted', label: 'Cotizado', color: 'bg-gradient-to-r from-yellow-400 to-amber-500', text: 'text-amber-950', border: 'border-amber-200', bg: 'bg-amber-100' },
                       { value: 'sold', label: 'Vendido', color: 'bg-slate-400', text: 'text-slate-600', border: 'border-transparent', bg: 'bg-slate-200' }
                     ].map((option) => {
                       const isActive = (initialData?.status || 'available') === option.value;
@@ -987,8 +1011,12 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   const [lastname, setLastname] = useState('');
   const [phone, setPhone] = useState('');
   const [cedula, setCedula] = useState('');
+  const [email, setEmail] = useState('');
   const [bank, setBank] = useState('');
   const [price, setPrice] = useState('');
+  const [inicial, setInicial] = useState('');
+  const [priceCurrency, setPriceCurrency] = useState('USD');
+  const [inicialCurrency, setInicialCurrency] = useState('USD');
   const [loading, setLoading] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
@@ -1056,8 +1084,12 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
         lastname,
         phone,
         cedula,
+        email,
         bank,
         price,
+        inicial,
+        priceCurrency,
+        inicialCurrency,
         vehicle: `${vehicle.make} ${vehicle.model}`,
         vehicleId: vehicle.id,
         // Additional vehicle fields for template replacement
@@ -1083,8 +1115,8 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full h-full sm:h-auto sm:max-w-lg animate-in zoom-in-95 duration-200">
-        <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
+      <div className="w-full h-full sm:h-auto sm:max-w-5xl animate-in zoom-in-95 duration-200">
+        <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-blue-50 rounded-lg mr-3"><Send size={20} className="text-blue-600" /></div>
@@ -1093,23 +1125,50 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
           <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">1. Vehículo de Interés</label>
-              <select
-                className="w-full px-3 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold"
-                value={selectedVehicleId}
-                onChange={(e) => setSelectedVehicleId(e.target.value)}
-              >
-                <option value="">-- Seleccionar vehículo --</option>
-                {availableVehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year})</option>
-                ))}
-              </select>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Car size={16} /> 1. Vehículo de Interés</label>
+              {(() => {
+                const displayVehicle = selectedVehicleId ? availableVehicles.find(v => String(v.id) === String(selectedVehicleId)) : null;
+
+                if (displayVehicle) {
+                  return (
+                    <div className="relative flex items-center gap-3 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl transition-all">
+                      <div className="shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Lock size={18} className="text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0 pr-20">
+                        <p className="text-lg font-black text-blue-800 uppercase tracking-wide truncate">
+                          {displayVehicle.make || displayVehicle.marca} {displayVehicle.model || displayVehicle.modelo} ({displayVehicle.year || displayVehicle.ano})
+                        </p>
+                        <p className="text-sm font-bold text-blue-600">
+                          {(displayVehicle.price_dop > 0 ? `RD$ ${displayVehicle.price_dop.toLocaleString()}` : `US$ ${(displayVehicle.price || displayVehicle.precio || 0).toLocaleString()}`)} • {displayVehicle.color || 'N/A'}
+                        </p>
+                      </div>
+                      <button onClick={() => setSelectedVehicleId("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-white bg-slate-900 hover:bg-red-600 px-4 py-2 rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-slate-900/10 active:scale-95">
+                        Cambiar
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <select
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-700 uppercase"
+                    value={selectedVehicleId}
+                    onChange={(e) => setSelectedVehicleId(e.target.value)}
+                  >
+                    <option value="">-- Seleccionar vehículo --</option>
+                    {availableVehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${(v.price || v.precio || 0).toLocaleString()}`}</option>
+                    ))}
+                  </select>
+                );
+              })()}
             </div>
 
             {quoteTemplates.length > 0 && (
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Plantilla de Cotización</label>
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><FilePlus size={16} /> 2. Plantilla de Cotización</label>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {quoteTemplates.map(t => (
                     <button
@@ -1126,18 +1185,35 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
             )}
 
             <div className="space-y-4">
-              <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">2. Datos del Prospecto</label>
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
-                <Input label="Apellido" value={lastname} onChange={(e) => setLastname(e.target.value)} />
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 3. Datos del Prospecto</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                  <Input label="Nombre" placeholder="Ej. Juan" value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input label="Apellido" placeholder="Ej. Pérez" value={lastname} onChange={(e) => setLastname(e.target.value)} />
+                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={cedula} onChange={(e) => setCedula(e.target.value)} />
+                  <Input label="Teléfono" placeholder="809-555-5555" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <Input label="Email" type="email" placeholder="email@ejemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                <Input label="Cédula" value={cedula} onChange={(e) => setCedula(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Precio" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
-                <Input label="Banco Dirigido" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Ej. Banco Popular" />
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 4. Términos Financieros</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Input label="Banco / Financiera" placeholder="Ej. Banco Popular" value={bank} onChange={(e) => setBank(e.target.value)} />
+                  <div className="flex flex-col">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1 ml-1">Precio Final de Venta</label>
+                    <div className="flex items-stretch rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 bg-white shadow-sm">
+                      <input type="text" value={price ? Number(price).toLocaleString() : ''} onChange={(e) => setPrice(e.target.value.replace(/,/g, ''))} className="flex-1 min-w-0 px-3 py-2.5 bg-transparent focus:outline-none font-bold text-slate-800 text-sm" placeholder="850,000" />
+                      <button type="button" onClick={() => setPriceCurrency(p => p === 'USD' ? 'DOP' : 'USD')} className="bg-slate-50 hover:bg-slate-100 flex items-center px-3 border-l border-slate-200 text-[10px] font-black text-slate-500 cursor-pointer transition-colors">{priceCurrency === 'USD' ? 'US$' : 'RD$'}</button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1 ml-1">Inicial / Avance</label>
+                    <div className="flex items-stretch rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 bg-white shadow-sm">
+                      <input type="text" value={inicial ? Number(inicial).toLocaleString() : ''} onChange={(e) => setInicial(e.target.value.replace(/,/g, ''))} className="flex-1 min-w-0 px-3 py-2.5 bg-transparent focus:outline-none font-bold text-slate-800 text-sm" placeholder="100,000" />
+                      <button type="button" onClick={() => setInicialCurrency(p => p === 'USD' ? 'DOP' : 'USD')} className="bg-slate-50 hover:bg-slate-100 flex items-center px-3 border-l border-slate-200 text-[10px] font-black text-slate-500 cursor-pointer transition-colors">{inicialCurrency === 'USD' ? 'US$' : 'RD$'}</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="pt-4 flex justify-end gap-3">
@@ -1151,20 +1227,25 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   );
 };
 
-const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast, userProfile }) => {
+const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast, userProfile, initialDocumentType = 'contrato', resolvedDealerId }) => {
   const [selectedTemplates, setSelectedTemplates] = useState([]); // Ahora es array
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle ? initialVehicle.vehicleId || initialVehicle.id : '');
   const [clientName, setClientName] = useState('');
   const [clientLastName, setClientLastName] = useState('');
   const [clientCedula, setClientCedula] = useState('');
-  const [finalPrice, setFinalPrice] = useState(''); // Estado para precio final
-  const [downPayment, setDownPayment] = useState(''); // Estado para el inicial
+  const [finalPrice, setFinalPrice] = useState('');
+  const [downPayment, setDownPayment] = useState('');
+  const [priceCurrency, setPriceCurrency] = useState('USD');
+  const [inicialCurrency, setInicialCurrency] = useState('USD');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [bankName, setBankName] = useState('');
   const [loading, setLoading] = useState(false);
   const [ghlTemplates, setGhlTemplates] = useState([]);
   const [ghlToken, setGhlToken] = useState('');
+  const [successData, setSuccessData] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const documentType = initialDocumentType; // Viene del modal de acción: 'cotizacion' | 'contrato'
 
   useEffect(() => {
     if (isOpen && userProfile?.dealerId) {
@@ -1174,7 +1255,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
           let token = '';
           let locId = '';
 
-          const dealerIdToFetch = userProfile?.supabaseDealerId || userProfile?.dealerId;
+          const dealerIdToFetch = resolvedDealerId || userProfile?.supabaseDealerId || userProfile?.dealerId;
           if (dealerIdToFetch) {
             const { data: dealerData, error: dealerError } = await supabase
               .from('dealers')
@@ -1194,7 +1275,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
           }
 
           const params = new URLSearchParams({
-            dealerId: userProfile.dealerId,
+            dealerId: resolvedDealerId || userProfile?.dealerId || '',
             locationId: locId || userProfile?.ghlLocationId || ''
           });
 
@@ -1221,7 +1302,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       };
       fetchTemplates();
     }
-  }, [isOpen, userProfile?.dealerId, userProfile?.supabaseDealerId, showToast]);
+  }, [isOpen, userProfile?.dealerId, userProfile?.supabaseDealerId]);
 
   useEffect(() => {
     if (initialVehicle) {
@@ -1240,14 +1321,18 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       setClientCedula(initialVehicle.cedula || '');
 
       // Additional fields if available in quote
-      if (initialVehicle.phone) {
-        // ...
-      }
+      setClientPhone(initialVehicle.phone || '');
+      setClientEmail(initialVehicle.email || '');
+      setBankName(initialVehicle.bank || '');
 
       // Auto-fill price/downPayment from initial data or the vehicle in inventory
       const v = inventory.find(i => i.id === (initialVehicle.vehicleId || initialVehicle.id));
-      setFinalPrice(initialVehicle.price || (v ? (v.price_dop > 0 ? v.price_dop : (v.price || 0)) : 0));
-      setDownPayment(initialVehicle.downPayment || initialVehicle.initial || (v ? (v.initial_dop > 0 ? v.initial_dop : (v.initial || 0)) : 0));
+      const vPrice = v ? (v.price_dop > 0 ? v.price_dop : (v.price || 0)) : 0;
+      const vInitial = v ? (v.initial_payment_dop > 0 ? v.initial_payment_dop : (v.initial_payment || 0)) : 0;
+      setFinalPrice(initialVehicle.price || vPrice);
+      setDownPayment(initialVehicle.downPayment || initialVehicle.initial_payment || vInitial);
+      setPriceCurrency(v?.currency || 'USD');
+      setInicialCurrency(v?.downPaymentCurrency || 'USD');
 
       const template = templates.find(t => t.name === initialVehicle.template);
       if (template) setSelectedTemplates([template.id]);
@@ -1262,6 +1347,8 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       setBankName(''); // Restore bank
       setFinalPrice('');
       setDownPayment('');
+      setSuccessData(null);
+      setSubmitted(false);
     }
   }, [initialVehicle, isOpen, inventory]); // Added inventory to dependencies
 
@@ -1270,9 +1357,10 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
     if (selectedVehicleId && !initialVehicle) {
       const v = inventory.find(i => i.id === selectedVehicleId);
       if (v) {
-        // Predeterminadamente el precio y inicial que ya tiene el carro
         setFinalPrice(v.price_dop > 0 ? v.price_dop : (v.price || 0));
-        setDownPayment(v.initial_dop > 0 ? v.initial_dop : (v.initial || 0));
+        setDownPayment(v.initial_payment_dop > 0 ? v.initial_payment_dop : (v.initial_payment || 0));
+        setPriceCurrency(v.currency || 'USD');
+        setInicialCurrency(v.downPaymentCurrency || 'USD');
       }
     }
   }, [selectedVehicleId, inventory, initialVehicle]);
@@ -1291,8 +1379,9 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-
-    // VALIDACIÓN MANUAL EXPLICITA (Para evitar bloqueos silenciosos del navegador)
+    if (loading || submitted) return; // Prevent double execution
+    setSubmitted(true);
+    // VALIDACIÓN MANUAL EXPLICITA
     if (!selectedVehicleId) {
       showToast("Por favor selecciona un vehículo", "error");
       return;
@@ -1301,23 +1390,14 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       showToast("Selecciona al menos un documento para generar", "error");
       return;
     }
-    if (!clientName || !clientLastName) {
-      showToast("El Nombre y Apellido del cliente son obligatorios", "error");
-      return;
-    }
-    if (!clientCedula) {
-      showToast("La Cédula o Pasaporte es obligatorio", "error");
-      return;
-    }
-    if (!finalPrice || finalPrice <= 0) {
-      showToast("El Precio Final de Venta es obligatorio", "error");
+    if (!clientName || !clientLastName || !clientCedula || !clientPhone || !clientEmail || !finalPrice || finalPrice <= 0) {
+      showToast("Por favor completa los campos marcados en rojo", "error");
       return;
     }
 
     setLoading(true);
     try {
       console.log("Submit Document Generation:", { selectedVehicleId, selectedTemplates });
-      showToast("Solicitando generación de documentos...", "info");
 
       // Usamos loose equality (==) por si el ID es numérico en inventory pero string en selectedVehicleId
       const vehicle = inventory.find(v => String(v.id) === String(selectedVehicleId));
@@ -1331,11 +1411,13 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
         cedula: clientCedula,
         banco: bankName,
         precioFinal: finalPrice,
-        inicial: downPayment
+        inicial: downPayment,
+        monedaVenta: priceCurrency,
+        monedaInicial: inicialCurrency
       };
 
       // GHL Location ID resolution
-      const locationId = userProfile?.ghlLocationId || userProfile?.dealerId || 'DURAN-FERNANDEZ-AUTO-SRL';
+      const locationId = userProfile?.ghlLocationId || resolvedDealerId || userProfile?.dealerId || 'DURAN-FERNANDEZ-AUTO-SRL';
 
       // Validar Email (solo formato básico si existe)
       if (clientEmail && (!clientEmail.includes('@') || clientEmail.endsWith('@'))) {
@@ -1345,47 +1427,191 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       console.log(`🚀 Generando contrato(s) en GHL para: ${clientName} ${clientLastName}`);
 
       const results = [];
+      const errors = [];
       for (const templateId of selectedTemplates) {
-        const docUrl = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, userProfile?.dealerId, ghlToken);
-        results.push(docUrl);
+        try {
+          const docUrl = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, resolvedDealerId || userProfile?.dealerId, ghlToken);
+          results.push(docUrl);
+        } catch (e) {
+          console.error(`⚠️ Error GHL Generate para template ${templateId}:`, e);
+          errors.push(e.message || "Error GHL");
+        }
       }
 
       // 1. Mostrar éxito y abrir primer documento
       if (results.length > 0) {
-        window.open(results[0], '_blank');
+        setSuccessData({
+          clientName: `${clientName} ${clientLastName}`,
+          vehicleDamages: vehicle.condition || vehicle.condicion || 'Sin daños',
+          vehicleYear: vehicle.year || '',
+          vehicleMake: vehicle.make || '',
+          vehicleModel: vehicle.model || '',
+          vehicleTrim: vehicle.trim || vehicle.edition || '',
+          vehicleColor: vehicle.color || '',
+          vehicleVinLast4: (vehicle.vin || vehicle.chasis_vin || vehicle.chasis || '').slice(-4),
+          documentUrls: results
+        });
+
+        // Trigger confetti gigante
+        const duration = 3 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
+
+        function randomInRange(min, max) {
+          return Math.random() * (max - min) + min;
+        }
+
+        const interval = setInterval(function () {
+          const timeLeft = animationEnd - Date.now();
+
+          if (timeLeft <= 0) {
+            return clearInterval(interval);
+          }
+
+          const particleCount = 50 * (timeLeft / duration);
+          confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+          confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+        }, 250);
+
         showToast(`${results.length} documento(s) generado(s) con éxito en GHL`, "success");
       }
 
-      // 2. Ejecutar onGenerate local (opcional/compatibilidad)
-      if (onGenerate) {
-        onGenerate({
-          vehicleId: selectedVehicleId,
-          clientData: {
-            name: clientName,
-            lastName: clientLastName,
-            cedula: clientCedula,
-            phone: clientPhone,
-            email: clientEmail
-          },
-          templateIds: selectedTemplates,
-          bankName,
-          finalPrice: finalPrice,
-          ghlDocumentUrls: results
-        });
+      if (errors.length > 0) {
+        showToast(`Se guardó el contrato localmente. Problema en GHL: ${errors[0]}`, "warning");
       }
 
-      onClose();
+      // Se pospone el onGenerate persistencia física hasta que se cierra el modal
+      // para evitar que el estado cambie brusco y recargue las animaciones.
+
+      if (results.length === 0) {
+        onClose();
+      }
     } catch (error) {
       console.error("❌ Error GHL integration:", error);
       showToast(`Error: ${error.message}`, "error");
+      setLoading(false);
     } finally {
+      // Only turn off loading — success screen will show if successData is set
       setLoading(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-      <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200">
+      <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200 relative">
+        {/* LOADING OVERLAY — Estilo Premium */}
+        {loading && (
+          <div className="absolute inset-0 z-50 bg-white rounded-none sm:rounded-[24px] flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-300 shadow-2xl">
+            <style>{`
+              @keyframes bounce-subtle {
+                0%, 100% { transform: translateY(0) scale(1.05); }
+                50% { transform: translateY(-15px) scale(0.95); }
+              }
+              @keyframes shimmer-fast {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+              }
+            `}</style>
+            <div className="mb-8" style={{ animation: 'bounce-subtle 2s ease-in-out infinite' }}>
+              <AppLogo size={120} className="drop-shadow-2xl" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tight">Generando Documento...</h3>
+            <p className="text-base text-slate-400 font-bold mb-10">Conectando con GoHighLevel AI</p>
+
+            {/* Progress bar animada con Shimmer */}
+            <div className="w-full max-w-[300px] h-3 bg-slate-100 rounded-full overflow-hidden relative shadow-inner">
+              <div
+                className="h-full bg-gradient-to-r from-red-500 via-red-400 to-red-600 rounded-full"
+                style={{
+                  width: '100%',
+                  backgroundSize: '200% 100%',
+                  animation: 'shimmer-fast 1.5s linear infinite'
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* SUCCESS OVERLAY — Celebration */}
+        {successData && !loading && (
+          <div className="absolute inset-0 z-[60] bg-white rounded-none sm:rounded-[24px] flex flex-col items-center justify-center p-6 sm:p-10 text-center animate-in zoom-in-95 duration-500 shadow-2xl overflow-y-auto">
+            <style>{`
+              @keyframes celebratePulse {
+                0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(220, 38, 38, 0)); }
+                50% { transform: scale(1.15); filter: drop-shadow(0 0 20px rgba(220, 38, 38, 0.4)); }
+              }
+              @keyframes fadeSlideUp {
+                from { opacity: 0; transform: translateY(30px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+            `}</style>
+
+            <div className="mb-6" style={{ animation: 'celebratePulse 2s ease-in-out infinite' }}>
+              <AppLogo size={140} className="drop-shadow-xl" />
+            </div>
+
+            <h2 className="text-3xl sm:text-5xl font-black text-slate-900 mb-2 uppercase tracking-tight" style={{ animation: 'fadeSlideUp 0.6s ease-out 0.2s both' }}>
+              FELICIDADES
+            </h2>
+
+            <div className="text-slate-500 font-black text-xs uppercase tracking-[0.2em] mb-8" style={{ animation: 'fadeSlideUp 0.6s ease-out 0.3s both' }}>
+              Acabas de generar un nuevo documento para:
+            </div>
+
+            <div className="w-full max-w-xl bg-slate-50 p-8 sm:p-12 rounded-[40px] border-2 border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] mb-10 text-center relative overflow-hidden group" style={{ animation: 'fadeSlideUp 0.6s ease-out 0.5s both' }}>
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-red-600"></div>
+
+              <h3 className="text-3xl sm:text-5xl font-black text-red-600 uppercase mb-6 leading-none tracking-tighter">
+                {successData.clientName}
+              </h3>
+
+              <div className="space-y-2">
+                <div className="text-lg sm:text-2xl font-black text-slate-800 uppercase tracking-tight">
+                  {successData.vehicleYear} {successData.vehicleMake} {successData.vehicleModel}
+                </div>
+                <div className="text-sm sm:text-base font-bold text-slate-400 uppercase tracking-[0.15em]">
+                  {successData.vehicleTrim} • {successData.vehicleColor}
+                </div>
+                <div className="inline-block mt-4 px-4 py-1.5 bg-slate-200/50 rounded-full text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest">
+                  CHASSIS: {successData.vehicleVinLast4}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 w-full max-w-lg" style={{ animation: 'fadeSlideUp 0.6s ease-out 0.7s both' }}>
+              {successData.documentUrls && successData.documentUrls.length > 0 && (
+                <a
+                  href={successData.documentUrls[0]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-red-600 hover:bg-red-700 text-white font-black py-5 px-8 text-sm rounded-[20px] shadow-xl shadow-red-600/30 transition-all hover:scale-105 active:scale-95 flex-1 flex items-center justify-center uppercase tracking-widest text-center"
+                >
+                  <Eye className="mr-2" size={20} /> Ver Documento
+                </a>
+              )}
+              <Button
+                onClick={() => {
+                  if (onGenerate && successData) {
+                    onGenerate({
+                      vehicleId: selectedVehicleId,
+                      documentType,
+                      clientData: { name: clientName, lastName: clientLastName, cedula: clientCedula, phone: clientPhone, email: clientEmail },
+                      templateIds: selectedTemplates,
+                      bankName,
+                      finalPrice: finalPrice,
+                      ghlDocumentUrls: successData.documentUrls
+                    });
+                  }
+                  onClose();
+                }}
+                className="bg-slate-900 hover:bg-black text-white font-black py-5 px-8 text-sm rounded-[20px] shadow-xl shadow-slate-900/10 transition-all hover:scale-105 active:scale-95 flex-1 uppercase tracking-widest border-none"
+              >
+                Cerrar Ventana
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px] bg-white">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
@@ -1395,19 +1621,48 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">1. Selecciona el Vehículo</label>
-              <select
-                className={`w-full px-3 py-3 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${!!initialVehicle ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-gray-50'}`}
-                value={selectedVehicleId}
-                onChange={(e) => setSelectedVehicleId(e.target.value)}
-                disabled={!!initialVehicle}
-              >
-                <option value="">-- Seleccionar vehículo disponible --</option>
-                {availableVehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${v.price.toLocaleString()}`}</option>
-                ))}
-              </select>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2"><Car size={16} /> 1. Selecciona el Vehículo</label>
+              {(() => {
+                const selectedObj = !initialVehicle && selectedVehicleId ? availableVehicles.find(v => v.id === selectedVehicleId) : null;
+                const displayVehicle = initialVehicle || selectedObj;
+
+                if (displayVehicle) {
+                  return (
+                    <div className="relative flex items-center gap-3 p-4 bg-emerald-50 border-2 border-emerald-200 rounded-xl transition-all">
+                      <div className="shrink-0 w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <Lock size={18} className="text-emerald-600" />
+                      </div>
+                      <div className="flex-1 min-w-0 pr-20">
+                        <p className="text-lg font-black text-emerald-800 uppercase tracking-wide truncate">
+                          {displayVehicle.make || displayVehicle.marca} {displayVehicle.model || displayVehicle.modelo} ({displayVehicle.year || displayVehicle.ano})
+                        </p>
+                        <p className="text-sm font-bold text-emerald-600">
+                          {(displayVehicle.price_dop > 0 ? `RD$ ${displayVehicle.price_dop.toLocaleString()}` : `US$ ${(displayVehicle.price || displayVehicle.precio || 0).toLocaleString()}`)} • {displayVehicle.color || 'N/A'}
+                        </p>
+                      </div>
+                      {!initialVehicle && (
+                        <button onClick={() => setSelectedVehicleId("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-white bg-slate-900 hover:bg-red-600 px-4 py-2 rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-slate-900/10 active:scale-95">
+                          Cambiar
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <select
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-bold text-slate-700 uppercase"
+                    value={selectedVehicleId}
+                    onChange={(e) => setSelectedVehicleId(e.target.value)}
+                  >
+                    <option value="">-- Seleccionar vehículo disponible --</option>
+                    {availableVehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${(v.price || v.precio || 0).toLocaleString()}`}</option>
+                    ))}
+                  </select>
+                );
+              })()}
             </div>
 
             {/* Compact Grid Layout */}
@@ -1415,12 +1670,12 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
               {/* Row 1: Client Data (4 cols) */}
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><User size={16} /> 2. Datos del Cliente</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} />
-                  <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} />
-                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} />
-                  <Input label="Teléfono" placeholder="809-555-5555" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
-                  <Input label="Email" type="email" placeholder="email@ejemplo.com" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                  <Input label="Nombre" placeholder="Ej. Juan" value={clientName} onChange={(e) => setClientName(e.target.value)} error={submitted && !clientName ? "Debes completar esto" : ""} required />
+                  <Input label="Apellido" placeholder="Ej. Pérez" value={clientLastName} onChange={(e) => setClientLastName(e.target.value)} error={submitted && !clientLastName ? "Debes completar esto" : ""} required />
+                  <Input label="Cédula / Pasaporte" placeholder="001-0000000-0" value={clientCedula} onChange={(e) => setClientCedula(e.target.value)} error={submitted && !clientCedula ? "Debes completar esto" : ""} required />
+                  <Input label="Teléfono" placeholder="809-555-5555" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} error={submitted && !clientPhone ? "Debes completar esto" : ""} required />
+                  <Input label="Email" type="email" placeholder="email@ejemplo.com" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} error={submitted && !clientEmail ? "Debes completar esto" : ""} required />
                 </div>
               </div>
 
@@ -1429,8 +1684,21 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                 <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2"><DollarSign size={16} /> 3. Términos Financieros</label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <Input label="Banco / Financiera" placeholder="Ej. Banco Popular" value={bankName} onChange={(e) => setBankName(e.target.value)} />
-                  <Input label="Precio Final de Venta" type="number" placeholder="Ej. 850000" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} />
-                  <Input label="Inicial / Avance" type="number" placeholder="Ej. 150000" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} />
+                  <div className="flex flex-col">
+                    <label className={`block text-[10px] font-black uppercase tracking-[0.15em] mb-1 ml-1 ${submitted && (!finalPrice || finalPrice <= 0) ? 'text-red-500' : 'text-slate-400'}`}>Precio Final de Venta</label>
+                    <div className={`flex items-stretch rounded-xl overflow-hidden border shadow-sm ${submitted && (!finalPrice || finalPrice <= 0) ? 'border-red-500 focus-within:ring-2 focus-within:ring-red-500/20 bg-red-50' : 'border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 bg-white'}`}>
+                      <input type="text" value={finalPrice ? Number(finalPrice).toLocaleString() : ''} onChange={(e) => setFinalPrice(e.target.value.replace(/,/g, ''))} className="flex-1 min-w-0 px-3 py-2.5 bg-transparent focus:outline-none font-bold text-slate-800 text-sm" placeholder="850,000" required />
+                      <button type="button" onClick={() => setPriceCurrency(p => p === 'USD' ? 'DOP' : 'USD')} className={`flex items-center px-3 border-l text-[10px] font-black cursor-pointer transition-colors ${submitted && (!finalPrice || finalPrice <= 0) ? 'bg-red-100 hover:bg-red-200 border-red-200 text-red-600' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500'}`}>{priceCurrency === 'USD' ? 'US$' : 'RD$'}</button>
+                    </div>
+                    {submitted && (!finalPrice || finalPrice <= 0) && <span className="text-[10px] font-bold text-red-500 ml-1 mt-1 block">Debes completar esto</span>}
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1 ml-1">Inicial / Avance</label>
+                    <div className="flex items-stretch rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 bg-white shadow-sm">
+                      <input type="text" value={downPayment ? Number(downPayment).toLocaleString() : ''} onChange={(e) => setDownPayment(e.target.value.replace(/,/g, ''))} className="flex-1 min-w-0 px-3 py-2.5 bg-transparent focus:outline-none font-bold text-slate-800 text-sm" placeholder="100,000" />
+                      <button type="button" onClick={() => setInicialCurrency(p => p === 'USD' ? 'DOP' : 'USD')} className="bg-slate-50 hover:bg-slate-100 flex items-center px-3 border-l border-slate-200 text-[10px] font-black text-slate-500 cursor-pointer transition-colors">{inicialCurrency === 'USD' ? 'US$' : 'RD$'}</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1468,8 +1736,8 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
             </div>
 
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-              <Button variant="ghost" onClick={onClose} type="button" disabled={loading}>Cancelar</Button>
-              <Button type="button" onClick={handleSubmit} disabled={loading || selectedTemplates.length === 0 || !selectedVehicleId} className="bg-slate-900 text-white hover:bg-slate-800">
+              <Button variant="ghost" onClick={onClose} type="button" disabled={loading} className="border border-slate-200 px-6 py-2.5 text-slate-600 hover:bg-slate-50">Cancelar</Button>
+              <Button type="button" onClick={handleSubmit} disabled={loading} className={`text-white px-6 py-2.5 shadow-lg shadow-red-200 transition-colors ${(!clientName || !clientLastName || !clientCedula || !clientPhone || !clientEmail || !finalPrice || finalPrice <= 0 || selectedTemplates.length === 0 || !selectedVehicleId) ? 'bg-red-400 hover:bg-red-500' : 'bg-red-600 hover:bg-red-700'}`}>
                 {loading ? <><Loader2 className="animate-spin mr-2" size={18} /> Procesando...</> : `Generar ${selectedTemplates.length} Documento(s)`}
               </Button>
             </div>
@@ -1520,7 +1788,7 @@ const renderContract = (html, data) => {
     'banco': data.banco || data.bank || '',
 
     // Detalles Extra
-    'millaje': data.mileage ? Number(data.mileage).toLocaleString() : '',
+    'millaje': data.mileage ? `${Number(data.mileage).toLocaleString('en-US')} ${data.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
     'carfax': data.carfax || '',
     'condicion': data.condicion || data.condition || 'Excelentes condiciones',
     'asientos': data.asientos || data.seats || '',
@@ -1834,7 +2102,7 @@ const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
       '{{ VEHICULO_COLOR }}': quote.color || '',
       '{{ VEHICULO_VIN }}': quote.vin || '',
       '{{ VEHICULO_VERSION }}': quote.version || '',
-      '{{ VEHICULO_MILLAJE }}': quote.mileage ? String(quote.mileage).toLocaleString() : '',
+      '{{ VEHICULO_MILLAJE }}': quote.mileage ? `${Number(quote.mileage).toLocaleString('en-US')} ${quote.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
       '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
       '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
       '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
@@ -2066,11 +2334,20 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
           </div>
 
           <div className="p-3 bg-white border-t sm:rounded-b-2xl flex gap-3 justify-end shrink-0 safe-bottom">
+            {contract.ghlDocumentUrls && contract.ghlDocumentUrls.length > 0 && (
+              <button
+                onClick={() => window.open(contract.ghlDocumentUrls[0], '_blank')}
+                className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold rounded-xl sm:rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm transition-colors"
+                title="Ver Documento Oficial generado en GHL"
+              >
+                <FileText size={16} /> Oficial (GHL)
+              </button>
+            )}
             <button onClick={handlePrint} className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl sm:rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm transition-colors">
-              <Printer size={16} /> Imprimir
+              <Printer size={16} /> Imprimir Local
             </button>
             <button onClick={handleDownloadPDF} className="flex-1 sm:flex-none px-4 py-3 sm:py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl sm:rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm shadow-lg shadow-red-600/20 transition-all active:scale-95">
-              <Download size={16} /> Descargar PDF
+              <Download size={16} /> Descargar Local
             </button>
           </div>
         </div>
@@ -2102,7 +2379,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
         '{{ VEHICULO_COLOR }}': quote.color || '',
         '{{ VEHICULO_VIN }}': quote.vin || '',
         '{{ VEHICULO_VERSION }}': quote.version || '',
-        '{{ VEHICULO_MILLAJE }}': quote.mileage ? String(quote.mileage).toLocaleString() : '',
+        '{{ VEHICULO_MILLAJE }}': quote.mileage ? `${Number(quote.mileage).toLocaleString('en-US')} ${quote.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
         '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
         '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
         '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
@@ -2333,6 +2610,17 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
           </div>
 
           <div className="p-3 bg-white border-t sm:rounded-b-2xl flex gap-3 justify-end shrink-0 safe-bottom">
+            {quote.ghlDocumentUrls && quote.ghlDocumentUrls.length > 0 && (
+              <Button
+                variant="secondary"
+                onClick={() => window.open(quote.ghlDocumentUrls[0], '_blank')}
+                className="bg-blue-100 hover:bg-blue-200 text-blue-700 border-none"
+                title="Ver Documento Oficial generado en GHL"
+                icon={FileText}
+              >
+                Oficial (GHL)
+              </Button>
+            )}
             <Button variant="ghost" onClick={onClose}>Cerrar</Button>
             <Button variant="secondary" onClick={handleDownloadPDF} icon={Download} className="border-slate-300">Descargar (PDF)</Button>
             <Button onClick={handlePrint} icon={Printer}>Imprimir</Button>
@@ -2497,7 +2785,7 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
                     </div>
                     <div className="p-5 flex flex-col flex-1">
                       <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
-                      <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Hoy'}</p>
+                      <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt || item.detalles?._deleted_at ? new Date(item.deletedAt || item.detalles?._deleted_at).toLocaleDateString() : 'Hoy'}</p>
 
                       {!isSelectionMode && (
                         <div className="mt-auto grid grid-cols-2 gap-3">
@@ -2517,7 +2805,7 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
                       <p className="text-xs text-slate-500 font-medium truncate">{item.vehicle || 'Vehículo desconocido'}</p>
                     </div>
 
-                    <p className="text-xs font-semibold text-red-400 mb-6 mt-auto">Eliminado: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Desconocido'}</p>
+                    <p className="text-xs font-semibold text-red-400 mb-6 mt-auto">Eliminado: {item.deletedAt || item.detalles?._deleted_at ? new Date(item.deletedAt || item.detalles?._deleted_at).toLocaleDateString() : 'Desconocido'}</p>
 
                     {!isSelectionMode && (
                       <div className="grid grid-cols-2 gap-3">
@@ -2632,20 +2920,12 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
 
     try {
       setIsUploading(true);
-      const storagePath = `${uploadUserId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase()}`;
-      let photoURL = '';
+      const storagePath = `fotos_perfil/${uploadUserId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase()}`;
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('fotos_perfil')
-        .upload(storagePath, file, { upsert: true });
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, file);
+      const photoURL = await getDownloadURL(storageRef);
 
-      if (uploadErr) throw uploadErr;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('fotos_perfil')
-        .getPublicUrl(storagePath);
-
-      photoURL = publicUrl;
       await onUpdateProfile({ ...formData, photoURL });
       showToast("Foto de perfil actualizada");
     } catch (error) {
@@ -2668,30 +2948,25 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
     try {
       setIsUploadingLogo(true);
       const storagePath = `logos/${userProfile.dealerId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_').toLowerCase()}`;
-      let logoURL = '';
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('fotos_perfil')
-        .upload(storagePath, file, { upsert: true });
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, file);
+      const logoURL = await getDownloadURL(storageRef);
 
-      if (uploadErr) throw uploadErr;
+      // Sincronizar Firebase Dealer (que todos los usuarios locales ven)
+      const idBusqueda = userProfile.dealerName ? userProfile.dealerName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9 ]/g, "") : '';
+      const dealerRef = doc(db, "Dealers", userProfile.dealerId);
+      await setDoc(dealerRef, { logo_url: logoURL, ...(idBusqueda ? { id_busqueda: idBusqueda } : {}) }, { merge: true });
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('fotos_perfil')
-        .getPublicUrl(storagePath);
-
-      logoURL = publicUrl;
-
-      // Update Supabase
-      const { error: supaErr } = await supabase
-        .from('dealers')
-        .update({ logo_url: logoURL })
-        .eq('id', userProfile.dealerId);
-
-      if (supaErr) throw supaErr;
+      // Update Supabase (por si acaso o para GHL/Bot - no critical for read)
+      try {
+        await supabase.from('dealers').update({ logo_url: logoURL }).eq('id', userProfile.dealerId);
+      } catch (err) {
+        console.warn("Supabase logo update skipped or failed due to RLS, but Firebase updated:", err);
+      }
 
       // Update Local userProfile to reflect it immediately
-      await onUpdateProfile({ ...formData, dealer_logo: logoUrl });
+      await onUpdateProfile({ ...formData, dealer_logo: logoURL });
 
       showToast("Logo del dealer actualizado");
     } catch (error) {
@@ -2704,13 +2979,14 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
 
   const handleOpenBotLink = () => {
     if (!userProfile?.dealerId) return;
-    const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(userProfile.dealerId)}`;
+    const catLinkDealerId = userProfile.supabaseDealerId || userProfile.dealerId;
+    const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(catLinkDealerId)}`;
     window.open(link, '_blank');
   };
 
   return (
-    <div className="min-h-screen bg-[#E5E5E0] sm:p-6 md:p-12 flex items-stretch sm:items-center justify-center font-inter selection:bg-red-500/20">
-      <div className="max-w-[500px] md:max-w-4xl lg:max-w-5xl w-full bg-[#f2f2f7] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col min-h-[100vh] sm:min-h-[850px] relative animate-in fade-in zoom-in-95 duration-700 mx-auto">
+    <div className="min-h-screen bg-[#f2f2f7] sm:p-4 md:p-6 flex items-stretch sm:items-center justify-center font-inter selection:bg-red-500/20">
+      <div className="w-full max-w-6xl bg-[#f2f2f7] sm:rounded-[40px] sm:shadow-2xl overflow-hidden flex flex-col min-h-[100vh] sm:min-h-[850px] relative animate-in fade-in zoom-in-95 duration-700 mx-auto">
 
         {/* --- BANNER (LIQUID GLASS LOGO CONTAINER) --- */}
         <div className="relative h-64 md:h-72 overflow-hidden bg-black rounded-b-[40px] md:rounded-b-[60px] shadow-sm flex items-center justify-center">
@@ -2905,24 +3181,17 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                     <p className="text-[10px] text-slate-400 mt-2 font-bold tracking-wide">Déjalo en blanco si no deseas cambiarla.</p>
                   </div>
                 ) : (
-                  <div
-                    className="px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-100"
-                  >
+                  <div className="px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-100">
                     <div className="flex items-center gap-4">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 text-slate-500">
-                        <Lock size={16} />
+                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                        <Key size={16} />
                       </div>
                       <div>
-                        <span className="block text-sm font-bold text-slate-900">Contraseña</span>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">••••••••</span>
+                        <span className="block text-sm font-bold text-slate-900">••••••••</span>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contraseña</span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="text-[10px] font-black tracking-widest uppercase text-red-600 hover:text-red-700 bg-red-50 px-3 py-1.5 rounded-full transition-colors"
-                    >
-                      Cambiar
-                    </button>
+                    <Lock size={14} className="text-slate-300" />
                   </div>
                 )}
               </div>
@@ -2945,7 +3214,8 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                     color: 'text-purple-500',
                     bg: 'bg-purple-100',
                     action: () => {
-                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(userProfile?.dealerId || 'default')}`;
+                      const catLinkDealerId = userProfile?.supabaseDealerId || userProfile?.dealerId || 'default';
+                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(catLinkDealerId)}`;
                       navigator.clipboard.writeText(link);
                       showToast("Enlace del Bot copiado al portapapeles");
                     }
@@ -2965,7 +3235,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                         const dId = userProfile?.dealerId || userProfile?.id || 'default';
                         const CLIENT_ID = '699b6f13fb99957c718a1e38-mma1agkx';
                         // Scopes updated to match exact Marketplace installation link
-                        const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly locations.readonly users.readonly documents_contracts_template/sendLink.write';
+                        const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly locations.readonly users.readonly documents_contracts_template/sendLink.write locations/customFields.readonly locations/customFields.write';
                         const encodedLocationId = encodeURIComponent(userProfile.dealerId);
                         const REDIRECT_URI = 'https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback';
                         const authUrl = `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_id=${CLIENT_ID}&scope=${encodeURIComponent(scope)}&state=${dId}&version_id=69a64bce1125fb881ec65bda`;
@@ -2979,7 +3249,8 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                     color: 'text-orange-500',
                     bg: 'bg-orange-100',
                     action: () => {
-                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${encodeURIComponent(userProfile?.dealerId || 'default')}`;
+                      const catLinkDealerId = userProfile?.supabaseDealerId || userProfile?.dealerId || 'default';
+                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${encodeURIComponent(catLinkDealerId)}`;
                       navigator.clipboard.writeText(link);
                       showToast("Enlace del Catálogo copiado al portapapeles");
                     }
@@ -3211,7 +3482,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
     </div>
   );
 };
-const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [] }) => {
+const InventoryView = ({ inventory, quotes = [], contracts = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSave, onDelete, onRedoSale, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [], resolvedDealerId }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('brand_asc'); // Default alphabetical by Make
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -3244,7 +3515,8 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
       vin: (rest.vin || '').trim() + uniqueSuffix,
       images: [],
       image: '',
-      status: 'available'
+      status: 'available',
+      estado: 'Disponible' // Asegurar que el estado sea 'Disponible' al duplicar
     };
 
     requestConfirmation({
@@ -3312,8 +3584,9 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
       if (!groups[groupKey]) groups[groupKey] = [];
       groups[groupKey].push(item);
     });
+
     return groups;
-  }, [filteredInventory, sortConfig]);
+  }, [filteredInventory, sortConfig, activeTab]);
 
   const sortedBrands = sortConfig === 'brand_asc'
     ? Object.keys(groupedInventory).sort()
@@ -3337,11 +3610,23 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
     });
   };
 
+  const handleRedoSaleWrapper = (vehicle) => {
+    requestConfirmation({
+      title: '¿Rehacer Venta?',
+      message: `¿Deseas cancelar la venta de ${vehicle.make} ${vehicle.model}? El vehículo volverá a estar disponible y el contrato asociado se marcará como eliminado.`,
+      confirmText: 'Rehacer Venta',
+      isDestructive: true,
+      onConfirm: () => onRedoSale(vehicle.id)
+    });
+  };
+
+  const [selectedDocType, setSelectedDocType] = useState('contrato');
   const openActionModal = (vehicle) => { setCurrentVehicle(vehicle); setIsActionModalOpen(true); };
   const handleActionSelect = (action) => {
     setIsActionModalOpen(false);
-    if (action === 'quote') setIsQuoteModalOpen(true);
-    else if (action === 'contract') setIsContractModalOpen(true);
+    // Ambas opciones abren el mismo formulario completo con el tipo pre-seleccionado
+    if (action === 'quote') { setSelectedDocType('cotizacion'); setIsContractModalOpen(true); }
+    else if (action === 'contract') { setSelectedDocType('contrato'); setIsContractModalOpen(true); }
   };
 
   const handleSellQuoted = (vehicle) => {
@@ -3351,21 +3636,28 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
     setIsContractModalOpen(true);
   };
 
-  const handleQuoteSent = (quoteData) => {
+  const handleQuoteSent = async (quoteData) => {
     setIsQuoteModalOpen(false);
     showToast("Cotización enviada a GoHighLevel");
     // 1. Guardar la cotización en Firestore (Parent function)
     if (onGenerateQuote) onGenerateQuote(quoteData);
 
     // 2. Actualizar estado en Firebase a 'quoted'
-    if (currentVehicle) onSave({ ...currentVehicle, status: 'quoted' });
+    if (currentVehicle?.id) {
+      try {
+        await supabase.from('vehiculos').update({ estado: 'Cotizado' }).eq('id', currentVehicle.id);
+        // NOTA: Eliminamos onSave redundante para evitar sobrescritura parcial de datos (Data Loss)
+      } catch (e) {
+        console.error("Direct update error:", e);
+      }
+    }
     setCurrentVehicle(null);
   };
 
   const handleContractGenerated = (contractData) => {
+    // Only persist data — do NOT close the modal here.
+    // The modal's own success screen will stay visible, and its onClose will close it.
     onGenerateContract(contractData);
-    setIsContractModalOpen(false);
-    setCurrentVehicle(null);
   };
 
   return (
@@ -3418,106 +3710,178 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
               <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {groupedInventory[brand].map(item => (
-                <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
-                  <Card noPadding className="group flex flex-col h-full hover:-translate-y-1 hover:shadow-xl transition-all duration-500 border-none bg-white rounded-[2rem] !overflow-visible relative">
-                    <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden rounded-t-[2rem]">
-                      {item.image && !item.image.includes('unsplash') ? (
-                        <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50 group-hover:scale-110 transition-transform duration-1000 ease-out">
-                          {userProfile?.dealer_logo ? (
-                            <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
-                          ) : (
-                            <div className="flex flex-col items-center text-slate-300">
-                              <Car size={48} className="mb-2 opacity-50" />
-                              <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Sin Foto</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div className="absolute top-4 right-4 shadow-xl"><Badge status={item.status} /></div>
+              {groupedInventory[brand].map(item => {
+                const isSold = item.status === 'sold';
+                const isQuoted = item.status === 'quoted';
+                const associatedContract = isSold ? (contracts || []).find(c => String(c.vehicleId) === String(item.id) && c.status !== 'deleted') : null;
+                const associatedQuote = isQuoted ? (quotes || []).find(q => String(q.vehicleId) === String(item.id) && q.status !== 'deleted') : null;
 
-                      {/* Premium Overlay on Hover */}
-                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <div className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">
-                          Ver Detalles
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-6 flex flex-col flex-1">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="font-black text-slate-900 text-lg leading-tight">{item.make} {item.model}</h3>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.edition || 'EDICIÓN'} • {item.color || 'COLOR'}</p>
-                        </div>
-                      </div>
-
-                      {/* Precio Section */}
-
-                      <div className="mb-6">
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Precio</p>
-                        <p className="text-2xl font-black text-red-700 tracking-tighter">
-                          {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
-                        </p>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                          Inicial: <span className="text-slate-900 font-black">{item.initial_payment_dop > 0 ? `RD$ ${item.initial_payment_dop.toLocaleString()}` : `US$ ${item.initial_payment.toLocaleString()}`}</span>
-                        </p>
-                      </div>
-
-                      <div className="mt-auto space-y-2">
-                        {activeTab === 'quoted' ? (
-                          <Button
-                            className="w-full bg-slate-900 text-white hover:bg-red-700 py-3.5 rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleSellQuoted(item); }}
-                          >
-                            <FilePlus size={16} /> VENDER AHORA
-                          </Button>
+                return (
+                  <div key={item.id} onClick={() => onVehicleSelect(item)} className="cursor-pointer">
+                    <Card noPadding className={`group flex flex-col h-full hover:-translate-y-1 hover:shadow-xl transition-all duration-500 border-none rounded-[2rem] !overflow-visible relative ${isSold ? 'bg-emerald-50/40 ring-1 ring-emerald-500/20' : isQuoted ? 'bg-amber-100/40 ring-1 ring-amber-400/40' : 'bg-white'}`}>
+                      <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden rounded-t-[2rem]">
+                        {item.image && !item.image.includes('unsplash') ? (
+                          <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" />
                         ) : (
-                          <div className="flex items-center gap-2 relative">
-                            <Button
-                              variant="secondary"
-                              className="flex-1 text-[10px] font-black bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-900 hover:text-white rounded-2xl flex items-center justify-center gap-2 py-3 active:scale-95 transition-all"
-                              onClick={(e) => { e.stopPropagation(); openActionModal(item); }}
-                            >
-                              <Files size={14} /> EXPEDIENTE
-                            </Button>
+                          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50 group-hover:scale-110 transition-transform duration-1000 ease-out">
+                            {userProfile?.dealer_logo ? (
+                              <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
+                            ) : (
+                              <div className="flex flex-col items-center text-slate-300">
+                                <Car size={48} className="mb-2 opacity-50" />
+                                <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Sin Foto</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="absolute top-4 right-4 shadow-xl"><Badge status={item.status} /></div>
 
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }}
-                              className="p-3.5 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 rounded-2xl transition-all active:scale-90"
-                              title="Editar"
-                            >
-                              <Edit size={16} />
-                            </button>
+                        {/* Premium Overlay on Hover */}
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">
+                            Ver Detalles
+                          </div>
+                        </div>
+                      </div>
 
-                            <div className="relative">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                                className="p-3.5 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-2xl transition-all active:scale-90"
-                              >
-                                <MoreVertical size={16} />
-                              </button>
+                      <div className="p-6 flex flex-col flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-black text-slate-900 text-lg leading-tight">{item.make} {item.model}</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.edition || 'EDICIÓN'} • {item.color || 'COLOR'}</p>
+                          </div>
+                        </div>
 
-                              {openMenuId === item.id && (
-                                <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-3 z-[60] animate-in slide-in-from-bottom-2">
-                                  <button onClick={(e) => handleDuplicate(e, item)} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-3">
-                                    <Copy size={14} /> Duplicar
-                                  </button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3">
-                                    <Trash2 size={14} /> Eliminar
-                                  </button>
+                        {isSold && associatedContract ? (
+                          <div className="mb-6 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 space-y-2">
+                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Datos del Comprador
+                            </p>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2 text-slate-700">
+                                <User size={12} className="text-emerald-600" />
+                                <span className="text-xs font-bold truncate">{associatedContract.client || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <IdCard size={12} className="text-emerald-600" />
+                                <span className="text-[10px] font-bold">{associatedContract.cedula || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Phone size={12} className="text-emerald-600" />
+                                <span className="text-[10px] font-bold">{associatedContract.phone || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Mail size={12} className="text-emerald-600" />
+                                <span className="text-[10px] font-bold truncate lowercase">{associatedContract.email || 'N/A'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : isQuoted && associatedQuote ? (
+                          <div className="mb-6 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 space-y-3">
+                            <p className="text-[11px] font-black text-emerald-800 uppercase tracking-[0.2em] flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse relative">
+                                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-50"></span>
+                              </span>
+                              DATOS DEL COMPRADOR
+                            </p>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3 text-slate-700 bg-white/50 p-2 rounded-xl">
+                                <User size={14} className="text-emerald-600" />
+                                <span className="text-sm font-bold truncate">{`${associatedQuote.name || ''} ${associatedQuote.lastname || ''}`}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-slate-500 px-2">
+                                <IdCard size={14} className="text-emerald-500/70" />
+                                <span className="text-xs font-bold">{associatedQuote.cedula || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-slate-500 px-2">
+                                <Phone size={14} className="text-emerald-500/70" />
+                                <span className="text-xs font-bold">{associatedQuote.phone || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-slate-500 px-2">
+                                <Mail size={14} className="text-emerald-500/70" />
+                                <span className="text-xs font-bold truncate lowercase">{associatedQuote.email || 'N/A'}</span>
+                              </div>
+                              {associatedQuote.bank && (
+                                <div className="flex items-center gap-3 text-slate-500 px-2">
+                                  <div className="w-3 h-3 flex items-center justify-center bg-emerald-600 text-white rounded-[2px] text-[8px] font-bold">RD</div>
+                                  <span className="text-xs font-bold truncate">{associatedQuote.bank}</span>
                                 </div>
                               )}
                             </div>
                           </div>
+                        ) : (
+                          <div className="mb-6">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Precio</p>
+                            <p className="text-2xl font-black text-red-700 tracking-tighter">
+                              {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
+                            </p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                              Inicial: <span className="text-slate-900 font-black">{item.initial_payment_dop > 0 ? `RD$ ${item.initial_payment_dop.toLocaleString()}` : `US$ ${item.initial_payment.toLocaleString()}`}</span>
+                            </p>
+                          </div>
                         )}
+
+                        <div className="mt-auto space-y-2">
+                          {activeTab === 'quoted' ? (
+                            <Button
+                              className="w-full bg-emerald-600 text-white hover:bg-emerald-700 py-3.5 rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+                              onClick={(e) => { e.stopPropagation(); onVehicleSelect(item); }}
+                            >
+                              <FileText size={16} /> VER EXPEDIENTE
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2 relative">
+                              <Button
+                                variant="secondary"
+                                className={`flex-1 text-[10px] items-center justify-center font-black rounded-2xl flex gap-2 py-3 active:scale-95 transition-all ${isSold ? 'bg-emerald-600 text-white hover:bg-emerald-700 border-none' : 'bg-slate-50 border-slate-100 text-slate-800 hover:bg-slate-900 hover:text-white'}`}
+                                onClick={(e) => { e.stopPropagation(); isSold ? onVehicleSelect(item) : openActionModal(item); }}
+                              >
+                                {isSold ? <FileText size={14} /> : <Files size={14} />} {isSold ? 'VER EXPEDIENTE' : 'EXPEDIENTE'}
+                              </Button>
+
+                              {!isSold && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setCurrentVehicle(item); setIsModalOpen(true); }}
+                                  className="p-3.5 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-700 rounded-2xl transition-all active:scale-90"
+                                  title="Editar"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                              )}
+
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
+                                  className={`p-3.5 rounded-2xl transition-all active:scale-90 ${isSold ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' : 'bg-slate-50 hover:bg-slate-100 text-slate-400'}`}
+                                >
+                                  <MoreVertical size={16} />
+                                </button>
+
+                                {openMenuId === item.id && (
+                                  <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-[2rem] shadow-2xl border border-slate-100 py-3 z-[60] animate-in slide-in-from-bottom-2">
+                                    <button onClick={(e) => handleDuplicate(e, item)} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-red-50 hover:text-red-700 transition-colors flex items-center gap-3">
+                                      <Copy size={14} /> Duplicar
+                                    </button>
+                                    {isSold && (
+                                      <button onClick={(e) => { e.stopPropagation(); handleRedoSaleWrapper(item); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-3">
+                                        <RefreshCw size={14} /> Rehacer Venta
+                                      </button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteWrapper(item.id); }} className="w-full px-6 py-3 text-left text-[10px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3">
+                                      <Trash2 size={14} /> Eliminar
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                </div>
-              ))}
+                    </Card>
+                  </div>
+                );
+              })}
+
             </div>
           </div>
         ))}
@@ -3527,12 +3891,12 @@ const InventoryView = ({ inventory, quotes = [], showToast, onGenerateContract, 
       <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />
       <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
       <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} templates={templates} />
-      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} showToast={showToast} />
+      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} showToast={showToast} initialDocumentType={selectedDocType} resolvedDealerId={resolvedDealerId} />
     </div>
   );
 };
 
-const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, templates, onSaveTemplate, onDeleteTemplate, userProfile, searchTerm, requestConfirmation, showToast }) => {
+const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDeleteContract, onGenerateQuote, onDeleteQuote, templates, onSaveTemplate, onDeleteTemplate, userProfile, searchTerm, requestConfirmation, showToast, resolvedDealerId }) => {
   const [activeView, setActiveView] = useState('contracts'); // 'contracts', 'quotes', or 'templates'
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -3573,7 +3937,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
         case 'date_asc': return da - db;
         case 'client_asc': {
           const nameA = activeView === 'contracts' ? (a.client || '') : `${a.name || ''} ${a.lastname || ''}`;
-          const nameB = activeView === 'contracts' ? (b.client || '') : `${b.name || ''} ${b.lastname || ''}`;
+          const nameB = activeView === 'contracts' ? (b.client || '') : `${b.client || ''} ${b.lastname || ''}`;
           return nameA.localeCompare(nameB);
         }
         case 'vehicle_asc': return (a.vehicle || '').localeCompare(b.vehicle || '');
@@ -3852,6 +4216,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               initialVehicle={editingContract}
               userProfile={userProfile}
               showToast={showToast}
+              resolvedDealerId={resolvedDealerId}
             />
           )}
 
@@ -3944,10 +4309,10 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
             {/* Trash Icon (Visible on all sizes, but adjusted for mobile) */}
             <button
               onClick={() => setActiveTab('trash')}
-              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'} `}
+              className={`p-2 rounded-xl transition-all ${activeTab === 'trash' ? 'bg-red-50 text-red-600' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'} `}
               title="Ir a Basurero"
             >
-              <Trash2 size={18} className="sm:w-[20px] sm:h-[20px]" />
+              <Trash2 size={18} className={`sm:w-[20px] sm:h-[20px] ${activeTab === 'trash' ? 'text-red-600' : 'text-slate-400'}`} />
             </button>
 
             {/* User Profile Info */}
@@ -4266,6 +4631,23 @@ export default function CarbotApp() {
     const runGHLSSO = async () => {
       setGhlSSOLoading(true);
       try {
+        // --- MULTI-TENANT CROSSOVER FIX ---
+        // Varios iframes en el mismo navegador comparten el localStorage de Supabase.
+        // Si el usuario A abrió la app, y luego el usuario B abre el iframe en otra cuenta, 
+        // la sesión vieja estará activa. DEBEMOS matarla si no coincide con urlUserEmail.
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user?.email && session.user.email.toLowerCase() !== urlUserEmail.toLowerCase()) {
+          console.warn(`⚠️ Cross-Session Detectada! Sesión=${session.user.email} vs URL=${urlUserEmail}. Destruyendo sesión...`);
+          await supabase.auth.signOut();
+        } else if (session && session.user?.email && session.user.email.toLowerCase() === urlUserEmail.toLowerCase()) {
+          console.log("✅ La sesión activa ya pertenece al usuario correcto. Skiping SSO auth.");
+          setCurrentUserEmail(urlUserEmail);
+          setIsLoggedIn(true);
+          setGhlSSOLoading(false);
+          return;
+        }
+        // ------------------------------------
+
         const res = await fetch(
           'https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/ghl-autologin',
           {
@@ -4288,8 +4670,8 @@ export default function CarbotApp() {
             type: 'email',
           });
           if (!verifyErr) {
-            // Clean URL params for security
-            window.history.replaceState({}, '', window.location.pathname);
+            // No limpiar URL params todavía, los necesitamos para inicializar
+            // window.history.replaceState({}, '', window.location.pathname);
           }
         }
         // Whether SSO succeeded or had error, mark as logged in (GHL trust)
@@ -4311,6 +4693,13 @@ export default function CarbotApp() {
   useEffect(() => {
     // ── Supabase Auth listener (reemplaza onAuthStateChanged de Firebase) ──
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+
+      // MULTI-TENANT FIX: No obedecer la sesión si explícitamente estamos en GHL como ALGUIEN MÁS
+      if (isAutoLogin && urlUserEmail && session?.user?.email && session.user.email.toLowerCase() !== urlUserEmail.toLowerCase()) {
+        console.warn("🛡️ AuthListener bloqueó carga de estado incorrecto (El email en caché no es el del Iframe).");
+        return;
+      }
+
       if (session?.user) {
         setIsLoggedIn(true);
         setCurrentUserEmail(session.user.email);
@@ -4400,8 +4789,8 @@ export default function CarbotApp() {
 
   // --- LIMPIEZA DE ESTADO AL CAMBIAR DE CONTEXTO ---
   useEffect(() => {
-    if (urlLocationId || urlLocationName) {
-      console.log("🧹 Contexto cambiado, limpiando inventario y documentos...");
+    if (urlLocationId || urlLocationName || urlUserEmail) {
+      console.log("🧹 Contexto cambiado (Loc/User), limpiando inventario y documentos...");
       setInventory([]);
       setNewContracts([]);
       setNewQuotes([]);
@@ -4410,7 +4799,7 @@ export default function CarbotApp() {
       setLegacyDocs([]);
       setUserProfile(null);
     }
-  }, [urlLocationId, urlLocationName]);
+  }, [urlLocationId, urlLocationName, urlUserEmail, urlUserId]);
 
   // --- FILTROS GLOBALES ---
   const activeInventory = useMemo(() => (inventory || []).filter(i => i && i.status !== 'trash'), [inventory]);
@@ -4558,7 +4947,7 @@ export default function CarbotApp() {
               console.log("⚡ Buscando usuario en Supabase (migración transparente)...");
               const { data: supaUser, error: supaErr } = await supabase
                 .from('usuarios')
-                .select('nombre, correo, rol, dealer_id, avatar_url, foto_url, dealers(nombre, ghl_location_id, logo_url)')
+                .select('nombre, correo, rol, dealer_id, avatar_url, foto_url, nombre_dealer, dealers(nombre, ghl_location_id, logo_url)')
                 .eq('correo', emailLower)
                 .maybeSingle();
 
@@ -4608,7 +4997,9 @@ export default function CarbotApp() {
                 id_busqueda: idBusqueda,
                 nombre: dealerName,
                 lastActive: new Date().toISOString(),
-                ghlLocationId: profileData.ghlLocationId || ''
+                ghlLocationId: profileData.ghlLocationId || '',
+                ...(profileData.supabaseDealerId ? { supabaseDealerId: profileData.supabaseDealerId } : {}),
+                ...(profileData.dealer_logo ? { logo_url: profileData.dealer_logo } : {})
               }, { merge: true });
 
               // Solo guardamos el perfil SI el dealerId coincide (o si no teníamos uno)
@@ -4619,8 +5010,9 @@ export default function CarbotApp() {
               const cleanLinkName = dealerName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
               const linkTienda = `https://carbotsystem.web.app/tienda/${cleanLinkName}`;
 
+              const configDealerId = profileData.supabaseDealerId || profileData.dealerId;
               await setDoc(botConfigRef, {
-                LINK_INVENTARIO_GHL: `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(profileData.dealerId)}`,
+                LINK_INVENTARIO_GHL: `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(configDealerId)}`,
                 LINK_TIENDA: linkTienda,
                 bot_active: true,
                 lastSyncFromApp: new Date().toISOString(),
@@ -4632,57 +5024,88 @@ export default function CarbotApp() {
 
             // --- FETCH SUPABASE GHL ONBOARDING DATA ---
             // IMPORTANT: Use ghlLocationId from Firebase profile to identify the correct dealer
-            // Do NOT rely on supaUser.dealer_id which may be stale/cross-dealer
+            // Do NOT rely on supaUser.dealer_id which may be stale/cross-dealer in multi-tenant spaces
             try {
               const { data: supaUser, error: supaErr } = await supabase
                 .from('usuarios')
-                .select('dealer_id, avatar_url, role_en_ghl, phone')
+                .select('dealer_id, avatar_url, role_en_ghl, phone, nombre_dealer')
                 .eq('correo', emailLower)
                 .maybeSingle();
 
               if (supaUser) {
-                profileData.avatar_url = supaUser.avatar_url;
-                profileData.ghl_role = supaUser.role_en_ghl;
-                profileData.phone = supaUser.phone;
-                // Only accept the Supabase dealer_id if we don't already have a Firebase dealer
-                if (supaUser.dealer_id && !profileData.dealerId) {
-                  profileData.supabaseDealerId = supaUser.dealer_id;
-                } else if (supaUser.dealer_id) {
-                  profileData.supabaseDealerId = supaUser.dealer_id;
+                profileData.avatar_url = supaUser.avatar_url || profileData.avatar_url || '';
+                profileData.ghl_role = supaUser.role_en_ghl || profileData.role || 'Admin';
+                profileData.phone = supaUser.phone || '';
+
+                // MULTI-TENANT FIX:
+                // Only trust supaUser.dealer_id if we are NOT in an iframe with a forced urlLocationId
+                // If GHL tells us we are in urlLocationId X, we MUST ignore supaUser.dealer_id if it's for Y.
+                if (supaUser.dealer_id && !urlLocationId) {
+                  if (!profileData.dealerId) {
+                    profileData.supabaseDealerId = supaUser.dealer_id;
+                  } else {
+                    profileData.supabaseDealerId = supaUser.dealer_id;
+                  }
+                } else if (urlLocationId) {
+                  console.log("🛡️ Ignorando dealer_id de usuario en Supabase dado que GHL forzó un location_id específico:", urlLocationId);
+                  // Clear it just in case
+                  profileData.supabaseDealerId = null;
                 }
               }
 
-              // --- LOAD DEALER LOGO/DATA BY GHL LOCATION ID (correct dealer, not user's stale dealer_id) ---
+              // --- LOAD DEALER LOGO/DATA/NAME BY GHL LOCATION ID, SUPABASE ID, OR LEGACY DEALER ID ---
               const locationIdToSearch = profileData.ghlLocationId || urlLocationId;
+              let queryCol = null;
+              let queryVal = null;
+
               if (locationIdToSearch) {
+                queryCol = 'ghl_location_id';
+                queryVal = locationIdToSearch;
+              } else if (profileData.supabaseDealerId) {
+                queryCol = 'id';
+                queryVal = profileData.supabaseDealerId;
+              } else if (profileData.dealerId) {
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileData.dealerId);
+                if (isUuid) {
+                  queryCol = 'id';
+                  queryVal = profileData.dealerId;
+                } else {
+                  queryCol = 'id_busqueda';
+                  // Mantener los espacios pero forzar mayúsculas como en el guardado
+                  queryVal = profileData.dealerId.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9 ]/g, "");
+                }
+              }
+
+              if (queryCol && queryVal) {
                 const { data: dealerData } = await supabase
                   .from('dealers')
-                  .select('id, logo_url, address, website, ghl_location_id')
-                  .eq('ghl_location_id', locationIdToSearch)
+                  .select('id, nombre, logo_url, address, website, ghl_location_id, id_busqueda')
+                  .eq(queryCol, queryVal)
                   .maybeSingle();
 
                 if (dealerData) {
-                  console.log('✅ Dealer data cargado por ghl_location_id:', locationIdToSearch);
+                  console.log(`✅ Dealer data cargado por ${queryCol}:`, queryVal);
                   profileData.dealer_logo = dealerData.logo_url || '';
                   profileData.dealer_address = dealerData.address || '';
                   profileData.dealer_website = dealerData.website || '';
                   profileData.supabaseDealerId = dealerData.id;
-                }
-              } else if (profileData.supabaseDealerId) {
-                // Fallback: load dealer data by supabase dealer_id
-                const { data: dealerData } = await supabase
-                  .from('dealers')
-                  .select('logo_url, address, website, ghl_location_id')
-                  .eq('id', profileData.supabaseDealerId)
-                  .maybeSingle();
+                  profileData.id_busqueda = dealerData.id_busqueda || '';
 
-                if (dealerData) {
-                  profileData.dealer_logo = dealerData.logo_url || '';
-                  profileData.dealer_address = dealerData.address || '';
-                  profileData.dealer_website = dealerData.website || '';
                   if (dealerData.ghl_location_id && !profileData.ghlLocationId) {
                     profileData.ghlLocationId = dealerData.ghl_location_id;
                   }
+
+                  if (dealerData.nombre) {
+                    profileData.dealerName = dealerData.nombre;
+                    // TRUNCA EL PROBLEMA MULTI-TENANT: Nunca sobreescribir profileData.dealerId si ya existe
+                    // Porque dividiría a los usuarios en carpetas distintas de Firebase. 
+                    // En su lugar, usamos profileData.supabaseDealerId para URLs externas.
+                    if (!profileData.dealerId) {
+                      profileData.dealerId = dealerData.id || getStandardDealerId(dealerData.nombre, null);
+                    }
+                  }
+                } else {
+                  console.log(`⚠️ No se encontró dealer en Supabase mediante ${queryCol} = ${queryVal}`);
                 }
               }
             } catch (err) {
@@ -4744,6 +5167,7 @@ export default function CarbotApp() {
       const supaUpdates = {
         nombre: updatedData.name,
         rol: updatedData.jobTitle,
+        nombre_dealer: userProfile?.dealerName || effectiveDealerId
       };
       if (updatedData.photoURL) {
         supaUpdates.avatar_url = updatedData.photoURL;
@@ -4878,16 +5302,19 @@ export default function CarbotApp() {
     try {
       let query = supabase.from('vehiculos').select('*').order('created_at', { ascending: false });
 
-      // El RLS ya filtra auto-mágicamente por dealer_id si hay sesión activa,
-      // pero incluimos filtro por si estamos en vista pública / GHL
-      // Intentamos filtrar por el ID que tengamos disponible (UUID o el ID clásico)
+      // ESTRICTO CONTROL MULTI-TENANT:
+      // userProfile.supabaseDealerId ya fue curado para ignorar la caché de sesión 
+      // si estamos en un Iframe de GHL (usando el dealer real de la BD).
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const dealerUuid = userProfile?.supabaseDealerId || (uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null);
 
       if (dealerUuid) {
         query = query.eq('dealer_id', dealerUuid);
-      } else if (urlLocationId) {
-        query = query.eq('ghl_location_id', urlLocationId);
+      } else {
+        // Sin dealerUuid no podemos cargar inventario de forma segura.
+        setInventory([]);
+        // setLoading(false); // Assuming setLoading is handled elsewhere or not needed here
+        return;
       }
 
       const { data, error } = await query;
@@ -4907,7 +5334,9 @@ export default function CarbotApp() {
           modelo: modelFromTitle,
           year: yearFromTitle,
 
-          status: v.deleted_at ? 'trash' : (v.estado === 'Vendido' ? 'sold' : (v.estado === 'Cotizado' ? 'quoted' : 'available')),
+          status: v.detalles?._deleted ? 'trash' :
+            (v.estado === 'Vendido' ? 'sold' :
+              (v.estado === 'Cotizado' ? 'quoted' : 'available')),
           images: v.fotos || [],
           image: (v.fotos && v.fotos.length > 0 ? v.fotos[0] : null),
           documents: v.documentos || [],
@@ -4946,10 +5375,10 @@ export default function CarbotApp() {
         };
       });
 
-      // Filtro estricto local de seguridad extra
-      if (urlLocationId) {
-        vehiclesData = vehiclesData.filter(v => v.ghl_location_id === urlLocationId || v.ghlLocationId === urlLocationId);
+      if (dealerUuid) {
+        vehiclesData = vehiclesData.filter(v => v.dealer_id === dealerUuid);
       }
+
       setInventory(vehiclesData);
 
     } catch (err) {
@@ -5063,18 +5492,18 @@ export default function CarbotApp() {
   const contracts = useMemo(() => {
     const all = [
       ...legacyContracts,
-      ...legacyDocs.filter(d => d.type === 'contract' || d.id.startsWith('Contrato')),
+      ...legacyDocs.filter(d => d && (d.type === 'contract' || (d.id && d.id.startsWith('Contrato')))),
       ...newContracts
-    ];
+    ].filter(Boolean); // Remover nulls/undefineds
     return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [legacyContracts, legacyDocs, newContracts]);
 
   const quotes = useMemo(() => {
     const all = [
       ...legacyQuotes,
-      ...legacyDocs.filter(d => d.type === 'quote' || d.id.startsWith('Cotizacion')),
+      ...legacyDocs.filter(d => d && (d.type === 'quote' || (d.id && d.id.startsWith('Cotizacion')))),
       ...newQuotes
-    ];
+    ].filter(Boolean); // Remover nulls/undefineds
     return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [legacyQuotes, legacyDocs, newQuotes]);
 
@@ -5088,79 +5517,122 @@ export default function CarbotApp() {
     }
     const existingId = vehicleData.id;
     try {
-      const titulo = vehicleData.titulo_vehiculo ||
-        `${vehicleData.year || ''} ${vehicleData.make || vehicleData.marca || ''} ${vehicleData.model || vehicleData.modelo || ''}`.trim() || 'Vehículo Sin Título';
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const dealerUuid = userProfile?.supabaseDealerId || (uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null);
 
       if (!dealerUuid) {
-        console.error("🚨 DEBUG DEALER UUID INVALIDO 🚨", {
-          userProfile,
-          effectiveDealerId,
-          dealerUuid,
-          profileDataSupabaseDealerId: userProfile?.supabaseDealerId,
-          isEffectiveIdValid: uuidRegex.test(effectiveDealerId)
-        });
         throw new Error("UUID de Dealer inválido. No se puede guardar en Supabase.");
       }
 
+      // --- ROW MERGE STRATEGY (ELITE ENGINEERING) ---
+      let existingRecord = null;
+      if (existingId) {
+        const { data: supaRow } = await supabase.from('vehiculos').select('*').eq('id', existingId).maybeSingle();
+        existingRecord = supaRow;
+      }
+
+      // --- HELPER: Pick first non-empty string value (ignores '', null, undefined) ---
+      const pick = (...vals) => {
+        for (const v of vals) {
+          if (v !== undefined && v !== null && v !== '' && v !== 0) return v;
+        }
+        return null;
+      };
+      // For numeric fields: returns first defined numeric > 0, or fallback
+      const pickNum = (...vals) => {
+        for (const v of vals) {
+          const n = parseFloat(v);
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return 0;
+      };
+
+      // 1. Construir Título preservando lo existente si el nuevo es parcial
+      const newYear = pick(vehicleData.year, vehicleData.detalles?.year, existingRecord?.detalles?.year) || '';
+      const newMake = pick(vehicleData.make, vehicleData.marca, vehicleData.detalles?.make, existingRecord?.detalles?.make) || '';
+      const newModel = pick(vehicleData.model, vehicleData.modelo, vehicleData.detalles?.model, existingRecord?.detalles?.model) || '';
+      const defaultTitle = `${newYear} ${newMake} ${newModel}`.trim() || 'Vehículo Sin Título';
+      const finalTitle = (vehicleData.titulo_vehiculo || defaultTitle).toUpperCase();
+
+      // 2. Extraer detalles (excluyendo lo que va en columnas top-level)
       const {
-        fotos, images, documentos, documents, image, // Exclude large blobs/arrays
+        fotos, images, documentos, documents, image, // Multimedia (arrays/blobs)
+        id, created_at, updated_at, dealer_id, // Columnas persistentes
         ...restDetails
       } = vehicleData;
 
-      const dataToSave = {
-        dealer_id: dealerUuid,
-        titulo_vehiculo: titulo.toUpperCase(),
-        estado: (vehicleData.status === 'sold' || vehicleData.estado === 'Vendido') ? 'Vendido' : 'Disponible',
-
-        color: vehicleData.exteriorColor || vehicleData.color || null,
-        condicion_carfax: vehicleData.carfaxCondition || vehicleData.condicion_carfax || null,
-        chasis_vin: vehicleData.vin || vehicleData.chasis_vin || null,
-        traccion: vehicleData.drivetrain || vehicleData.traccion || null,
-        transmision: vehicleData.transmission || vehicleData.transmision || null,
-        motor: vehicleData.engine || vehicleData.motor || null,
-        techo: vehicleData.roof || vehicleData.techo || null,
-        combustible: vehicleData.fuelType || vehicleData.combustible || null,
-        llave: vehicleData.keyType || vehicleData.llave || null,
-        camara: vehicleData.camera || vehicleData.camara || null,
-        material_asientos: vehicleData.interiorMaterial || vehicleData.material_asientos || null,
-
-        precio: vehicleData.currency === 'DOP' ? (parseFloat(vehicleData.price_dop) || parseFloat(vehicleData.precio) || 0) : (parseFloat(vehicleData.price) || parseFloat(vehicleData.precio) || 0),
-        inicial: vehicleData.downPaymentCurrency === 'DOP' ? (parseFloat(vehicleData.initial_payment_dop) || parseFloat(vehicleData.inicial) || 0) : (parseFloat(vehicleData.initial_payment) || parseFloat(vehicleData.inicial) || 0),
-        millas: parseFloat(vehicleData.millas || vehicleData.mileage || 0),
-        cantidad_asientos: parseInt(vehicleData.cantidad_asientos || vehicleData.seats) || null,
-
-        baul_electrico: vehicleData.baul_electrico === 'Sí' || vehicleData.baul === 'Sí' || !!vehicleData.powerTrunk,
-        sensores: vehicleData.sensores === 'Sí' || vehicleData.sensors === 'Sí' || !!vehicleData.sensors_bool,
-        carplay: vehicleData.carplay === 'Sí' || vehicleData.appleCarplay === true || !!vehicleData.carplay_bool,
-        vidrios_electricos: vehicleData.vidrios_electricos === 'Sí' || vehicleData.vidrios === 'Sí' || !!vehicleData.powerWindows,
-
-        fotos: vehicleData.images || vehicleData.fotos || (vehicleData.image ? [vehicleData.image] : []),
-        documentos: vehicleData.documents || vehicleData.documentos || [],
-
-        detalles: restDetails
+      // 3. Merge de Detalles — CRITICAL: strip empty/falsy VALUES before merging
+      //    so that existing non-empty detalles values are NOT overwritten with ''
+      const cleanedDetails = {};
+      for (const [key, val] of Object.entries(restDetails)) {
+        // Keep booleans (including false), non-empty strings, non-zero numbers, objects, arrays
+        if (val === undefined || val === null) continue;
+        if (typeof val === 'string' && val === '') continue;
+        if (typeof val === 'number' && val === 0 && !['year', 'precio', 'price', 'millas', 'mileage', 'seats', 'inicial'].includes(key)) continue;
+        cleanedDetails[key] = val;
+      }
+      const mergedDetails = {
+        ...(existingRecord?.detalles || {}),
+        ...cleanedDetails,
+        // Always persist make/model/year/color in detalles for title reconstruction
+        make: newMake || existingRecord?.detalles?.make || '',
+        model: newModel || existingRecord?.detalles?.model || '',
+        year: newYear || existingRecord?.detalles?.year || '',
+        color: pick(vehicleData.exteriorColor, vehicleData.color, existingRecord?.color, existingRecord?.detalles?.color) || '',
+        _updated_at: new Date().toISOString()
       };
 
-      if (vehicleData.status === 'sold' && !existingId) {
-        dataToSave.fecha_venta = new Date().toISOString();
-      }
+      // 4. Construir objeto final de guardado — preservando lo existente si el nuevo no está.
+      const dataToSave = {
+        dealer_id: dealerUuid,
+        titulo_vehiculo: finalTitle,
+        estado: (vehicleData.status === 'sold' || vehicleData.estado === 'Vendido') ? 'Vendido' :
+          (vehicleData.status === 'quoted' || vehicleData.estado === 'Cotizado') ? 'Cotizado' :
+            (existingRecord?.estado || 'Disponible'),
 
-      if (existingId && existingId.length > 20) {
-        // En Supabase el ID debe existir (escription UUID o texto compatible). Update.
+        color: pick(vehicleData.exteriorColor, vehicleData.color, existingRecord?.color),
+        condicion_carfax: pick(vehicleData.carfaxCondition, vehicleData.condicion_carfax, existingRecord?.condicion_carfax),
+        chasis_vin: pick(vehicleData.vin, vehicleData.chasis_vin, existingRecord?.chasis_vin),
+        traccion: pick(vehicleData.drivetrain, vehicleData.traccion, existingRecord?.traccion),
+        transmision: pick(vehicleData.transmission, vehicleData.transmision, existingRecord?.transmision),
+        motor: pick(vehicleData.engine, vehicleData.motor, existingRecord?.motor),
+        techo: pick(vehicleData.roof, vehicleData.techo, existingRecord?.techo),
+        combustible: pick(vehicleData.fuelType, vehicleData.combustible, existingRecord?.combustible),
+        llave: pick(vehicleData.keyType, vehicleData.llave, existingRecord?.llave),
+        camara: pick(vehicleData.camera, vehicleData.camara, existingRecord?.camara),
+        material_asientos: pick(vehicleData.interiorMaterial, vehicleData.material_asientos, existingRecord?.material_asientos),
+
+        precio: pickNum(vehicleData.price, vehicleData.price_dop, vehicleData.precio, existingRecord?.precio),
+        inicial: pickNum(vehicleData.initial_payment, vehicleData.initial_payment_dop, vehicleData.inicial, existingRecord?.inicial),
+        millas: pickNum(vehicleData.millas, vehicleData.mileage, existingRecord?.millas),
+        cantidad_asientos: parseInt(pick(vehicleData.cantidad_asientos, vehicleData.seats, existingRecord?.cantidad_asientos) || 0),
+
+        baul_electrico: (vehicleData.trunk === 'Sí' || vehicleData.baul === 'Sí' || vehicleData.baul_electrico === true) ? true :
+          (vehicleData.trunk === 'No' || vehicleData.baul === 'No' || vehicleData.baul_electrico === false) ? false : (existingRecord?.baul_electrico ?? false),
+        sensores: (vehicleData.sensors === 'Sí' || vehicleData.sensores === 'Sí' || vehicleData.sensores === true) ? true :
+          (vehicleData.sensors === 'No' || vehicleData.sensores === 'No' || vehicleData.sensores === false) ? false : (existingRecord?.sensores ?? false),
+        carplay: (vehicleData.carplay === 'Sí' || vehicleData.carplay === true || vehicleData.appleCarplay === true) ? true :
+          (vehicleData.carplay === 'No' || vehicleData.carplay === false || vehicleData.appleCarplay === false) ? false : (existingRecord?.carplay ?? false),
+        vidrios_electricos: (vehicleData.electric_windows === 'Sí' || vehicleData.vidrios_electricos === 'Sí' || vehicleData.vidrios_electricos === true) ? true :
+          (vehicleData.electric_windows === 'No' || vehicleData.vidrios_electricos === 'No' || vehicleData.vidrios_electricos === false) ? false : (existingRecord?.vidrios_electricos ?? false),
+
+        fotos: vehicleData.images || vehicleData.fotos || (vehicleData.image ? [vehicleData.image] : (existingRecord?.fotos || [])),
+        documentos: vehicleData.documents || vehicleData.documentos || (existingRecord?.documentos || []),
+
+        detalles: mergedDetails
+      };
+
+      if (existingId) {
         const { error } = await supabase.from('vehiculos').update(dataToSave).eq('id', existingId);
         if (error) throw error;
         showToast("Vehículo actualizado con éxito");
       } else {
-        // Create new
         dataToSave.created_at = new Date().toISOString();
-
         const { error } = await supabase.from('vehiculos').insert([dataToSave]);
         if (error) throw error;
         showToast("Vehículo guardado con éxito");
       }
 
-      // Refresh inventory after save
       fetchVehiclesFromSupabase();
     } catch (error) {
       console.error("Error al guardar en Supabase:", error);
@@ -5168,14 +5640,20 @@ export default function CarbotApp() {
     }
   };
 
+
   const handleDeleteVehicle = async (id) => {
     if (!userProfile?.dealerId) return;
     try {
+      // Read current detalles, merge _deleted flag
+      const { data: current } = await supabase.from('vehiculos').select('detalles').eq('id', id).single();
+      const updatedDetalles = { ...(current?.detalles || {}), _deleted: true, _deleted_at: new Date().toISOString() };
       const { error } = await supabase.from('vehiculos').update({
-        deleted_at: new Date().toISOString()
+        detalles: updatedDetalles
       }).eq('id', id);
       if (error) throw error;
+      setInventory(prev => prev.map(v => v.id === id ? { ...v, status: 'trash', detalles: updatedDetalles } : v));
       showToast("Vehículo movido a la papelera");
+      fetchVehiclesFromSupabase();
     } catch (error) {
       console.error(error);
       showToast("Error al mover a papelera", "error");
@@ -5185,12 +5663,20 @@ export default function CarbotApp() {
   const handleRestoreVehicle = async (id) => {
     if (!userProfile?.dealerId) return;
     try {
+      const { data: current } = await supabase.from('vehiculos').select('detalles').eq('id', id).single();
+      const updatedDetalles = { ...(current?.detalles || {}) };
+      delete updatedDetalles._deleted;
+      delete updatedDetalles._deleted_at;
+
       const { error } = await supabase.from('vehiculos').update({
-        deleted_at: null
+        detalles: updatedDetalles
       }).eq('id', id);
       if (error) throw error;
-      showToast("Vehículo restaurado");
+      setInventory(prev => prev.map(v => v.id === id ? { ...v, status: 'available', detalles: updatedDetalles } : v));
+      showToast("Vehículo restaurado al inventario");
+      fetchVehiclesFromSupabase();
     } catch (e) {
+      console.error(e);
       showToast("Error al restaurar", "error");
     }
   };
@@ -5355,11 +5841,11 @@ export default function CarbotApp() {
       // GUARDAR EN SUBCOLECCIÓN 'documentos/cotizaciones'
       await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", customId), newQuote);
 
-      if (vId) {
-        await supabase.from('vehiculos')
-          .update({ estado: 'Cotizado', updated_at: new Date().toISOString() })
-          .eq('id', vId);
-      }
+      await supabase.from('vehiculos')
+        .update({
+          estado: 'Cotizado'
+        })
+        .eq('id', vId);
       requestConfirmation({
         title: 'Cotización Enviada',
         message: '¡Cotización enviada a GHL y guardada!',
@@ -5445,12 +5931,11 @@ export default function CarbotApp() {
       if (firstVehicleId) {
         const newEstado = hasContract ? 'Vendido' : 'Cotizado';
         await supabase.from('vehiculos')
-          .update({ estado: newEstado, updated_at: new Date().toISOString() })
+          .update({ estado: newEstado })
           .eq('id', firstVehicleId);
       }
 
       showToast(`${generatedCount} documentos generados con éxito`);
-      setIsContractModalOpen(false);
 
     } catch (error) {
       console.error("Error multi-gen:", error);
@@ -5469,15 +5954,26 @@ export default function CarbotApp() {
     const contractData = contractDataInput; // Single object case
 
     try {
-      // Limpiar undefined antes de enviar a Firestore
       const cleanData = Object.fromEntries(
         Object.entries(contractData).filter(([_, v]) => v !== undefined)
       );
 
-      const { id, ...data } = cleanData;
+      const { id, clientData, ...restData } = cleanData;
+
+      const combinedClientName = clientData
+        ? `${clientData.name || ''} ${clientData.lastName || ''}`.trim()
+        : (restData.client || 'Cliente');
+
+      const data = {
+        ...restData,
+        client: combinedClientName,
+        email: clientData?.email || restData.email || '',
+        phone: clientData?.phone || restData.phone || '',
+        cedula: clientData?.cedula || restData.cedula || ''
+      };
 
       // GENERAR ID DINÁMICO: Contrato_Cliente_Marca_Modelo_Ultimos4Chasis
-      const clientName = (data.client || 'Cliente').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+      const clientName = combinedClientName.toUpperCase().replace(/[^A-Z0-9]/g, '_');
 
       // Parsear vehículo string "Marca Modelo Año" o similar
       let make = 'MARCA';
@@ -5524,11 +6020,22 @@ export default function CarbotApp() {
         await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", customId), newContract);
 
         if (contractData.vehicleId) {
+          // Determinar estado basado en tipo de documento
+          const isQuote = contractData.documentType === 'cotizacion';
+          const newEstado = isQuote ? 'Cotizado' : 'Vendido';
+          const newStatus = isQuote ? 'quoted' : 'sold';
+
           await supabase.from('vehiculos')
-            .update({ estado: 'Vendido', updated_at: new Date().toISOString() })
+            .update({ estado: newEstado })
             .eq('id', contractData.vehicleId);
+
+          // Actualizar estado local para que el cambio sea reflejado en la UI inmediatamente
+          setInventory(prev => prev.map(v =>
+            v.id === contractData.vehicleId ? { ...v, estado: newEstado, status: newStatus } : v
+          ));
         }
-        showToast("Contrato generado");
+        const docLabel = contractData.documentType === 'cotizacion' ? 'Cotización generada y vehículo marcado como Cotizado' : 'Contrato generado y vehículo marcado como Vendido';
+        showToast(docLabel, "success");
       }
       showToast("Contrato generado");
     } catch (error) {
@@ -5567,6 +6074,45 @@ export default function CarbotApp() {
       showToast("Error al eliminar: " + error.message, "error");
     }
   };
+
+  const handleRedoSale = useCallback(async (vehicleId) => {
+    if (!effectiveDealerId) return;
+    try {
+      // 1. Find associated contracts (not deleted)
+      const associatedContracts = (contracts || []).filter(c => String(c.vehicleId) === String(vehicleId) && c.status !== 'deleted');
+
+      // 2. Mark them as deleted in Firebase
+      for (const contract of associatedContracts) {
+        if (contract.id.startsWith('Contrato')) {
+          await updateDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "contratos", "items", contract.id), { status: 'deleted' });
+        } else if (contract.id.startsWith('Cotizacion')) {
+          await updateDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", contract.id), { status: 'deleted' });
+        } else {
+          // Legacy check
+          const coll = contract.category === 'quote' ? 'quotes' : 'contracts';
+          await updateDoc(doc(db, "Dealers", effectiveDealerId, coll, contract.id), { status: 'deleted' });
+        }
+      }
+
+      // 3. Update vehicle back to available in Supabase
+      const { error } = await supabase.from('vehiculos')
+        .update({ estado: 'Disponible' })
+        .eq('id', vehicleId);
+
+      if (error) throw error;
+
+      // 4. Update local state
+      setInventory(prev => prev.map(v =>
+        String(v.id) === String(vehicleId) ? { ...v, estado: 'Disponible', status: 'available' } : v
+      ));
+
+      showToast("Venta deshecha: El vehículo vuelve a estar disponible", "success");
+      fetchVehiclesFromSupabase();
+    } catch (error) {
+      console.error(error);
+      showToast("Error al deshacer venta: " + error.message, "error");
+    }
+  }, [effectiveDealerId, contracts, setInventory, showToast, fetchVehiclesFromSupabase]);
 
   const handleSaveTemplate = async (templateData) => {
     if (!effectiveDealerId) return;
@@ -5632,8 +6178,8 @@ export default function CarbotApp() {
     switch (activeTab) {
       case 'settings': return <SettingsView userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} onDisconnectGhl={handleDisconnectGhl} />;
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={shadowProfile} />;
-      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} templates={templates} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} />;
-      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={templates} inventory={activeInventory}
+      case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} contracts={contracts || []} templates={templates} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} onRedoSale={handleRedoSale} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} resolvedDealerId={resolvedDealerId} />;
+      case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={templates} inventory={activeInventory} resolvedDealerId={resolvedDealerId}
         onGenerateContract={handleGenerateContract}
         onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} onSaveTemplate={handleSaveTemplate} onDeleteTemplate={handleDeleteTemplate} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} showToast={showToast} />;
       case 'trash': return <TrashView trash={trashInventory} contracts={contracts} quotes={quotes} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onRestoreDocument={handleRestoreDocument} onPermanentDeleteDocument={handlePermanentDeleteDocument} onEmptyTrash={handleEmptyTrash} showToast={showToast} />;
@@ -5645,10 +6191,87 @@ export default function CarbotApp() {
   // Si no hay perfil pero tenemos contexto de URL, NO bloqueamos (Iframe safe)
   if (initializing || (isLoggedIn && !shadowProfile && currentUserEmail)) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="flex flex-col items-center animate-pulse">
-          <AppLogo className="w-16 h-16 mb-4" size={64} />
-          <p className="text-slate-400 font-medium">Cargando sesión...</p>
+      <div style={{
+        minHeight: '100vh',
+        background: '#ffffff',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Outfit', system-ui, sans-serif",
+      }}>
+        <style>{`
+          @keyframes logoBounce {
+            0%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-30px); }
+            50% { transform: translateY(-5px); }
+            70% { transform: translateY(-15px); }
+          }
+          @keyframes progressBar {
+            0% { width: 0%; }
+            20% { width: 25%; }
+            50% { width: 55%; }
+            80% { width: 85%; }
+            100% { width: 100%; }
+          }
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.4); }
+          }
+        `}</style>
+
+        <div style={{
+          animation: 'logoBounce 2s ease-in-out infinite',
+          marginBottom: '32px',
+        }}>
+          <AppLogo className="drop-shadow-2xl" size={120} style={{ filter: 'drop-shadow(0 10px 30px rgba(239, 68, 68, 0.3))' }} />
+        </div>
+
+        <h1 style={{
+          color: '#1e293b',
+          fontSize: '1.5rem',
+          fontWeight: 800,
+          letterSpacing: '3px',
+          textTransform: 'uppercase',
+          marginBottom: '8px',
+          animation: 'fadeInUp 0.8s ease-out 0.3s both',
+        }}>
+          CarBot <span style={{ color: '#ef4444' }}>System</span>
+        </h1>
+
+        <p style={{
+          color: '#64748b',
+          fontSize: '0.85rem',
+          fontWeight: 500,
+          marginBottom: '40px',
+          animation: 'fadeInUp 0.8s ease-out 0.5s both',
+        }}>
+          Cargando sesión...
+        </p>
+
+        <div style={{
+          width: '220px',
+          height: '4px',
+          background: '#e2e8f0',
+          borderRadius: '10px',
+          overflow: 'hidden',
+          animation: 'fadeInUp 0.8s ease-out 0.7s both, pulse-glow 2s ease-in-out infinite',
+        }}>
+          <div style={{
+            height: '100%',
+            borderRadius: '10px',
+            background: 'linear-gradient(90deg, #ef4444, #f97316, #ef4444)',
+            backgroundSize: '200% 100%',
+            animation: 'progressBar 3s ease-in-out infinite, shimmer 1.5s linear infinite',
+          }} />
         </div>
       </div>
     );
@@ -5658,7 +6281,7 @@ export default function CarbotApp() {
   if (ghlSSOLoading) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#060608',
+        minHeight: '100vh', background: 'white',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Outfit', system-ui, sans-serif",

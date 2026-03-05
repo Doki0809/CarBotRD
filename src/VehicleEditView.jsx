@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Calendar, Fuel, Settings, Save, DollarSign,
   IdCard, Maximize, ChevronLeft, ChevronRight, ChevronDown,
-  X, Info, Share2, Heart, Files, CheckCircle, Lock, Trash2, Camera,
+  X, Info, Share2, Heart, Files, CheckCircle, Lock, Trash2, Camera, Phone, Mail,
   ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 
@@ -166,7 +166,6 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     engine_type: vehicle?.engine_type || '-',
     seat_material: vehicle?.seat_material || '-',
     roof_type: vehicle?.roof_type || '-',
-    camera: vehicle?.camera || '-',
     key_type: vehicle?.key_type || '-',
     seats: vehicle?.seats || '-',
     condition: vehicle?.condition || '-',
@@ -178,6 +177,9 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
       (vehicle?.sensores === false || vehicle?.sensores === 'No' || vehicle?.sensors === false || vehicle?.sensors === 'No') ? 'No' : '-',
     trunk: (vehicle?.powerTrunk === true || vehicle?.baul_electrico === true || vehicle?.baul_electrico === 'Sí' || vehicle?.trunk === 'Sí' || vehicle?.baul === 'Sí') ? 'Sí' :
       (vehicle?.powerTrunk === false || vehicle?.baul_electrico === false || vehicle?.baul_electrico === 'No' || vehicle?.trunk === 'No' || vehicle?.baul === 'No') ? 'No' : '-',
+    camera: (vehicle?.camera === true || vehicle?.camera === 'Sí' || vehicle?.camara === true || vehicle?.camara === 'Sí') ? 'Reversa' :
+      (vehicle?.camera === false || vehicle?.camera === 'No' || vehicle?.camara === false || vehicle?.camara === 'No') ? 'No' :
+        (vehicle?.camera || vehicle?.camara || '-'),
     electric_windows: (vehicle?.powerWindows === true || vehicle?.vidrios_electricos === true || vehicle?.vidrios_electricos === 'Sí' || vehicle?.electric_windows === 'Sí' || vehicle?.vidrios === 'Sí') ? 'Sí' :
       (vehicle?.powerWindows === false || vehicle?.vidrios_electricos === false || vehicle?.vidrios_electricos === 'No' || vehicle?.electric_windows === 'No' || vehicle?.vidrios === 'No') ? 'No' : '-'
   });
@@ -198,7 +200,6 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         engine_type: vehicle?.engine_type || '-',
         seat_material: vehicle?.seat_material || '-',
         roof_type: vehicle?.roof_type || '-',
-        camera: vehicle?.camera || '-',
         key_type: vehicle?.key_type || '-',
         seats: vehicle?.seats || '-',
         condition: vehicle?.condition || '-',
@@ -210,6 +211,9 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
           (vehicle?.sensores === false || vehicle?.sensores === 'No' || vehicle?.sensors === false || vehicle?.sensors === 'No') ? 'No' : '-',
         trunk: (vehicle?.powerTrunk === true || vehicle?.baul_electrico === true || vehicle?.baul_electrico === 'Sí' || vehicle?.trunk === 'Sí' || vehicle?.baul === 'Sí') ? 'Sí' :
           (vehicle?.powerTrunk === false || vehicle?.baul_electrico === false || vehicle?.baul_electrico === 'No' || vehicle?.trunk === 'No' || vehicle?.baul === 'No') ? 'No' : '-',
+        camera: (vehicle?.camera === true || vehicle?.camera === 'Sí' || vehicle?.camara === true || vehicle?.camara === 'Sí') ? 'Reversa' :
+          (vehicle?.camera === false || vehicle?.camera === 'No' || vehicle?.camara === false || vehicle?.camara === 'No') ? 'No' :
+            (vehicle?.camera || vehicle?.camara || '-'),
         electric_windows: (vehicle?.powerWindows === true || vehicle?.vidrios_electricos === true || vehicle?.vidrios_electricos === 'Sí' || vehicle?.electric_windows === 'Sí' || vehicle?.vidrios === 'Sí') ? 'Sí' :
           (vehicle?.powerWindows === false || vehicle?.vidrios_electricos === false || vehicle?.vidrios_electricos === 'No' || vehicle?.electric_windows === 'No' || vehicle?.vidrios === 'No') ? 'No' : '-'
       }));
@@ -247,9 +251,14 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     }
 
     // Enforce uppercase for specific fields
-    const upperFields = ['make', 'model', 'edition', 'vin', 'chassis', 'color'];
+    const upperFields = ['make', 'model', 'edition', 'vin', 'chassis', 'color', 'plate'];
     if (upperFields.includes(name)) {
       finalValue = finalValue.toUpperCase();
+    }
+
+    // Special handling for Plate: Alphanumeric only
+    if (name === 'plate') {
+      finalValue = finalValue.replace(/[^A-Z0-9]/g, '');
     }
 
     setFormData(prev => ({ ...prev, [name]: finalValue }));
@@ -308,6 +317,9 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         millas: Number(finalData.mileage),
         unit: mileageUnit,
         cantidad_asientos: finalData.seats,
+        placa: finalData.plate,
+        tipo_vehiculo: finalData.type,
+        tipo_de_vehculo: finalData.type, // Alias for GHL compatibility
 
         // Compatibilidad legacy
         precio: priceVal,
@@ -439,8 +451,11 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                 <span className="bg-red-50 text-red-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-100">
                   {formData.year || '2025'}
                 </span>
-                <span className="bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
-                  {formData.status === 'sold' ? 'VENDIDO' : 'DISPONIBLE'}
+                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${formData.status === 'sold' ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10' :
+                  formData.status === 'quoted' ? 'bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 shadow-xl shadow-amber-500/20 border border-amber-400/50' :
+                    'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                  }`}>
+                  {formData.status === 'sold' ? 'VENDIDO' : (formData.status === 'quoted' ? 'COTIZADO' : 'DISPONIBLE')}
                 </span>
               </div>
 
@@ -770,23 +785,40 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                     </div>
                   </div>
 
-                  <div className="space-y-4 sm:space-y-6">
-                    <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
-                      <p className="text-lg sm:text-xl font-black">{contract?.client || 'N/A'}</p>
+                  <div className="space-y-4 sm:y-6">
+                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
+                      <p className="text-lg sm:text-xl font-black mb-2">{contract?.client || 'N/A'}</p>
+                      <div className="space-y-1.5 opacity-90 border-t border-white/10 pt-2">
+                        {contract?.cedula && (
+                          <div className="flex items-center gap-2 text-[10px] font-bold">
+                            <IdCard size={12} className="text-emerald-200" /> {contract.cedula}
+                          </div>
+                        )}
+                        {contract?.phone && (
+                          <div className="flex items-center gap-2 text-[10px] font-bold">
+                            <Phone size={12} className="text-emerald-200" /> {contract.phone}
+                          </div>
+                        )}
+                        {contract?.email && (
+                          <div className="flex items-center gap-2 text-[10px] font-bold truncate">
+                            <Mail size={12} className="text-emerald-200" /> {contract.email}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">PRECIO</p>
+                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PRECIO LISTA</p>
                         <p className="text-xs sm:text-sm font-black whitespace-nowrap">
-                          {formData.price_dop > 0 ? `RD$ ${(formData.price_dop / 1000).toFixed(0)}k` : `US$ ${(formData.price / 1000).toFixed(0)}k`}
+                          {formData.price_dop > 0 ? `RD$ ${Number(formData.price_dop).toLocaleString()}` : `US$ ${Number(formData.price).toLocaleString()}`}
                         </p>
                       </div>
-                      <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest">VENTA</p>
+                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
+                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PRECIO VENTA</p>
                         <p className="text-xs sm:text-sm font-black text-right whitespace-nowrap">
-                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${(contract.price / 1000).toFixed(0)}k` : `US$ ${(contract.price / 1000).toFixed(0)}k`) : 'N/A'}
+                          {contract?.price ? (formData.price_dop > 0 ? `RD$ ${Number(contract.price).toLocaleString()}` : `US$ ${Number(contract.price).toLocaleString()}`) : (formData.price_dop > 0 ? `RD$ ${Number(formData.price_dop).toLocaleString()}` : `US$ ${Number(formData.price).toLocaleString()}`)}
                         </p>
                       </div>
                     </div>
@@ -882,7 +914,14 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   </div>
                 </div>
 
-                <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                  </div>
+                  <div className="col-span-1 text-[10px]">
+                    <FormInput label="Placa" name="plate" value={formData.plate || formData.placa} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                  </div>
+                </div>
               </div>
 
               {/* COL 2: MECÁNICA GENERAL */}
@@ -891,12 +930,16 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <Settings size={14} /> Mecánica
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic']} />
+                  <Select label="Clean Carfax" name="clean_carfax" value={formData.clean_carfax} onChange={handleChange} options={['-', 'Sí', 'No']} />
+                  <Select label="Tipo de Vehículo" name="type" value={formData.type || formData.tipo_vehiculo} onChange={handleChange} options={['-', 'Automóvil', 'Jeepeta', 'Camioneta', 'Moto', 'Camión', 'Bus', 'Vehículos Pesados']} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic', 'DSG']} />
                   <Select label="Tracción" name="traction" value={formData.traction} onChange={handleChange} options={['-', 'FWD', 'RWD', 'AWD', '4x4']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Select label="Combustible" name="fuel" value={formData.fuel} onChange={handleChange} options={['-', 'Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} />
-                  <Select label="Motor" name="engine_type" value={formData.engine_type} onChange={handleChange} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido']} />
+                  <Select label="Motor" name="engine_type" value={formData.engine_type} onChange={handleChange} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido', 'Eléctrico']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormInput label="Cilindros" name="engine_cyl" value={formData.engine_cyl || ''} onChange={handleChange} placeholder="4 Cil" />

@@ -19,6 +19,47 @@ const ghlClientSecret = defineSecret("GHL_CLIENT_SECRET");
 const ghlClientId = defineSecret("GHL_CLIENT_ID");
 const supabaseServiceKey = defineSecret("SUPABASE_SERVICE_ROLE_KEY");
 
+// ──────────────────────────────────────────────────────────────────
+// 🔥 Configuración de IDs de Custom Fields de GoHighLevel
+// Pega aquí los IDs alfanuméricos que te da GHL para cada campo.
+
+const GHL_CUSTOM_FIELD_IDS = {
+  // 🚘 1. Vehículo (Básico)
+  marca: "",
+  modelo: "",
+  ao: "{{ contact.ao }}",                 // Para {{ contact.ao }}
+  color: "",
+  edicin: "",             // Para {{ contact.edicin }}
+  chasis: "",             // Para {{ contact.chasis }}
+  millaje: "",            // Para {{ contact.millaje }}
+  tipo_de_vehculo: "",    // Para {{ contact.tipo_de_vehculo }}
+
+  // ⚙️ 2. Mecánica
+  transmisin: "",         // Para {{ contact.transmisin }}
+  traccin: "",            // Para {{ contact.traccin }}
+  tipo_de_combustible: "",// Para {{ contact.tipo_de_combustible }}
+  motor: "",              // Para {{ contact.motor }}
+
+  // 🛋️ 3. Equipamiento y Extras
+  interior: "",           // Para {{ contact.interior }}
+  techo: "",              // Para {{ contact.techo }}
+  carplay: "",            // Para {{ contact.carplay }}
+  camaa: "",              // Para {{ contact.camaa }}
+  sensores: "",           // Para {{ contact.sensores }}
+  baul_electrico: "",     // Para {{ contact.baul_electrico }}
+  cristales_electrico: "",// Para {{ contact.cristales_electrico }}
+  llave: "",              // Para {{ contact.llave }}
+  filas_de_asientos: "",  // Para {{ contact.filas_de_asientos }}
+
+  // 💰 4. Financiero
+  precio_rd: "",            // Para {{ contact.precio_rd }}
+  monto_a_financiar_rd: "", // Para {{ contact.monto_a_financiar_rd }}
+
+  // 👤 5. Extras del Cliente
+  cdula: "",                     // Para {{ contact.cdula }}
+  a_que_quien_va_dirigida: ""    // Para {{ contact.a_que_quien_va_dirigida }}
+};
+
 // Función auxiliar para normalizar texto (quitar acentos y pasar a minúsculas)
 // Función auxiliar para normalizar texto (quitar acentos, puntuación y normalizar espacios)
 const normalize = (text) => {
@@ -125,8 +166,8 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
     const dealerName = dealerData.nombre || dealerData.display_name || matchedDealerId;
     const dealerLinkParam = dealerData.slug || matchedDealerId; // Reliable param for links
 
-    // --- LOGIC: GHL LOGO REMOVED AS REQUESTED ---
-    let logoUrl = "";
+    // --- DEALER LOGO: Pull from Supabase dealers table ---
+    let logoUrl = dealerData.logo_url || dealerData.logoUrl || "";
 
     // 2. Obtener vehículos (Colección primaria: 'vehiculos', Fallback: 'inventario')
     let collectionName = "vehiculos";
@@ -257,7 +298,12 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
     const dealerUuid = dealerData.supabaseDealerId || toUuid(matchedDealerId);
 
     if (dealerUuid) {
-      try { // This try-catch specifically for Supabase operations
+      try {
+        // Fetch dealer logo from Supabase if not already found in Firestore
+        if (!logoUrl) {
+          const { data: sbDealer } = await supabase.from('dealers').select('logo_url').eq('id', dealerUuid).single();
+          if (sbDealer?.logo_url) logoUrl = sbDealer.logo_url;
+        }
         console.log(`📡 Consultando Supabase para Dealer UUID: ${dealerUuid}`);
         const { data: supabaseVehicles, error: sbError } = await supabase
           .from('vehiculos')
@@ -299,30 +345,44 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
               const turboStr = isTurbo ? "Turbo" : "Aspirado";
 
               inventory.push({
-                id: v.id, // ID numérico de Supabase
+                id: v.id,
                 is_supabase: true,
                 nombre: `${yearFromTitle} ${makeFromTitle} ${modelFromTitle} ${v.detalles?.edition || ""} ${v.color || ""}`.trim().toUpperCase(),
                 precio: priceFormatted,
-                carfax_status: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true) ? "Sí" : (v.condicion_carfax === "No" || v.condicion_carfax === false) ? "No" : capitalize(v.condicion_carfax || "-"),
-                mileage_formatted: `${Number(v.millas || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
+                // Carfax: only show "Clean Carfax" if Sí, otherwise empty
+                carfax_status: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true || v.detalles?.clean_carfax === "Sí" || v.detalles?.clean_carfax === "Si") ? "Clean Carfax" : "",
+                mileage_formatted: `${Number(v.millas || v.detalles?.mileage || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
                 link_catalogo: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${v.id}&source=supabase`,
 
-                // Visual Details (fmt)
-                color_fmt: capitalize(v.color),
-                transmision_fmt: capitalize(v.transmision),
-                traccion_fmt: (v.traccion || "").toUpperCase() || "-",
-                motor_fmt: `${v.detalles?.engine_liters ? v.detalles.engine_liters + ' L, ' : ''}${v.detalles?.engine_cyl ? v.detalles.engine_cyl + ' Cilindros, ' : ''}${turboStr}`,
-                techo_fmt: capitalize(v.techo),
-                combustible_fmt: capitalize(v.combustible),
-                llave_fmt: capitalize(v.llave),
-                baul_fmt: (v.baul_electrico === true || v.baul_electrico === "Sí" || v.baul_electrico === "Si") ? "Sí" : "No",
-                camera_fmt: capitalize(v.camara),
-                sensores_fmt: (v.sensores === true || v.sensores === "Sí" || v.sensores === "Si") ? "Sí" : "No",
-                carplay_fmt: (v.carplay === true || v.carplay === "Sí" || v.carplay === "Si") ? "Sí" : "No",
-                asientos_fmt: String(v.cantidad_asientos || "-"),
-                vidrios_fmt: (v.vidrios_electricos === true || v.vidrios_electricos === "Sí" || v.vidrios_electricos === "Si") ? "Sí" : "No",
-                material_fmt: capitalize(v.material_asientos),
-                vin_fmt: (v.chasis_vin || "").toUpperCase() || "-",
+                // Visual Details (fmt) — fallback to detalles when top-level is null
+                color_fmt: capitalize(v.color || v.detalles?.color),
+                transmision_fmt: capitalize(v.transmision || v.detalles?.transmission),
+                traccion_fmt: (v.traccion || v.detalles?.traction || v.detalles?.drivetrain || "").toUpperCase() || "-",
+                motor_fmt: (() => {
+                  const ccVal = (v.detalles?.engine_cc || "").toString().trim();
+                  const cc = ccVal ? `${ccVal}.0 Litros` : "";
+                  const cylVal = (v.detalles?.engine_cyl || "").toString().trim();
+                  const cyl = cylVal ? `${cylVal} Cilindros` : "";
+                  const engineType = (v.detalles?.engine_type || "").toString().trim();
+                  const turboLabel = (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || engineType === "Turbo") ? "Turbo" : (engineType && engineType !== "Normal" ? engineType : "Aspirado");
+                  const parts = [cc, cyl, turboLabel].filter(p => p !== "");
+                  if (parts.length === 0) return capitalize(v.motor || v.detalles?.engine || "-");
+                  return parts.join(", ");
+                })(),
+                techo_fmt: capitalize(v.techo || v.detalles?.roof_type || v.detalles?.roof),
+                combustible_fmt: capitalize(v.combustible || v.detalles?.fuel),
+                llave_fmt: capitalize(v.llave || v.detalles?.key_type),
+                baul_fmt: (v.baul_electrico === true || v.detalles?.trunk === "Sí" || v.detalles?.trunk === "Si") ? "Sí" : "No",
+                camera_fmt: capitalize(v.camara || v.detalles?.camera),
+                sensores_fmt: (v.sensores === true || v.detalles?.sensors === "Sí" || v.detalles?.sensors === "Si") ? "Sí" : "No",
+                carplay_fmt: (v.carplay === true || v.detalles?.carplay === "Sí" || v.detalles?.carplay === "Si") ? "Sí" : "No",
+                asientos_fmt: (() => {
+                  const n = parseInt(v.cantidad_asientos || v.detalles?.seats || 0);
+                  return n > 0 ? `${n} Filas de Asientos` : "-";
+                })(),
+                vidrios_fmt: (v.vidrios_electricos === true || v.detalles?.electric_windows === "Sí" || v.detalles?.electric_windows === "Si") ? "Sí" : "No",
+                material_fmt: capitalize(v.material_asientos || v.detalles?.seat_material),
+                vin_fmt: (v.chasis_vin || v.detalles?.vin || "").toUpperCase() || "-",
                 inicial_fmt: initialFormatted,
 
                 // Metadata & Template compatibility
@@ -333,26 +393,37 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 edicion: v.detalles?.edition || v.detalles?.version || "-",
                 anio: yearFromTitle,
                 anio_num: parseInt(yearFromTitle) || 0,
-                color: v.color,
-                transmision: v.transmision,
-                traccion: v.traccion,
-                combustible: v.combustible,
-                motor: `${v.detalles?.engine_liters ? v.detalles.engine_liters + ' L, ' : ''}${v.detalles?.engine_cyl ? v.detalles.engine_cyl + ' Cilindros, ' : ''}${turboStr}`,
-                condicion: v.condicion || 'Usado Importado',
-                carfax: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true) ? "Sí" : (v.condicion_carfax === "No" || v.condicion_carfax === false) ? "No" : capitalize(v.condicion_carfax || "-"),
-                asientos: v.cantidad_asientos || "-",
-                asientos_num: parseInt(v.cantidad_asientos) || 0,
-                material_interior: v.material_asientos || "-",
-                techo: v.techo || "-",
-                baul: (v.baul_electrico === true || v.baul_electrico === "Sí" || v.baul_electrico === "Si") ? "Sí" : "No",
-                llave: v.llave || "-",
-                camera: v.camara || "-",
-                sensores: (v.sensores === true || v.sensores === "Sí" || v.sensores === "Si") ? "Sí" : "No",
-                carplay: (v.carplay === true || v.carplay === "Sí" || v.carplay === "Si") ? "Sí" : "No",
-                electric_windows: (v.vidrios_electricos === true || v.vidrios_electricos === "Sí" || v.vidrios_electricos === "Si") ? "Sí" : "No",
-                mileage: v.millas || "0",
+                color: v.color || v.detalles?.color,
+                transmision: v.transmision || v.detalles?.transmission,
+                traccion: v.traccion || v.detalles?.traction || v.detalles?.drivetrain,
+                combustible: v.combustible || v.detalles?.fuel,
+                motor: (() => {
+                  const ccVal = (v.detalles?.engine_cc || "").toString().trim();
+                  const cc = ccVal ? `${ccVal}.0 Litros` : "";
+                  const cylVal = (v.detalles?.engine_cyl || "").toString().trim();
+                  const cyl = cylVal ? `${cylVal} Cilindros` : "";
+                  const engineType = (v.detalles?.engine_type || "").toString().trim();
+                  const turboLabel = (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || engineType === "Turbo") ? "Turbo" : (engineType && engineType !== "Normal" ? engineType : "Aspirado");
+                  return [cc, cyl, turboLabel].filter(Boolean).join(", ") || (v.motor || "-");
+                })(),
+                condicion: v.detalles?.condition || v.condicion || 'Usado Importado',
+                carfax: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true || v.detalles?.clean_carfax === "Sí" || v.detalles?.clean_carfax === "Si") ? "Clean Carfax" : "",
+                asientos: (() => {
+                  const n = parseInt(v.cantidad_asientos || v.detalles?.seats || 0);
+                  return n > 0 ? `${n} Filas de Asientos` : "-";
+                })(),
+                asientos_num: parseInt(v.cantidad_asientos || v.detalles?.seats) || 0,
+                material_interior: v.material_asientos || v.detalles?.seat_material || "-",
+                techo: v.techo || v.detalles?.roof_type || v.detalles?.roof || "-",
+                baul: (v.baul_electrico === true || v.detalles?.trunk === "Sí" || v.detalles?.trunk === "Si") ? "Sí" : "No",
+                llave: v.llave || v.detalles?.key_type || "-",
+                camera: v.camara || v.detalles?.camera || "-",
+                sensores: (v.sensores === true || v.detalles?.sensors === "Sí" || v.detalles?.sensors === "Si") ? "Sí" : "No",
+                carplay: (v.carplay === true || v.detalles?.carplay === "Sí" || v.detalles?.carplay === "Si") ? "Sí" : "No",
+                electric_windows: (v.vidrios_electricos === true || v.detalles?.electric_windows === "Sí" || v.detalles?.electric_windows === "Si") ? "Sí" : "No",
+                mileage: v.millas || v.detalles?.mileage || "0",
                 unit: (["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km",
-                vin: v.chasis_vin,
+                vin: v.chasis_vin || v.detalles?.vin,
                 inicial_calculado: initialFormatted,
                 precio_num: priceVal,
                 precio_dop_ref: (currency === 'USD' ? priceVal * 60 : priceVal)
@@ -1011,7 +1082,7 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             </style>
           </head>
           <body>
-            <div class="header">
+            <div class="header" style="text-align:center;">
                <span style="font-weight: 800; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px;">Inventario de</span>
                <h1 style="font-weight: 900; font-size: 1.4rem; color: #1e293b; line-height: 1; margin: 5px 0 0; text-transform: uppercase; letter-spacing: -0.5px;">${dealerName}</h1>
             </div>
@@ -1044,7 +1115,9 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
 
               <!-- 2. MAIN IMAGE -->
               <div class="main-image-container">
-                 <img src="${photos[0] || 'https://via.placeholder.com/800x600?text=Sin+Imagen'}" class="main-image" id="mainImg" onclick="openLightbox()">
+                 ${photos.length > 0
+            ? `<img src="${photos[0]}" class="main-image" id="mainImg" onclick="openLightbox()">`
+            : `<img src="${logoUrl || 'https://via.placeholder.com/800x600?text=Sin+Imagen'}" class="main-image" id="mainImg" style="object-fit:contain;background:#f8fafc;padding:15%;">`}
               </div>
 
               <!-- 3. THUMBNAIL REEL -->
@@ -1155,9 +1228,9 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 <div class="related-grid">
                   ${related.map(r => `
                     <a href="?dealerID=${dealerLinkParam}&vehicleID=${r.id}" class="related-card">
-                      <img src="${r.imagen || 'https://via.placeholder.com/400x225?text=Sin+Imagen'}">
+                      <img src="${r.imagen || logoUrl || 'https://via.placeholder.com/400x225?text=Sin+Imagen'}" style="${!r.imagen && logoUrl ? 'object-fit:contain;background:#f8fafc;padding:10%;' : ''}">
                       <h4>${r.nombre}</h4>
-                      <p>RD$ ${Number(r.precio_dop_ref).toLocaleString('en-US')}</p>
+                      <p>${r.precio || ''}</p>
                     </a>
                   `).join('')}
                 </div>
@@ -1350,7 +1423,7 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
               padding: 12px; 
               box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1); 
             }
-            .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
             
             .filter-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
             @media (min-width: 900px) { .filter-grid { grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr 1fr 1fr 1.2fr; } }
@@ -1581,12 +1654,12 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             
             .results-info { margin: 30px 0 20px; font-size: 0.9rem; font-weight: 700; color: var(--secondary); text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; }
             
-            .inventory-grid { display: grid; grid-template-columns: 1fr; gap: 35px; margin-bottom: 80px; }
+            .inventory-grid { display: grid; grid-template-columns: 1fr; gap: 25px; margin-bottom: 80px; }
             @media (min-width: 640px) { .inventory-grid { grid-template-columns: repeat(2, 1fr); } }
             @media (min-width: 1024px) { .inventory-grid { grid-template-columns: repeat(3, 1fr); } }
             
-            .vehicle-card { background: #fff; border-radius: 28px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); border: 1px solid #f1f5f9; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; cursor: pointer; text-decoration: none; color: inherit; position: relative; }
-            .vehicle-card:hover { transform: translateY(-12px) scale(1.01); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08); border-color: #e2e8f0; }
+            .vehicle-card { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e8ecf1; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; cursor: pointer; text-decoration: none; color: inherit; position: relative; }
+            .vehicle-card:hover { transform: translateY(-8px) scale(1.01); box-shadow: 0 20px 40px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.06); border-color: #d1d5db; }
             
             .card-img-container { width: 100%; aspect-ratio: 4/3; background: #eee; position: relative; overflow: hidden; }
             .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -1617,12 +1690,12 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
           </button>
 
-          <div class="header">
-             <div class="container">
-               <span class="header-label">Catálogo Exclusive</span>
-               <h1>${dealerName}</h1>
+           <div class="header">
+              <div class="container" style="text-align:center;">
+                 <span class="header-label">Catálogo Exclusive</span>
+                 <h1>${dealerName}</h1>
              </div>
-          </div>
+           </div>
           
           <div class="sticky-filters" id="stickyFilters">
             <button class="close-filters" onclick="toggleMobileFilters()">
@@ -1777,7 +1850,9 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                    data-traction="${(v.traccion || '').toUpperCase()}"
                    data-text="${v.nombre.toLowerCase()}">
                   <div class="card-img-container">
-                    <img src="${v.imagen || 'https://via.placeholder.com/600x450?text=CarBot'}" class="card-img">
+                    ${v.imagen
+          ? `<img src="${v.imagen}" class="card-img">`
+          : `<img src="${logoUrl || 'https://via.placeholder.com/600x450?text=CarBot'}" class="card-img" style="object-fit:contain;background:#f8fafc;padding:12%;">`}
                   </div>
                   <div class="card-body">
                     <div class="card-tag">${v.anio || ''} • ${v.color || ''} • ${v.edicion || ''}</div>
@@ -2281,7 +2356,7 @@ exports.migrarEstructura = onRequest({ cors: true }, async (req, res) => {
 exports.ghlAuthorize = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, (req, res) => {
   const CLIENT_ID = ghlClientId.value();
   const dealerId = req.query.dealerId || 'default';
-  const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly documents_contracts_template/sendLink.write locations.readonly users.readonly";
+  const scope = "contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly documents_contracts_template/sendLink.write locations.readonly users.readonly locations/customFields.readonly locations/customFields.write";
   const REDIRECT_URI = "https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback";
 
   const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${scope}&state=${dealerId}`;
@@ -2534,6 +2609,7 @@ exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlCli
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
         'Version': '2021-07-28',
         'Accept': 'application/json'
       }
@@ -2557,12 +2633,15 @@ exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlCli
 
 // 2. Función para Enviar a GHL (Sustituye el placeholder anterior)
 exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
+  const VERSION = "2024-03-05-v5-GOLD";
   if (req.method !== 'POST') {
     return res.status(405).json({ error: "Método no permitido" });
   }
 
   try {
-    const { contactData, templateId, ghl_access_token } = req.body;
+    const { contactData, templateId, ghl_access_token, vehicleData, financialData, dealerId: bodyDealerId } = req.body;
+
+    console.log(`[${VERSION}] 🟢 Inicia apiGHL. Template: ${templateId}, Dealer: ${bodyDealerId}`);
 
     if (!contactData || !templateId) {
       return res.status(400).json({ error: "Faltan datos de contacto o templateId" });
@@ -2570,7 +2649,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
 
     const { locationId, dealerId: contactDealerId } = contactData;
     const queryDealerId = req.query.dealerId;
-    const dealerId = queryDealerId || contactDealerId;
+    const dealerId = bodyDealerId || queryDealerId || contactDealerId;
 
     let accessToken = ghl_access_token;
     let finalLocationId = locationId;
@@ -2597,10 +2676,12 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
 
     // 2. Upsert Contact (GHL V2)
     // Limpiar contactData de campos no permitidos por GHL V2 en el root del contacto
+    const frontendCustomFields = contactData.customFields || []; // Save to extract cedula etc
     const cleanContactData = { ...contactData };
     delete cleanContactData.dealerId;
     delete cleanContactData.ghl_access_token;
     delete cleanContactData.locationId;
+    delete cleanContactData.customFields; // IMPORTANT: Borramos customFields temporales del root para que no den Error 400 en GHL
 
     const finalPayload = { ...cleanContactData, locationId: finalLocationId };
     console.log("📤 Enviando Upsert Contact a GHL:", {
@@ -2616,6 +2697,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Version': '2021-07-28'
       },
       body: JSON.stringify(finalPayload)
@@ -2634,6 +2716,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'Version': '2021-07-28'
           },
           body: JSON.stringify(retryPayload)
@@ -2655,19 +2738,271 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
     }
     console.log(`✅ Contacto procesado: ${contactId}`);
 
+    // ──────────────────────────────────────────────────────────────────
+    // 2.5 INYECTAR CUSTOM FIELDS AL CONTACTO (Vehicle + Financial Data)
+    // ──────────────────────────────────────────────────────────────────
+
+    const veh = vehicleData || {};
+    const fin = financialData || {};
+
+    // Obtener cedula y datos genericos pasados via customFields en el request original
+    const cedulaFromFrontend = frontendCustomFields.find(cf => cf.id === 'cedula' || cf.key === 'cedula')?.value || cleanContactData.cedula || "";
+
+    // 2.5.1 Obtener la definición de los Custom Fields de la Location desde GHL
+    let remoteCustomFields = [];
+    try {
+      const cfRes = await fetch(`https://services.leadconnectorhq.com/locations/${finalLocationId}/customFields`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Accept': 'application/json'
+        }
+      });
+      if (cfRes.ok) {
+        const cfData = await cfRes.json();
+        remoteCustomFields = cfData.customFields || [];
+        console.log(`✅ Obtenidos ${remoteCustomFields.length} Custom Fields de la Location`);
+      } else {
+        const errText = await cfRes.text();
+        console.warn(`⚠️ No se pudieron cargar los Custom Fields de GHL. Status: ${cfRes.status}, Body: ${errText}`);
+      }
+    } catch (e) {
+      console.warn("⚠️ Error cargando Custom Fields remotos:", e.message);
+    }
+
+    // Helper para buscar ID exactamente por el field_key (Case-insensitive y robusto)
+    const findCfIdByKey = (possibleKeys) => {
+      for (const k of possibleKeys) {
+        const lowerK = k.toLowerCase();
+        const match = remoteCustomFields.find(cf => {
+          const remoteKey = (cf.fieldKey || "").replace(/^contact\./, "").replace(/^{{\s*contact\./, "").replace(/\s*}}$/, "").toLowerCase();
+          return remoteKey === lowerK || cf.fieldKey.toLowerCase() === lowerK;
+        });
+        if (match) return match.id;
+      }
+      return null;
+    };
+
+    // -- HELPERS DE FORMATEO "BONITO" (Espejo del frontend) --
+
+    // Manual comma formatter (toLocaleString no es confiable en Cloud Functions)
+    const addCommas = (n) => {
+      const parts = String(n).split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return parts.join('.');
+    };
+
+    const ghlBool = (v) => {
+      if (v === null || v === undefined || v === "" || v === "-") return "No";
+      const s = String(v).toLowerCase().trim();
+      const truthy = ["true", "si", "sí", "yes", "s", "y", "1", "es clean carfax"];
+      return truthy.includes(s) ? "Sí" : "No";
+    };
+
+    const fmtCur = (monto, moneda) => {
+      if (!monto) return "";
+      const val = Number(String(monto).replace(/[^0-9.-]+/g, ""));
+      if (isNaN(val) || val === 0) return "";
+      const formatted = addCommas(Math.round(val));
+      return (moneda === 'DOP' || moneda === 'RD$') ? `RD$ ${formatted} Pesos` : `US$ ${formatted} Dolares`;
+    };
+
+    const fmtMil = (m) => {
+      if (!m) return "";
+      const val = Number(String(m).replace(/[^0-9.-]+/g, ""));
+      if (isNaN(val)) return String(m);
+      const suffix = String(m).toLowerCase().includes('km') ? 'Km' : 'Millas';
+      return `${addCommas(Math.round(val))} ${suffix}`;
+    };
+
+    const fmtMot = (v) => {
+      const parts = [];
+      // 1. Cilindrada (CC / Displacement)
+      const ccRaw = v.engine_cc || v.cc || "";
+      if (ccRaw && ccRaw !== "-") {
+        let cc = String(ccRaw).replace(/\s*[Ll]$/, "").replace(/\s*[Cc][Cc]$/, "").trim();
+        // Si es un número entero (ej: "2"), agregar .0 para que quede "2.0"
+        const ccNum = parseFloat(cc);
+        if (!isNaN(ccNum) && !cc.includes('.')) {
+          cc = ccNum.toFixed(1);
+        }
+        parts.push(`${cc} L`);
+      }
+      // 2. Cilindros
+      const cylRaw = v.engine_cyl || v.cilindros || "";
+      if (cylRaw && cylRaw !== "-") {
+        const cyl = String(cylRaw).replace(/\s*[Cc][Ii][Ll][Ii]?[Nn]?[Dd]?[Rr]?[Oo]?[Ss]?/g, "").trim();
+        parts.push(`${cyl} Cilindros`);
+      }
+      // 3. Tipo / Turbo
+      const typeStr = String(v.engine_type || v.turbo || "").toLowerCase();
+      if (typeStr.includes("turbo") || v.turbo === true || v.turbo === "Sí" || v.turbo === "si") {
+        parts.push("Turbo");
+      }
+      return parts.join(', ');
+    };
+
+    const fmtAsi = (qty) => qty ? `${qty} Filas de asientos` : '';
+
+    const fmtCfx = (cf) => {
+      if (cf === true) return 'Es clean CarFax';
+      if (cf === false || cf === null || cf === undefined || cf === '' || cf === '-') return '-';
+      const s = String(cf).toLowerCase().trim();
+      if (s === 'clean' || s.includes('clean carfax') || s === 'si' || s === 'sí' || s === 'true' || s === '1' || s === 'yes' || s === 'es clean carfax') return 'Es clean CarFax';
+      return '-';
+    };
+
+    // Mapeo dinámico multi-cuenta: Relaciona los fieldKeys de GHL proporcionados por el usuario con el valor local
+    // El primer elemento de 'keys' será usado como fallback si no se encuentra el ID en GHL
+    // Helper to extract formatted values sent from frontend if available
+    const getFrontendCf = (cfKey) => {
+      const field = frontendCustomFields.find(cf => cf.key === cfKey || cf.id === cfKey);
+      return field && field.value ? String(field.value) : "";
+    };
+
+    // ── DETECTAR MONEDA ──
+    // Prioridad: financialData > vehicleData > default USD
+    const monedaVenta = fin.moneda_venta || fin.monedaVenta || (veh.price_dop > 0 ? 'DOP' : 'USD');
+    const monedaInicial = fin.moneda_inicial || fin.monedaInicial || monedaVenta;
+
+    // ── OBTENER RAW NUMBERS para formateo ──
+    const rawPrecio = fin.precio_venta || fin.precioFinal || veh.price || veh.precio || 0;
+    const rawInicial = fin.pago_inicial || fin.pago_financiar || fin.inicial || 0;
+    const rawMileage = veh.mileage || veh.kilometraje || veh.millaje || veh.millas || 0;
+
+    console.log(`[${VERSION}] 🔢 RAW VALUES => precio: ${rawPrecio} (${monedaVenta}), inicial: ${rawInicial} (${monedaInicial}), millaje: ${rawMileage}`);
+    console.log(`[${VERSION}] 🔢 FORMATTED => precio: ${fmtCur(rawPrecio, monedaVenta)}, inicial: ${fmtCur(rawInicial, monedaInicial)}, millaje: ${fmtMil(rawMileage)}`);
+    console.log(`[${VERSION}] 🔢 carfax raw: "${veh.carfax || veh.clean_carfax || ''}" => formatted: "${fmtCfx(veh.carfax || veh.clean_carfax)}"`);
+
+    const fieldsToInject = [
+      // Vehículo (Básico)
+      { keys: ["marca"], value: getFrontendCf('marca') || String(veh.make || veh.marca || "").toUpperCase() },
+      { keys: ["modelo"], value: getFrontendCf('modelo') || String(veh.model || veh.modelo || "").toUpperCase() },
+      { keys: ["ao", "año", "ano"], value: getFrontendCf('ano') || String(veh.year || veh.ano || "") },
+      { keys: ["color"], value: getFrontendCf('color') || String(veh.color || veh.exteriorColor || "").toUpperCase() },
+      { keys: ["edicin", "edicion", "edicion_version"], value: getFrontendCf('edicion') || String(veh.edition || veh.edicion_version || veh.trim || veh.edicion || "").toUpperCase() },
+      { keys: ["chasis", "chasis_vin", "vin"], value: getFrontendCf('chasis') || String(veh.vin || veh.chasis_vin || veh.chasis || "").toUpperCase() },
+
+      // ⬇️ SIEMPRE usar formatter backend para estos campos (no confiar en getFrontendCf)
+      { keys: ["millaje", "kilometraje"], value: fmtMil(rawMileage) },
+      { keys: ["tipo_de_vehculo", "tipo_vehiculo"], value: getFrontendCf('tipo') || String(veh.type || veh.bodyType || veh.tipo_vehiculo || "") },
+      { keys: ["condicion"], value: getFrontendCf('condicion') || String(veh.condition || veh.condicion || "") },
+      { keys: ["carfax", "clean_carfax"], value: fmtCfx(veh.carfax || veh.clean_carfax) },
+
+      // Mecánica
+      { keys: ["transmisin", "transmision"], value: getFrontendCf('transmision') || String(veh.transmission || veh.transmision || "") },
+      { keys: ["traccin", "traccion"], value: getFrontendCf('traccion') || String(veh.traction || veh.drivetrain || veh.traccion || "") },
+      { keys: ["tipo_de_combustible", "combustible"], value: getFrontendCf('combustible') || String(veh.fuel || veh.combustible || veh.fuelType || "") },
+      { keys: ["motor"], value: fmtMot(veh) },
+
+      // Equipamiento y Extras
+      { keys: ["interior"], value: getFrontendCf('interior') || String(veh.seat_material || veh.interior || veh.interiorMaterial || "") },
+      { keys: ["techo"], value: getFrontendCf('techo') || String(veh.roof_type || veh.techo || veh.roof || "") },
+      { keys: ["carplay", "apple_carplay", "apple_android"], value: ghlBool(getFrontendCf('carplay') || veh.carplay || veh.appleCarplay) },
+      { keys: ["camara", "camaa", "cámara", "camera"], value: ghlBool(getFrontendCf('camara') || veh.camera || veh.camara) },
+      { keys: ["sensores", "sensors"], value: ghlBool(getFrontendCf('sensores') || veh.sensors || veh.sensores) },
+      { keys: ["baul_electrico", "baul", "trunk", "power_trunk"], value: ghlBool(getFrontendCf('baul_electrico') || veh.trunk || veh.baul_electrico || veh.powerTrunk) },
+      { keys: ["cristales_electrico", "cristales_electricos", "vidrios", "windows"], value: ghlBool(getFrontendCf('cristales_electrico') || veh.electric_windows || veh.cristales_electricos || veh.cristales_electrico || veh.vidrios_electricos || veh.powerWindows) },
+      { keys: ["llave"], value: getFrontendCf('llave') || String(veh.key_type || veh.llave || "") },
+      { keys: ["filas_de_asientos", "filas_asientos"], value: getFrontendCf('filas_asientos') || fmtAsi(veh.seats || veh.filas_asientos) },
+
+      // ⬇️ Financiero: SIEMPRE usar formatter backend
+      { keys: ["precio", "precio_rd", "precio_venta"], value: fmtCur(rawPrecio, monedaVenta) },
+      { keys: ["inicial", "monto_a_financiar_rd", "pago_inicial"], value: fmtCur(rawInicial, monedaInicial) },
+      { keys: ["banco_o_financiera", "banco", "financiera"], value: getFrontendCf('banco_o_financiera') || String(fin.banco || "").toUpperCase() },
+
+      // Cliente Extra
+      { keys: ["a_que_quien_va_dirigida", "a_quien_va_dirigida"], value: getFrontendCf('a_quien_va_dirigida') || `${cleanContactData.firstName || ''} ${cleanContactData.lastName || ''}`.trim().toUpperCase() },
+      { keys: ["cdula", "cedula", "cédula"], value: getFrontendCf('cedula') || String(cedulaFromFrontend) },
+      { keys: ["placa"], value: getFrontendCf('placa') || String(veh.plate || veh.placa || "").toUpperCase() },
+      { keys: ["cilindros"], value: getFrontendCf('cilindros') || String(veh.cilindros || veh.engine_cyl || "") }
+    ];
+
+    // Construir el array final buscando dinámicamente los IDs en la cuenta de GHL actual (Multi-Tenant)
+    const customFieldsPayload = [];
+
+    fieldsToInject.forEach(field => {
+      const ghlId = findCfIdByKey(field.keys);
+      // Fallback: usar el primer elemento de keys como 'key' si no hay ID
+      const fallbackKey = field.keys[0];
+
+      if (field.value && field.value !== "undefined" && field.value !== "null" && String(field.value).trim() !== "") {
+        const val = String(field.value).trim();
+        if (ghlId) {
+          customFieldsPayload.push({ id: ghlId, value: val });
+        } else {
+          // Si no tenemos ID (ej. 401 Unauthorized en fetch cf), intentamos enviar por KEY
+          // Nota: Algunos endpoints de GHL aceptan key, otros solo ID. Enviamos ambos para máxima compatibilidad si es posible
+          console.log(`ℹ️ Usando fallback por KEY para campo: ${fallbackKey} -> ${val}`);
+          customFieldsPayload.push({ id: fallbackKey, value: val, key: fallbackKey });
+        }
+      }
+    });
+
+    if (customFieldsPayload.length > 0) {
+      console.log(`[${VERSION}] 📝 Enviando actualización de 30 Custom Fields a GHL para contacto ${contactId}:`, JSON.stringify(customFieldsPayload, null, 2));
+      try {
+        const updateContactRes = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Version': '2021-07-28'
+          },
+          body: JSON.stringify({ customFields: customFieldsPayload })
+        });
+        const updateResult = await updateContactRes.json();
+        if (!updateContactRes.ok) {
+          console.warn("⚠️ Error actualizando Custom Fields (no-bloqueante):", updateResult);
+        } else {
+          console.log(`✅ Custom Fields dinámicos actualizados para contacto ${contactId}`);
+        }
+      } catch (cfError) {
+        console.warn("⚠️ Error en actualización de Custom Fields:", cfError.message);
+      }
+    } else {
+      console.log("ℹ️ No se agregaron Custom Fields al payload (No se encontraron IDs coincidentes en GHL o los valores están vacíos).");
+    }
+
     // 3. Generar Documento desde Template (GHL V2 Proposals API)
-    const docRes = await fetch(`https://services.leadconnectorhq.com/proposals/document`, {
+    // Se requiere `userId` (quien envía el documento) y GHL rechaza el campo `name` en esta ruta.
+
+    let assignedUserId = "GHL_USER_ID"; // placeholder
+    try {
+      const usersRes = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${finalLocationId}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+          'Accept': 'application/json'
+        }
+      });
+      const usersData = await usersRes.json();
+      if (usersData.users && usersData.users.length > 0) {
+        assignedUserId = usersData.users[0].id;
+      } else {
+        console.warn("⚠️ No se encontraron usuarios válidos en GHL", usersData);
+      }
+    } catch (e) {
+      console.warn("⚠️ Error obteniendo userId", e.message);
+    }
+
+    console.log(`📤 Enviando documento via GHL para el Location ${finalLocationId}, User: ${assignedUserId}, Contact: ${contactId}, Template: ${templateId}`);
+
+    const docRes = await fetch(`https://services.leadconnectorhq.com/proposals/templates/send`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Version': '2021-07-28'
       },
       body: JSON.stringify({
         templateId: templateId,
         contactId: contactId,
         locationId: finalLocationId,
-        name: `Contrato - ${contactData.firstName || 'Cliente'} ${contactData.lastName || ''}`
+        userId: assignedUserId,
+        sendDocument: false // EVITA EL ENVÍO DE CORREO QUE CAUSA EL ERROR 40035
       })
     });
 

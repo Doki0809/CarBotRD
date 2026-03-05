@@ -1,39 +1,124 @@
 // src/ghl_integration/ghlService.js
 
 export const prepararPayloadGHL = (cliente, vehiculo, locationId) => {
+    // Helper para moneda con divisa textual
+    const formatCurrencyWithText = (monto, moneda) => {
+        if (monto === undefined || monto === null || monto === "") return "";
+        const val = Number(String(monto).replace(/[^0-9.-]+/g, ""));
+        if (isNaN(val) || val === 0) return "";
+        const formatted = val.toLocaleString('en-US');
+        if (moneda === 'DOP' || moneda === 'RD$') {
+            return `RD$ ${formatted} Pesos`;
+        } else {
+            // Asume USD por defecto
+            return `US$ ${formatted} Dolares`;
+        }
+    };
+
+    const formatMillaje = () => {
+        const m = vehiculo.mileage || vehiculo.kilometraje || vehiculo.millaje || vehiculo.millas;
+        if (!m) return "";
+        const val = Number(String(m).replace(/[^0-9.-]+/g, ""));
+        if (isNaN(val)) return String(m);
+        // Verificar si explícitamente era Km
+        if (String(m).toLowerCase().includes('km') || vehiculo.kilometraje) {
+            return `${val.toLocaleString('en-US')} Km`;
+        }
+        return `${val.toLocaleString('en-US')} Millas`;
+    };
+
+    // Helper para motor
+    const formatMotor = () => {
+        const parts = [];
+        // 1. Cilindrada
+        const ccRaw = vehiculo.engine_cc || vehiculo.cc || "";
+        if (ccRaw && ccRaw !== "-") {
+            const cc = String(ccRaw).toUpperCase().replace(/\s*L$/, "").replace(/\s*CC$/, "").trim();
+            parts.push(`${cc} L`);
+        }
+        // 2. Cilindros
+        const cylRaw = vehiculo.engine_cyl || vehiculo.cilindros || "";
+        if (cylRaw && cylRaw !== "-") {
+            const cyl = String(cylRaw).toUpperCase().replace(" CILINDROS", "").replace(" CIL", "").replace("CIL", "").trim();
+            parts.push(`${cyl} Cilindros`);
+        }
+        // 3. Tipo / Turbo
+        const typeStr = String(vehiculo.engine_type || vehiculo.turbo || vehiculo.motor || "").toLowerCase();
+        if (typeStr.includes("turbo") || vehiculo.turbo === true || vehiculo.turbo === "Sí") {
+            parts.push("Turbo");
+        }
+        return parts.join(', ');
+    };
+
+    // Helper para asientos
+    const formatAsientos = () => {
+        const qty = vehiculo.seats || vehiculo.filas_asientos || vehiculo.filas;
+        return qty ? `${qty} Filas de asientos` : '';
+    };
+
+    // Helper general para booleanos Sí/No
+    const formatBool = (v) => {
+        if (v === null || v === undefined || v === "" || v === "-") return "No";
+        const s = String(v).toLowerCase().trim();
+        const truthy = ["true", "si", "sí", "yes", "s", "y", "1", "es clean carfax"];
+        return truthy.includes(s) ? "Sí" : "No";
+    };
+
+    // Helper para carfax
+    const formatCarfax = () => {
+        const cf = String(vehiculo.carfax || vehiculo.clean_carfax || '').toLowerCase();
+        if (cf === 'clean' || cf.includes('clean carfax') || cf === 'si' || cf === 'true' || cf === '1') {
+            return 'Es clean CarFax';
+        }
+        return '-';
+    };
+
     const payload = {
         // Datos Estándar (No necesitan ID especial)
-        firstName: cliente.nombre || "Cliente",
-        lastName: cliente.apellido || "CarBot",
+        firstName: (cliente.nombre || "Cliente").toUpperCase(),
+        lastName: (cliente.apellido || "CarBot").toUpperCase(),
         locationId: locationId,
-        // CAMPOS PERSONALIZADOS (Mapeados según tus capturas)
+        // CAMPOS PERSONALIZADOS (Mapeados según etiquetas e IDs de GHL)
         customFields: [
-            // INFORMACIÓN PRINCIPAL
-            { id: "marca", field_value: vehiculo.marca || vehiculo.make || "" },
-            { id: "modelo", field_value: vehiculo.modelo || vehiculo.model || "" },
-            { id: "ano", field_value: vehiculo.ano || vehiculo.year || "" },
-            { id: "color", field_value: vehiculo.color || "" },
-            { id: "edicin", field_value: vehiculo.edicion || vehiculo.trim || "" },
-            { id: "chasis", field_value: vehiculo.chasis || vehiculo.vin || "" },
-            { id: "placa", field_value: vehiculo.placa || "" },
-            { id: "precio", field_value: String(cliente.precioFinal || vehiculo.precio || "") },
+            // 1. Información Básica y Vehículo
+            { id: "marca", key: "marca", value: (vehiculo.make || vehiculo.marca || "").toUpperCase() },
+            { id: "modelo", key: "modelo", value: (vehiculo.model || vehiculo.modelo || "").toUpperCase() },
+            { id: "ano", key: "ano", value: String(vehiculo.year || vehiculo.ano || "") },
+            { id: "color", key: "color", value: (vehiculo.color || vehiculo.exteriorColor || "").toUpperCase() },
+            { id: "edicion", key: "edicion", value: (vehiculo.trim || vehiculo.edition || vehiculo.edicion || "").toUpperCase() },
+            { id: "chasis", key: "chasis", value: (vehiculo.vin || vehiculo.chasis_vin || vehiculo.chasis || "").toUpperCase() },
+            { id: "kilometraje", key: "kilometraje", value: formatMillaje() },
+            { id: "tipo", key: "tipo", value: vehiculo.type || vehiculo.tipo_vehiculo || "" },
+            { id: "condicion", key: "condicion", value: vehiculo.condition || vehiculo.condicion || "" },
+            { id: "carfax", key: "carfax", value: formatCarfax() },
+            { id: "placa", key: "placa", value: (vehiculo.plate || vehiculo.placa || "").toUpperCase() },
 
-            // FICHA TÉCNICA Y MECÁNICA
-            { id: "tipo_de_vehculo", field_value: vehiculo.tipo_vehiculo || vehiculo.bodyType || "" },
-            { id: "millaje", field_value: String(vehiculo.millaje || vehiculo.mileage || "") },
-            { id: "combustible", field_value: vehiculo.combustible || vehiculo.fuelType || "" },
-            { id: "condicin", field_value: vehiculo.condicion || vehiculo.condition || "" },
-            { id: "traccin", field_value: vehiculo.traccion || vehiculo.driveTrain || "" },
-            { id: "transmisin", field_value: vehiculo.transmision || vehiculo.transmission || "" },
-            { id: "aspiracin", field_value: vehiculo.aspiracion || "" },
-            { id: "cilindros", field_value: String(vehiculo.cilindros || "") },
-            { id: "cilindrada", field_value: vehiculo.cilindrada || "" },
+            // 2. Mecánica y Técnica (Mapeo detallado solicitado)
+            { id: "transmision", key: "transmision", value: vehiculo.transmision || vehiculo.transmission || "" },
+            { id: "combustible", key: "combustible", value: vehiculo.combustible || vehiculo.fuel || "" },
+            { id: "motor", key: "motor", value: formatMotor() },
+            { id: "traccion", key: "traccion", value: vehiculo.traccion || vehiculo.traction || "" },
+            { id: "cilindros", key: "cilindros", value: String(vehiculo.cilindros || vehiculo.engine_cyl || "") },
 
-            // FINANZAS Y CLIENTE EXTRA
-            { id: "precio_de_cotizacin", field_value: String(cliente.precioFinal || "") },
-            { id: "a_quien_va_dirigido_banco", field_value: cliente.banco || "" },
-            { id: "cdula", field_value: cliente.cedula || "" },
-            { id: "inicial", field_value: String(cliente.inicial || "") }
+            // 3. Confort y Extras
+            { id: "filas_asientos", key: "filas_asientos", value: formatAsientos() },
+            { id: "interior", key: "interior", value: vehiculo.material_asientos || vehiculo.seat_material || "" },
+            { id: "techo", key: "techo", value: vehiculo.techo || vehiculo.roof_type || "" },
+            { id: "carplay", key: "carplay", value: formatBool(vehiculo.carplay) },
+            { id: "camara", key: "camara", value: formatBool(vehiculo.camara || vehiculo.camera) },
+            { id: "sensores", key: "sensores", value: formatBool(vehiculo.sensores || vehiculo.sensors) },
+            { id: "baul_electrico", key: "baul_electrico", value: formatBool(vehiculo.baul_electrico || vehiculo.trunk) },
+            { id: "cristales_electrico", key: "cristales_electrico", value: formatBool(vehiculo.vidrios_electricos || vehiculo.electric_windows) },
+            { id: "llave", key: "llave", value: vehiculo.llave || vehiculo.key_type || "" },
+
+            // 4. Financiamiento (CLAVES CONFIRMADAS)
+            { id: "precio", key: "precio", value: formatCurrencyWithText(cliente.precioFinal, cliente.monedaVenta) },
+            { id: "inicial", key: "inicial", value: formatCurrencyWithText(cliente.inicial, cliente.monedaInicial) },
+            { id: "banco_o_financiera", key: "banco_o_financiera", value: (cliente.banco || "").toUpperCase() },
+
+            // 5. Otros datos
+            { id: "a_quien_va_dirigida", key: "a_quien_va_dirigida", value: `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim().toUpperCase() },
+            { id: "cedula", key: "cedula", value: cliente.cedula || "" }
         ]
     };
 
@@ -58,9 +143,24 @@ export const generarContratoEnGHL = async (cliente, vehiculo, locationId, templa
         const response = await fetch('/api/ghl/generar-contrato', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contactData: payload, templateId: templateId, ghl_access_token: accessToken, dealerId: dealerId })
+            body: JSON.stringify({
+                contactData: payload,
+                templateId: templateId,
+                ghl_access_token: accessToken,
+                dealerId: dealerId,
+                vehicleData: vehiculo,
+                financialData: {
+                    precio_venta: cliente.precioFinal,
+                    moneda_venta: cliente.monedaVenta,
+                    pago_inicial: cliente.inicial,
+                    moneda_inicial: cliente.monedaInicial
+                }
+            })
         });
-        if (!response.ok) throw new Error("Error al comunicar con el backend");
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || "Error al comunicar con el backend");
+        }
         const data = await response.json();
         return data.documentUrl;
     } catch (error) {
