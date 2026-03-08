@@ -106,6 +106,13 @@ const slugify = (text) => {
     .replace(/^-+|-+$/g, "");
 };
 
+// Helper: generate a URL slug for a vehicle (e.g. "bmw-530e-blanco-2018")
+const vehicleSlugify = (marca, modelo, color, anio) => {
+  return [marca, modelo, color, anio].filter(Boolean).join(' ').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+};
+
 const capitalize = (val) => {
   if (!val || typeof val !== 'string') return val || "-";
   return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
@@ -114,31 +121,41 @@ const capitalize = (val) => {
 // 1. Función para Inteligencia Artificial (Inventario Dinámico)
 exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
   try {
-    // ── Friendly URL support: /inventario/:dealerSlug or /inventario/:dealerSlug/bot ──
+    // ── Friendly URL support ──
+    // /inventario/:slug          → HTML document (all vehicles)
+    // /inventario/:slug/bot      → JSON for GHL bot
+    // /inventario/:slug/catalogo → Visual catalog (all vehicles)
+    // /inventario/:slug/catalogo/:vehicleSlug → Vehicle detail page
     let dealerParam = req.query.dealerID || req.query.dealer || req.query.location_name;
     let autoJsonFormat = req.query.format === 'json';
+    let autoCatalogMode = false;
+    let vehicleSlugFromPath = null;
 
-    // Parse path: /inventario/dealer-slug/bot or /inventario/dealer-slug
     const pathParts = (req.path || '').split('/').filter(Boolean);
-    // When accessed via Firebase Hosting rewrite, path is like /inventario/slug/bot
-    // When accessed directly via Cloud Run, full path arrives
     if (pathParts.length >= 2 && pathParts[0] === 'inventario') {
-      const slug = pathParts[1]; // e.g. "duran-fernandez"
-      if (slug && slug !== 'bot') {
+      const slug = pathParts[1];
+      if (slug && slug !== 'bot' && slug !== 'catalogo') {
         dealerParam = dealerParam || slug;
       }
-      // Auto-set JSON format if path ends with /bot
-      if (pathParts[pathParts.length - 1] === 'bot') {
+
+      // /inventario/:slug/bot → JSON
+      if (pathParts.includes('bot')) {
         autoJsonFormat = true;
-        // If slug was 'bot' and there are only 2 parts, dealerParam stays from query
-        if (pathParts.length >= 3) {
-          dealerParam = dealerParam || pathParts[1];
+      }
+      // /inventario/:slug/catalogo → Catalog view
+      // /inventario/:slug/catalogo/:vehicleSlug → Vehicle detail
+      if (pathParts.includes('catalogo')) {
+        autoCatalogMode = true;
+        const catIdx = pathParts.indexOf('catalogo');
+        if (catIdx + 1 < pathParts.length) {
+          vehicleSlugFromPath = pathParts[catIdx + 1]; // e.g. "bmw-530e-blanco-2018"
         }
       }
     }
 
-    // Override format flag for downstream use
+    // Override query params for downstream use
     if (autoJsonFormat) req.query.format = 'json';
+    if (autoCatalogMode) req.query.view = 'catalog';
 
     if (!dealerParam) {
       return res.status(400).json({ error: "Falta el parámetro 'dealer' o el slug en la URL" });
@@ -239,7 +256,8 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             : `US$ ${Number(data.price || 0).toLocaleString()} Dólares`,
           carfax_status: (data.clean_carfax === "Sí" || data.clean_carfax === "Si" || data.clean_carfax === true || data.carfax === "Sí" || data.carfax === "Si") ? "Sí" : (data.clean_carfax === "No" || data.carfax === "No" || data.carfax === false) ? "No" : capitalize(data.clean_carfax || data.carfax),
           mileage_formatted: `${Number(data.mileage || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((data.mileage_unit || data.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
-          link_catalogo: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${doc.id}`,
+          link_catalogo: `https://carbotsystem.com/inventario/${slugify(dealerName)}/catalogo/${vehicleSlugify(data.make, data.model, data.color, data.year)}`,
+          link_catalogo_legacy: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${doc.id}`,
           // Add color formatted for details
           color_fmt: capitalize(data.color),
           transmision_fmt: capitalize(data.transmision || data.transmission),
@@ -398,7 +416,8 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 // Carfax: only show "Clean Carfax" if Sí, otherwise empty
                 carfax_status: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true || v.detalles?.clean_carfax === "Sí" || v.detalles?.clean_carfax === "Si") ? "Clean Carfax" : "",
                 mileage_formatted: `${Number(v.millas || v.detalles?.mileage || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
-                link_catalogo: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${v.id}&source=supabase`,
+                link_catalogo: `https://carbotsystem.com/inventario/${slugify(dealerName)}/catalogo/${vehicleSlugify(makeFromTitle, modelFromTitle, v.color, yearFromTitle)}`,
+                link_catalogo_legacy: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${v.id}&source=supabase`,
 
                 // Visual Details (fmt) — fallback to detalles when top-level is null
                 color_fmt: capitalize(v.color || v.detalles?.color),
@@ -510,15 +529,18 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         vidrios_electricos: v.vidrios_fmt || "-",
         material_interior: v.material_fmt || "-",
         link_fotos: v.has_images ? v.link_catalogo : null,
+        link_catalogo: v.link_catalogo || null,
         estado: "Disponible"
       }));
 
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      const dealerSlugForLinks = slugify(dealerName);
       return res.status(200).json({
         dealer: dealerName,
         total: flatInventory.length,
+        link_catalogo: `https://carbotsystem.com/inventario/${dealerSlugForLinks}/catalogo`,
         vehiculos: flatInventory
       });
     }
@@ -526,7 +548,15 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
     // 3. Formatear respuesta (JSON por defecto, HTML opcional)
     const isCatalogPath = req.path === '/catalogo' || req.query.view === 'catalog';
     const viewMode = isCatalogPath || req.query.view === 'human' || !req.headers.accept?.includes('application/json');
-    const vehicleId = req.query.vehicleID;
+    let vehicleId = req.query.vehicleID;
+    // Resolve vehicleSlug from friendly URL path to actual vehicleId
+    if (!vehicleId && vehicleSlugFromPath && inventory.length > 0) {
+      const matchedVehicle = inventory.find(v => {
+        const vSlug = vehicleSlugify(v.marca, v.modelo, v.color_fmt, v.anio_num);
+        return vSlug === vehicleSlugFromPath;
+      });
+      if (matchedVehicle) vehicleId = matchedVehicle.id;
+    }
 
     // --- HELPERS PARA SMART RELATED ---
     const TASA_CAMBIO = 60;
