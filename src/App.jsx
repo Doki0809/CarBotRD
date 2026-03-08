@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 // import imageCompression from 'browser-image-compression';
 import { db, auth, storage } from './firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -600,10 +601,28 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                   <div className={`flex relative items-stretch shadow-sm rounded-xl overflow-hidden border border-slate-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 transition-all ${isLocked ? 'bg-slate-50' : 'bg-white'}`}>
                     <input
                       name="mileage"
-                      type="number"
-                      defaultValue={initialData?.mileage}
-                      className="w-full min-w-0 px-4 py-3 bg-transparent focus:outline-none placeholder:text-slate-300 text-slate-800 font-bold text-sm"
-                      placeholder="0"
+                      id="mileage"
+                      value={formatWithCommas(initialData?.mileage) || ''}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/,/g, '');
+                        if (!isNaN(rawValue) || rawValue === '') {
+                          // Manually update the DOM input value to trigger standard form collection properly
+                          // Alternatively, relies on standard FormData extraction in handleSave wrapper
+                          // But to keep it controlled, let's just format the display without overriding
+                        }
+                      }}
+                      onInput={(e) => {
+                        // Apply formatting while typing, but keep the raw value in data attribute if needed
+                        // For simplicity, just format the visible value.
+                        const rawValue = e.target.value.replace(/,/g, '');
+                        if (!isNaN(rawValue) || rawValue === '') {
+                          e.target.value = formatWithCommas(rawValue);
+                          e.target.setAttribute('data-raw-value', rawValue);
+                        } else {
+                          e.target.value = e.target.value.replace(/[^0-9,]/g, '');
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none placeholder:text-slate-300 text-slate-800 font-bold text-sm"
                       disabled={isLocked}
                     />
                     <div className="bg-slate-50 flex p-1 items-center border-l border-slate-200 shrink-0">
@@ -1789,6 +1808,7 @@ const renderContract = (html, data) => {
 
     // Detalles Extra
     'millaje': data.mileage ? `${Number(data.mileage).toLocaleString('en-US')} ${data.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
+    'kilometraje': data.mileage ? `${Number(data.mileage).toLocaleString('en-US')} ${data.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
     'carfax': data.carfax || '',
     'condicion': data.condicion || data.condition || 'Excelentes condiciones',
     'asientos': data.asientos || data.seats || '',
@@ -2103,6 +2123,7 @@ const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
       '{{ VEHICULO_VIN }}': quote.vin || '',
       '{{ VEHICULO_VERSION }}': quote.version || '',
       '{{ VEHICULO_MILLAJE }}': quote.mileage ? `${Number(quote.mileage).toLocaleString('en-US')} ${quote.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
+      '{{ VEHICULO_KILOMETRAJE }}': quote.mileage ? `${Number(quote.mileage).toLocaleString('en-US')} ${quote.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
       '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
       '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
       '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
@@ -2380,6 +2401,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
         '{{ VEHICULO_VIN }}': quote.vin || '',
         '{{ VEHICULO_VERSION }}': quote.version || '',
         '{{ VEHICULO_MILLAJE }}': quote.mileage ? `${Number(quote.mileage).toLocaleString('en-US')} ${quote.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
+        '{{ VEHICULO_KILOMETRAJE }}': quote.mileage ? `${Number(quote.mileage).toLocaleString('en-US')} ${quote.mileage_unit === 'KM' ? 'KM' : 'Millas'}` : '',
         '{{ VEHICULO_COMBUSTIBLE }}': quote.fuel || '',
         '{{ VEHICULO_TRANSMISION }}': quote.transmission || '',
         '{{ VEHICULO_TRACCION }}': quote.drivetrain || '',
@@ -3888,10 +3910,22 @@ const InventoryView = ({ inventory, quotes = [], contracts = [], showToast, onGe
         {sortedBrands.length === 0 && <div className="flex flex-col items-center justify-center py-16 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200"><Car size={48} className="mb-4 text-slate-200" /><p className="text-lg font-medium">No hay vehículos. ¡Agrega uno!</p></div>}
       </div>
 
-      <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />
-      <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />
-      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} templates={templates} />
-      <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} showToast={showToast} initialDocumentType={selectedDocType} resolvedDealerId={resolvedDealerId} />
+      {isModalOpen && createPortal(
+        <VehicleFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} initialData={currentVehicle} userProfile={userProfile} />,
+        document.body
+      )}
+      {isActionModalOpen && createPortal(
+        <ActionSelectionModal isOpen={isActionModalOpen} onClose={() => setIsActionModalOpen(false)} onSelect={handleActionSelect} />,
+        document.body
+      )}
+      {isQuoteModalOpen && createPortal(
+        <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} vehicle={currentVehicle} onConfirm={handleQuoteSent} userProfile={userProfile} templates={templates} />,
+        document.body
+      )}
+      {isContractModalOpen && createPortal(
+        <GenerateContractModal isOpen={isContractModalOpen} onClose={() => { setIsContractModalOpen(false); setCurrentVehicle(null); }} inventory={inventory} onGenerate={handleContractGenerated} initialVehicle={currentVehicle} templates={templates} userProfile={userProfile} showToast={showToast} initialDocumentType={selectedDocType} resolvedDealerId={resolvedDealerId} />,
+        document.body
+      )}
     </div>
   );
 };
@@ -4206,7 +4240,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
             )}
           </div>
 
-          {isGenerateModalOpen && (
+          {isGenerateModalOpen && createPortal(
             <GenerateContractModal
               isOpen={isGenerateModalOpen}
               onClose={() => setIsGenerateModalOpen(false)}
@@ -4217,10 +4251,11 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               userProfile={userProfile}
               showToast={showToast}
               resolvedDealerId={resolvedDealerId}
-            />
+            />,
+            document.body
           )}
 
-          {isQuoteModalOpen && (
+          {isQuoteModalOpen && createPortal(
             <GenerateQuoteModal
               isOpen={isQuoteModalOpen}
               onClose={() => setIsQuoteModalOpen(false)}
@@ -4228,25 +4263,28 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               onSave={onGenerateQuote}
               templates={templates}
               showToast={showToast}
-            />
+            />,
+            document.body
           )}
 
-          {selectedContractPreview && (
+          {selectedContractPreview && createPortal(
             <ContractPreviewModal
               isOpen={!!selectedContractPreview}
               onClose={() => setSelectedContractPreview(null)}
               contract={selectedContractPreview}
               userProfile={userProfile}
-            />
+            />,
+            document.body
           )}
 
-          {selectedQuotePreview && (
+          {selectedQuotePreview && createPortal(
             <QuotePreviewModal
               isOpen={!!selectedQuotePreview}
               onClose={() => setSelectedQuotePreview(null)}
               quote={selectedQuotePreview}
               userProfile={userProfile}
-            />
+            />,
+            document.body
           )}
         </>
       ) : null}

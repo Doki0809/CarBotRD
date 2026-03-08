@@ -893,8 +893,13 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                   <div className="flex bg-slate-50 border-2 border-slate-50 rounded-2xl overflow-hidden focus-within:bg-white focus-within:border-red-500/20 focus-within:ring-4 focus-within:ring-red-500/5 transition-all outline-none">
                     <input
                       name="mileage"
-                      value={formData.mileage}
-                      onChange={handleChange}
+                      value={formatWithCommas(formData.mileage) || ''}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/,/g, '');
+                        if (!isNaN(rawValue) || rawValue === '') {
+                          handleChange({ target: { name: 'mileage', value: rawValue } });
+                        }
+                      }}
                       className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none"
                     />
                     <div className="bg-slate-100 flex p-1 items-center border-l border-slate-200 shrink-0">

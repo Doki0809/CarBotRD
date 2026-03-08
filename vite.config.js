@@ -5,4 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://carbot-5d709.web.app',
+        changeOrigin: true,
+      }
+    }
+  }
 })

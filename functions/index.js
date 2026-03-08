@@ -2807,11 +2807,20 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
       return (moneda === 'DOP' || moneda === 'RD$') ? `RD$ ${formatted} Pesos` : `US$ ${formatted} Dolares`;
     };
 
-    const fmtMil = (m) => {
+    const fmtMil = (m, veh) => {
       if (!m) return "";
       const val = Number(String(m).replace(/[^0-9.-]+/g, ""));
       if (isNaN(val)) return String(m);
-      const suffix = String(m).toLowerCase().includes('km') ? 'Km' : 'Millas';
+
+      let suffix = 'Millas';
+      if (
+        String(m).toLowerCase().includes('km') ||
+        (veh && veh.kilometraje) ||
+        (veh && veh.mileage_unit && String(veh.mileage_unit).toUpperCase() === 'KM') ||
+        (veh && veh.unit && String(veh.unit).toUpperCase() === 'KM')
+      ) {
+        suffix = 'Km';
+      }
       return `${addCommas(Math.round(val))} ${suffix}`;
     };
 
@@ -2871,7 +2880,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
     const rawMileage = veh.mileage || veh.kilometraje || veh.millaje || veh.millas || 0;
 
     console.log(`[${VERSION}] 🔢 RAW VALUES => precio: ${rawPrecio} (${monedaVenta}), inicial: ${rawInicial} (${monedaInicial}), millaje: ${rawMileage}`);
-    console.log(`[${VERSION}] 🔢 FORMATTED => precio: ${fmtCur(rawPrecio, monedaVenta)}, inicial: ${fmtCur(rawInicial, monedaInicial)}, millaje: ${fmtMil(rawMileage)}`);
+    console.log(`[${VERSION}] 🔢 FORMATTED => precio: ${fmtCur(rawPrecio, monedaVenta)}, inicial: ${fmtCur(rawInicial, monedaInicial)}, millaje: ${fmtMil(rawMileage, veh)}`);
     console.log(`[${VERSION}] 🔢 carfax raw: "${veh.carfax || veh.clean_carfax || ''}" => formatted: "${fmtCfx(veh.carfax || veh.clean_carfax)}"`);
 
     const fieldsToInject = [
@@ -2884,7 +2893,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
       { keys: ["chasis", "chasis_vin", "vin"], value: getFrontendCf('chasis') || String(veh.vin || veh.chasis_vin || veh.chasis || "").toUpperCase() },
 
       // ⬇️ SIEMPRE usar formatter backend para estos campos (no confiar en getFrontendCf)
-      { keys: ["millaje", "kilometraje"], value: fmtMil(rawMileage) },
+      { keys: ["millaje", "kilometraje"], value: fmtMil(rawMileage, veh) },
       { keys: ["tipo_de_vehculo", "tipo_vehiculo"], value: getFrontendCf('tipo') || String(veh.type || veh.bodyType || veh.tipo_vehiculo || "") },
       { keys: ["condicion"], value: getFrontendCf('condicion') || String(veh.condition || veh.condicion || "") },
       { keys: ["carfax", "clean_carfax"], value: fmtCfx(veh.carfax || veh.clean_carfax) },
