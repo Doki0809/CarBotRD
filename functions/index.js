@@ -528,8 +528,7 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         asientos: v.asientos_fmt || "-",
         vidrios_electricos: v.vidrios_fmt || "-",
         material_interior: v.material_fmt || "-",
-        link_fotos: v.has_images ? v.link_catalogo : null,
-        link_catalogo: v.link_catalogo || null,
+        link_fotos: v.link_catalogo || null,
         estado: "Disponible"
       }));
 
