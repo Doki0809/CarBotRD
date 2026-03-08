@@ -286,28 +286,28 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-[95%] max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="rounded-[32px] bg-white/95 backdrop-blur-md border-0 shadow-2xl overflow-hidden">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-slate-800">Seleccionar Acción</h3>
-            <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+        <Card className="rounded-[32px] bg-white border-0 shadow-2xl overflow-hidden p-2">
+          <div className="flex justify-between items-center mb-4 mt-2 px-4">
+            <h3 className="text-xl font-black tracking-tight text-slate-800 text-center w-full ml-6">Herramientas & Enlaces</h3>
+            <button onClick={onClose} className="p-1"><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
-          <div className="grid gap-4">
-            <button onClick={() => onSelect('quote')} className="flex items-center p-5 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 group-hover:bg-red-100 transition-colors"></div>
+          <div className="grid gap-4 px-2 pb-4">
+            <button onClick={() => onSelect('quote')} className="flex flex-col items-center justify-center p-6 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-100 transition-colors"></div>
               <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10"><Send size={24} /></div>
-              <div className="ml-5 text-left relative z-10">
+              <div className="mt-4 text-center relative z-10">
                 <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Cotización</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviar ficha técnica y precio</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enviar ficha técnica y precio</p>
               </div>
             </button>
-            <button onClick={() => onSelect('contract')} className="flex items-center p-5 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-full -mr-12 -mt-12 group-hover:bg-red-100 transition-colors"></div>
+            <button onClick={() => onSelect('contract')} className="flex flex-col items-center justify-center p-6 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-100 transition-colors"></div>
               <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10"><FilePlus size={24} /></div>
-              <div className="ml-5 text-left relative z-10">
+              <div className="mt-4 text-center relative z-10">
                 <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Contrato</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generar documento legal</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Generar documento legal</p>
               </div>
             </button>
           </div>
@@ -547,7 +547,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
   const isLocked = initialData?.status === 'sold';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-full max-w-5xl animate-in zoom-in-95 duration-200 h-[100dvh] sm:h-[92vh] flex flex-col bg-white rounded-none sm:rounded-[24px] overflow-hidden shadow-2xl ring-1 ring-black/5">
 
         {/* HEADER */}
@@ -990,7 +990,7 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, template
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-md animate-in zoom-in-95 duration-200">
         <Card className="h-full sm:h-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-4">
@@ -1133,7 +1133,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-5xl animate-in zoom-in-95 duration-200">
         <Card className="h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-none sm:rounded-[24px]">
           <div className="flex justify-between items-center mb-6">
@@ -1516,7 +1516,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200 relative">
         {/* LOADING OVERLAY — Estilo Premium */}
         {loading && (
@@ -2286,7 +2286,7 @@ const ContractPreviewModal = ({ isOpen, onClose, contract, userProfile }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-full max-w-4xl h-[100dvh] sm:h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
         {/* Replaced Card with simple div to ensure full height scaling */}
         <div className="flex flex-col h-full bg-slate-50 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden">
@@ -2564,7 +2564,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 transition-opacity duration-300">
       <div className="w-full max-w-4xl h-[100dvh] sm:h-[90vh] animate-in zoom-in-95 duration-200 flex flex-col">
         <div className="flex flex-col h-full bg-slate-50 rounded-none sm:rounded-2xl shadow-2xl overflow-hidden">
           <div className="flex justify-between items-center px-4 py-3 border-b bg-white sm:rounded-t-2xl shrink-0 safe-top">
@@ -2864,7 +2864,7 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar", isDestructive = false }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 animate-in fade-in duration-300">
       <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-[400px] relative overflow-hidden scale-100 animate-in zoom-in-95 duration-300 border-none p-10 flex flex-col items-center text-center">
 
         {/* Logo Section */}
