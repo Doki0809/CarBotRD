@@ -3236,10 +3236,16 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                     color: 'text-purple-500',
                     bg: 'bg-purple-100',
                     action: () => {
-                      const catLinkDealerId = userProfile?.supabaseDealerId || userProfile?.dealerId || 'default';
-                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/?dealer=${encodeURIComponent(catLinkDealerId)}`;
-                      navigator.clipboard.writeText(link);
-                      showToast("Enlace del Bot copiado al portapapeles");
+                      const dealerName = userProfile?.dealerName || 'default';
+                      let s = dealerName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                      const normalized = dealerName.toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                      if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
+
+                      const linkJson = `https://inventarioia-gzhz2ynksa-uc.a.run.app/inventario/${s}/bot`;
+                      const linkCatalogo = `https://carbotsystem.com/inventario/${s}/catalogo`;
+
+                      navigator.clipboard.writeText(`Enlace JSON: ${linkJson}\nEnlace Catálogo: ${linkCatalogo}`);
+                      showToast("Enlaces de Bot y Catálogo copiados al portapapeles");
                     }
                   },
                   {
@@ -3271,8 +3277,12 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                     color: 'text-orange-500',
                     bg: 'bg-orange-100',
                     action: () => {
-                      const catLinkDealerId = userProfile?.supabaseDealerId || userProfile?.dealerId || 'default';
-                      const link = `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${encodeURIComponent(catLinkDealerId)}`;
+                      const dealerName = userProfile?.dealerName || 'default';
+                      let s = dealerName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                      const normalized = dealerName.toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                      if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
+
+                      const link = `https://carbotsystem.com/inventario/${s}/catalogo`;
                       navigator.clipboard.writeText(link);
                       showToast("Enlace del Catálogo copiado al portapapeles");
                     }
@@ -5066,7 +5076,7 @@ export default function CarbotApp() {
             try {
               const { data: supaUser, error: supaErr } = await supabase
                 .from('usuarios')
-                .select('dealer_id, avatar_url, role_en_ghl, phone, nombre_dealer')
+                .select('dealer_id, avatar_url, role_en_ghl, phone, nombre_dealer, nombre')
                 .eq('correo', emailLower)
                 .maybeSingle();
 
@@ -5074,6 +5084,12 @@ export default function CarbotApp() {
                 profileData.avatar_url = supaUser.avatar_url || profileData.avatar_url || '';
                 profileData.ghl_role = supaUser.role_en_ghl || profileData.role || 'Admin';
                 profileData.phone = supaUser.phone || '';
+
+                // Load real name if currently using email prefix fallback
+                const emailPrefix = emailLower.split('@')[0];
+                if (supaUser.nombre && (!profileData.name || profileData.name === emailPrefix || profileData.name === 'Usuario GHL')) {
+                  profileData.name = supaUser.nombre;
+                }
 
                 // MULTI-TENANT FIX:
                 // Only trust supaUser.dealer_id if we are NOT in an iframe with a forced urlLocationId
