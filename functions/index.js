@@ -114,10 +114,34 @@ const capitalize = (val) => {
 // 1. Función para Inteligencia Artificial (Inventario Dinámico)
 exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
   try {
-    const dealerParam = req.query.dealerID || req.query.dealer || req.query.location_name;
+    // ── Friendly URL support: /inventario/:dealerSlug or /inventario/:dealerSlug/bot ──
+    let dealerParam = req.query.dealerID || req.query.dealer || req.query.location_name;
+    let autoJsonFormat = req.query.format === 'json';
+
+    // Parse path: /inventario/dealer-slug/bot or /inventario/dealer-slug
+    const pathParts = (req.path || '').split('/').filter(Boolean);
+    // When accessed via Firebase Hosting rewrite, path is like /inventario/slug/bot
+    // When accessed directly via Cloud Run, full path arrives
+    if (pathParts.length >= 2 && pathParts[0] === 'inventario') {
+      const slug = pathParts[1]; // e.g. "duran-fernandez"
+      if (slug && slug !== 'bot') {
+        dealerParam = dealerParam || slug;
+      }
+      // Auto-set JSON format if path ends with /bot
+      if (pathParts[pathParts.length - 1] === 'bot') {
+        autoJsonFormat = true;
+        // If slug was 'bot' and there are only 2 parts, dealerParam stays from query
+        if (pathParts.length >= 3) {
+          dealerParam = dealerParam || pathParts[1];
+        }
+      }
+    }
+
+    // Override format flag for downstream use
+    if (autoJsonFormat) req.query.format = 'json';
 
     if (!dealerParam) {
-      return res.status(400).json({ error: "Falta el parámetro 'dealerID'" });
+      return res.status(400).json({ error: "Falta el parámetro 'dealer' o el slug en la URL" });
     }
 
     console.log(`🤖 IA Request para: ${dealerParam}`);
@@ -133,6 +157,7 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
       // B. Búsqueda exhaustiva en la colección Dealers
       const dealersSnap = await db.collection("Dealers").get();
       dealersSnap.forEach(doc => {
+        if (matchedDealerId) return; // Ya encontrado
         const data = doc.data();
         const paramLower = dealerParam.toLowerCase();
 
@@ -148,7 +173,24 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         else if (data.nombre && normalizeText(data.nombre) === normalizeText(dealerParam)) {
           matchedDealerId = doc.id;
         }
+        // Coincidencia por slug generado del nombre (para friendly URLs)
+        else if (data.nombre && slugify(data.nombre) === paramLower) {
+          matchedDealerId = doc.id;
+        }
       });
+    }
+
+    // C. Fallback: buscar en Supabase por slug del nombre si Firestore no encontró nada
+    if (!matchedDealerId) {
+      try {
+        const { data: sbDealers } = await supabase.from('dealers').select('id, nombre');
+        if (sbDealers) {
+          const match = sbDealers.find(d => d.nombre && slugify(d.nombre) === dealerParam.toLowerCase());
+          if (match) matchedDealerId = match.id;
+        }
+      } catch (e) {
+        console.warn("⚠️ Supabase slug lookup failed:", e.message);
+      }
     }
 
     if (!matchedDealerId) {
