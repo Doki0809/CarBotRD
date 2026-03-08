@@ -163,7 +163,7 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
     // Obtener datos del Dealer para el título y branding
     const dealerDocFinal = await db.collection("Dealers").doc(matchedDealerId).get();
     const dealerData = dealerDocFinal.exists ? dealerDocFinal.data() : {};
-    const dealerName = dealerData.nombre || dealerData.display_name || matchedDealerId;
+    let dealerName = dealerData.nombre || dealerData.display_name || matchedDealerId;
     const dealerLinkParam = dealerData.slug || matchedDealerId; // Reliable param for links
 
     // --- DEALER LOGO: Pull from Supabase dealers table ---
@@ -299,10 +299,14 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
 
     if (dealerUuid) {
       try {
-        // Fetch dealer logo from Supabase if not already found in Firestore
-        if (!logoUrl) {
-          const { data: sbDealer } = await supabase.from('dealers').select('logo_url').eq('id', dealerUuid).single();
-          if (sbDealer?.logo_url) logoUrl = sbDealer.logo_url;
+        // Fetch dealer info from Supabase (logo + nombre fallback)
+        const { data: sbDealer } = await supabase.from('dealers').select('logo_url, nombre').eq('id', dealerUuid).single();
+        if (sbDealer) {
+          if (!logoUrl && sbDealer.logo_url) logoUrl = sbDealer.logo_url;
+          // Usar nombre de Supabase si Firestore tiene un nombre genérico o es el ID crudo
+          if (sbDealer.nombre && (!dealerName || dealerName === matchedDealerId || dealerName.toLowerCase() === 'mi dealer' || dealerName.toLowerCase() === 'dealer')) {
+            dealerName = sbDealer.nombre;
+          }
         }
         console.log(`📡 Consultando Supabase para Dealer UUID: ${dealerUuid}`);
         const { data: supabaseVehicles, error: sbError } = await supabase
