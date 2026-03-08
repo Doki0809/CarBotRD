@@ -445,6 +445,7 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         año: v.anio_num || 0,
         color: v.color_fmt || "-",
         edicion: v.edicion || "-",
+        chasis: v.vin_fmt || "-",
         precio: v.precio || "-",
         inicial: v.inicial_fmt || "-",
         millaje: v.mileage_formatted || "-",
@@ -455,10 +456,14 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         carfax: v.carfax_status || "-",
         techo: v.techo_fmt || "-",
         llave: v.llave_fmt || "-",
+        baul_electrico: v.baul_fmt || "-",
         camara: v.camera_fmt || "-",
+        sensores: v.sensores_fmt || "-",
         carplay: v.carplay_fmt || "-",
         asientos: v.asientos_fmt || "-",
+        vidrios_electricos: v.vidrios_fmt || "-",
         material_interior: v.material_fmt || "-",
+        link_fotos: v.has_images ? v.link_catalogo : null,
         estado: "Disponible"
       }));
 
