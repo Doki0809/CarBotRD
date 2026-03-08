@@ -3241,7 +3241,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                       const normalized = dealerName.toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                       if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
 
-                      const linkJson = `https://inventarioia-gzhz2ynksa-uc.a.run.app/inventario/${s}/bot`;
+                      const linkJson = `https://carbotsystem.com/inventario/${s}/bot`;
                       const linkCatalogo = `https://carbotsystem.com/inventario/${s}/catalogo`;
 
                       navigator.clipboard.writeText(`Enlace JSON: ${linkJson}\nEnlace Catálogo: ${linkCatalogo}`);

@@ -5,6 +5,10 @@
             "destination": "/api/$1"
         },
         {
+            "source": "/inventario/:slug/bot",
+            "destination": "https://inventarioia-gzhz2ynksa-uc.a.run.app/inventario/:slug/bot"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }
