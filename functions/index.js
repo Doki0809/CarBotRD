@@ -436,6 +436,42 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
       }
     }
 
+    // ── FORMAT=JSON: Respuesta plana para GHL Bot / Knowledge Base ──
+    if (req.query.format === 'json') {
+      const sortedForJson = [...inventory].sort((a, b) => (a.marca || "").localeCompare(b.marca || ""));
+      const flatInventory = sortedForJson.map(v => ({
+        marca: v.marca || "-",
+        modelo: v.modelo || "-",
+        año: v.anio_num || 0,
+        color: v.color_fmt || "-",
+        edicion: v.edicion || "-",
+        precio: v.precio || "-",
+        inicial: v.inicial_fmt || "-",
+        millaje: v.mileage_formatted || "-",
+        transmision: v.transmision_fmt || "-",
+        traccion: v.traccion_fmt || "-",
+        motor: v.motor_fmt || "-",
+        combustible: v.combustible_fmt || "-",
+        carfax: v.carfax_status || "-",
+        techo: v.techo_fmt || "-",
+        llave: v.llave_fmt || "-",
+        camara: v.camera_fmt || "-",
+        carplay: v.carplay_fmt || "-",
+        asientos: v.asientos_fmt || "-",
+        material_interior: v.material_fmt || "-",
+        estado: "Disponible"
+      }));
+
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      return res.status(200).json({
+        dealer: dealerName,
+        total: flatInventory.length,
+        vehiculos: flatInventory
+      });
+    }
+
     // 3. Formatear respuesta (JSON por defecto, HTML opcional)
     const isCatalogPath = req.path === '/catalogo' || req.query.view === 'catalog';
     const viewMode = isCatalogPath || req.query.view === 'human' || !req.headers.accept?.includes('application/json');
