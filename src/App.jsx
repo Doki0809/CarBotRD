@@ -3242,10 +3242,9 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                       if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
 
                       const linkJson = `https://carbotsystem.com/inventario/${s}/bot`;
-                      const linkCatalogo = `https://carbotsystem.com/inventario/${s}/catalogo`;
 
-                      navigator.clipboard.writeText(`Enlace JSON: ${linkJson}\nEnlace Catálogo: ${linkCatalogo}`);
-                      showToast("Enlaces de Bot y Catálogo copiados al portapapeles");
+                      navigator.clipboard.writeText(linkJson);
+                      showToast("Enlace del Bot JSON copiado al portapapeles");
                     }
                   },
                   {
@@ -4980,8 +4979,8 @@ export default function CarbotApp() {
               email: emailLower,
               dealerId: stableDealerId,
               dealerName: cleanDisplayDealerName,
-              jobTitle: 'Admin',
-              role: 'Admin',
+              jobTitle: emailLower === 'jeancarlosgf13@gmail.com' ? 'SuperAdmin' : 'Asesor',
+              role: emailLower === 'jeancarlosgf13@gmail.com' ? 'SuperAdmin' : 'Asesor',
               uid: auth.currentUser?.uid || null,
               createdAt: new Date().toISOString(),
               ghlLocationId: urlLocationId || '',
