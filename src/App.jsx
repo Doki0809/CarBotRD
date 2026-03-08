@@ -2898,7 +2898,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
 
 
 // --- SETTINGS VIEW ---
-const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDisconnectGhl }) => {
+const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDisconnectGhl, onShowDealerSwitcher, isSuperAdmin }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: userProfile?.name || '',
@@ -3229,7 +3229,14 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Herramientas</span>
                 </div>
 
-                {[
+                {([
+                  ...(isSuperAdmin ? [{
+                    title: 'Cambiar de Cuenta',
+                    icon: RefreshCw,
+                    color: 'text-red-600',
+                    bg: 'bg-red-100',
+                    action: onShowDealerSwitcher
+                  }] : []),
                   {
                     title: 'Bot Carbot',
                     icon: Sparkles,
@@ -3307,7 +3314,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                       <ChevronRight size={16} className="text-slate-300" />
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
 
             </div> {/* End Column 2 */}
@@ -4552,6 +4559,68 @@ const normalizeStringForId = (str) => {
 };
 
 
+const DealerSwitcherModal = ({ isOpen, onClose, dealers, onSelect }) => {
+  if (!isOpen) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100"
+      >
+        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Seleccionar Cuenta</h2>
+            <p className="text-slate-500 text-sm font-bold mt-1">Elige el dealer para esta sesión</p>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-white rounded-2xl transition-colors text-slate-400">
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="p-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+          <div className="grid gap-3">
+            {dealers.map((dealer) => (
+              <button
+                key={dealer.id}
+                onClick={() => onSelect(dealer)}
+                className="group flex items-center gap-4 p-4 rounded-3xl border-2 border-transparent hover:border-red-500/20 hover:bg-red-50/30 transition-all text-left active:scale-[0.98]"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden p-2 shadow-sm group-hover:shadow-md transition-shadow">
+                  {dealer.logo_url ? (
+                    <img src={dealer.logo_url} alt={dealer.nombre} className="max-w-full max-h-full object-contain" />
+                  ) : (
+                    <Building2 className="text-slate-300" size={28} />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="text-slate-800 font-black text-lg group-hover:text-red-600 transition-colors uppercase leading-tight">
+                    {dealer.nombre}
+                  </div>
+                  <div className="text-slate-400 text-xs font-bold mt-1 tracking-wider uppercase">
+                    ID: {dealer.id_busqueda || dealer.id.split('-')[0]}
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-red-500 group-hover:text-white transition-all">
+                  <ArrowRight size={20} />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50/50 border-t border-slate-100">
+          <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Acceso de Super Administrador • CarBot System
+          </p>
+        </div>
+      </motion.div>
+    </div>,
+    document.body
+  );
+};
+
+
 export default function CarbotApp() {
   // --- 0. DETECCIÓN SÍNCRONA DE PARÁMETROS GHL ---
   // --- 0. DETECCIÓN SÍNCRONA DE PARÁMETROS GHL & ROUTING ---
@@ -4619,6 +4688,9 @@ export default function CarbotApp() {
 
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [showDealerSwitcher, setShowDealerSwitcher] = useState(false);
+  const [allDealers, setAllDealers] = useState([]);
 
   const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -4767,6 +4839,17 @@ export default function CarbotApp() {
     return () => subscription.unsubscribe();
   }, [isAutoLogin, urlUserEmail, isStoreRoute, urlLocationId, urlLocationName]);
 
+  // --- 1.c FETCH ALL DEALERS FOR SUPERADMIN ---
+  useEffect(() => {
+    if (isSuperAdmin) {
+      const fetchAllDealers = async () => {
+        const { data } = await supabase.from('dealers').select('*').order('nombre', { ascending: true });
+        if (data) setAllDealers(data);
+      };
+      fetchAllDealers();
+    }
+  }, [isSuperAdmin]);
+
   // --- AUTO-SELECT VEHICLE FROM URL ---
   useEffect(() => {
     if (vehicleIdFromPath && inventory.length > 0 && !selectedVehicle) {
@@ -4859,8 +4942,11 @@ export default function CarbotApp() {
         try {
           const emailLower = currentUserEmail.toLowerCase();
           const userId = emailLower.replace(/\./g, '_');
+          const manualSelectedDealerId = localStorage.getItem(`selected_dealer_${userId}`);
           let profileData = null;
-          let dealerIdToUse = getStandardDealerId(urlLocationName, urlLocationId);
+          let dealerIdToUse = (emailLower === 'jeancarlosgf13@gmail.com' && manualSelectedDealerId)
+            ? manualSelectedDealerId
+            : getStandardDealerId(urlLocationName, urlLocationId);
 
           // ESTRATEGIA DE BÚSQUEDA ROBUSTA (MIGRACIÓN):
           console.log("🔍 Iniciando búsqueda de perfil para:", emailLower);
@@ -5017,6 +5103,19 @@ export default function CarbotApp() {
               }
             } catch (err) {
               console.error("❌ Falló búsqueda en Supabase:", err);
+            }
+          }
+
+          // SUPERADMIN DETECT
+          if (emailLower === 'jeancarlosgf13@gmail.com') {
+            setIsSuperAdmin(true);
+            // If superadmin has NO profile yet (not even in local storage selection), or specifically wants to switch
+            if (!profileData && !isAutoLogin) {
+              const { data: dealers } = await supabase.from('dealers').select('*').order('nombre', { ascending: true });
+              setAllDealers(dealers || []);
+              setShowDealerSwitcher(true);
+              setInitializing(false);
+              return; // Stop and wait for selection
             }
           }
 
@@ -6211,6 +6310,23 @@ export default function CarbotApp() {
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
 
+  const handleDealerSelect = async (dealer) => {
+    const userId = currentUserEmail.toLowerCase().replace(/\./g, '_');
+    localStorage.setItem(`selected_dealer_${userId}`, dealer.id);
+    setShowDealerSwitcher(false);
+
+    // Al seleccionar, recargamos el perfil para que tome el nuevo dealerId
+    // Esto disparará fetchUserProfile de nuevo gracias a que shadowProfile se limpia
+    setInitializing(true);
+    setUserProfile(null);
+    setResolvedDealerId(null);
+
+    // Forzamos un pequeño delay para asegurar que el estado se limpie
+    setTimeout(() => {
+      // fetchUserProfile se ejecutará automáticamente por el useEffect
+    }, 100);
+  };
+
   const renderContent = () => {
     if (selectedVehicle) {
       const associatedContract = contracts.find(c => c.vehicleId === selectedVehicle.id);
@@ -6229,7 +6345,7 @@ export default function CarbotApp() {
       );
     }
     switch (activeTab) {
-      case 'settings': return <SettingsView userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} onDisconnectGhl={handleDisconnectGhl} />;
+      case 'settings': return <SettingsView userProfile={shadowProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} showToast={showToast} onDisconnectGhl={handleDisconnectGhl} onShowDealerSwitcher={() => setShowDealerSwitcher(true)} isSuperAdmin={isSuperAdmin} />;
       case 'dashboard': return <DashboardView inventory={activeInventory} contracts={contracts || []} onNavigate={handleNavigate} userProfile={shadowProfile} />;
       case 'inventory': return <InventoryView inventory={activeInventory} quotes={quotes || []} contracts={contracts || []} templates={templates} activeTab={inventoryTab} setActiveTab={setInventoryTab} showToast={showToast} onGenerateContract={handleGenerateContract} onGenerateQuote={handleQuoteSent} onVehicleSelect={handleVehicleSelect} onSave={handleSaveVehicle} onDelete={handleDeleteVehicle} onRedoSale={handleRedoSale} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} resolvedDealerId={resolvedDealerId} />;
       case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={templates} inventory={activeInventory} resolvedDealerId={resolvedDealerId}
@@ -6380,7 +6496,6 @@ export default function CarbotApp() {
       </AppLayout>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* GLOBAL CONFIRMATION MODAL */}
       <ConfirmationModal
         isOpen={confirmationModal.isOpen}
         onClose={() => setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
@@ -6389,6 +6504,13 @@ export default function CarbotApp() {
         message={confirmationModal.message}
         confirmText={confirmationModal.confirmText}
         isDestructive={confirmationModal.isDestructive}
+      />
+
+      <DealerSwitcherModal
+        isOpen={showDealerSwitcher}
+        onClose={() => setShowDealerSwitcher(false)}
+        dealers={allDealers}
+        onSelect={handleDealerSelect}
       />
     </>
   );
