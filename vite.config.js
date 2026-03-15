@@ -7,24 +7,16 @@ export default defineConfig({
   base: '/',
   server: {
     proxy: {
-      '/api/ghl-contacts': {
-        target: 'https://carbotsystem.com',
-        changeOrigin: true,
-      },
       '/api': {
-        target: 'https://carbot-5d709.web.app',
+        target: 'https://carbotsystem.web.app',
         changeOrigin: true,
       }
     }
   },
   preview: {
     proxy: {
-      '/api/ghl-contacts': {
-        target: 'https://carbotsystem.com',
-        changeOrigin: true,
-      },
       '/api': {
-        target: 'https://carbot-5d709.web.app',
+        target: 'https://carbotsystem.web.app',
         changeOrigin: true,
       }
     }

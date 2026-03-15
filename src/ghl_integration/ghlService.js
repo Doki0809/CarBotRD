@@ -137,7 +137,7 @@ export const prepararPayloadGHL = (cliente, vehiculo, locationId) => {
     return payload;
 };
 
-export const generarContratoEnGHL = async (cliente, vehiculo, locationId, templateId, dealerId, accessToken) => {
+export const generarContratoEnGHL = async (cliente, vehiculo, locationId, templateId, dealerId, accessToken, documentType) => {
     const payload = prepararPayloadGHL(cliente, vehiculo, locationId);
     try {
         const response = await fetch('/api/ghl/generar-contrato', {
@@ -149,6 +149,7 @@ export const generarContratoEnGHL = async (cliente, vehiculo, locationId, templa
                 ghl_access_token: accessToken,
                 dealerId: dealerId,
                 vehicleData: vehiculo,
+                documentType: documentType || 'contrato',
                 financialData: {
                     precio_venta: cliente.precioFinal,
                     moneda_venta: cliente.monedaVenta,

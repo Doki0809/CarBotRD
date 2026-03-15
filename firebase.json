@@ -74,6 +74,10 @@
           "function": "debugUsers"
         },
         {
+          "source": "/api/ghlContacts",
+          "function": "ghlContacts"
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }

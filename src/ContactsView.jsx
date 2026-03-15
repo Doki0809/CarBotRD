@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Search, RefreshCw, ChevronLeft, ChevronDown, MoreVertical,
-  Phone, Mail, MapPin, Calendar, Tag, Car, FileText, Trash2,
-  ArrowUpRight, ExternalLink, SortAsc, Clock, X, User
+  Phone, Mail, MapPin, Calendar, Car, FileText, Trash2,
+  ExternalLink, SortAsc, Clock, X, User, Tag, Pencil, Check, Plus,
+  Send, FilePlus,
 } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -11,7 +13,7 @@ import {
 function initials(firstName, lastName) {
   const f = (firstName || '').charAt(0).toUpperCase();
   const l = (lastName || '').charAt(0).toUpperCase();
-  return f + l || '?';
+  return (f + l) || '?';
 }
 
 function formatDate(dateStr) {
@@ -25,23 +27,74 @@ function formatDate(dateStr) {
   }
 }
 
+function extractCedula(contact) {
+  if (contact.cedula) return contact.cedula;
+  if (contact.identificationNumber) return contact.identificationNumber;
+  const cf = contact.customFields || [];
+  const CEDULA_KEYWORDS = ['cedula', 'c_dula', 'cdula', 'cedula_pasaporte', 'identification', 'id_number', 'pasaporte', 'passport', 'documento', 'dni'];
+  // Check annotated fieldKey or key
+  for (const f of cf) {
+    if (!f.value) continue;
+    const k = (f.fieldKey || f.key || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+      .replace(/[^a-z0-9_]/g, '_');
+    if (CEDULA_KEYWORDS.some(kw => k === kw || k.startsWith(kw) || k.includes(kw))) {
+      return f.value;
+    }
+  }
+  return '';
+}
+
 function normalizePhone(phone) {
   if (!phone) return '';
   return phone.replace(/\D/g, '');
 }
 
 const TAG_STYLES = {
-  vendido:  'bg-emerald-100 text-emerald-700 border-emerald-200',
-  cotizado: 'bg-amber-100 text-amber-800 border-amber-200',
-  default:  'bg-slate-100 text-slate-600 border-slate-200',
+  'compró':   'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'vendido':  'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'cotizó':   'bg-amber-100 text-amber-800 border-amber-200',
+  'cotizado': 'bg-amber-100 text-amber-800 border-amber-200',
+  // social channels
+  whatsapp:   'bg-green-50 text-green-700 border-green-200',
+  instagram:  'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+  facebook:   'bg-blue-50 text-blue-700 border-blue-200',
+  default:    'bg-slate-100 text-slate-600 border-slate-200',
 };
+
+// Tags that are internal/bot-related — hidden everywhere in the UI
+const HIDDEN_TAGS = new Set([
+  'stop bot', 'humano', 'bot', 'open ai', 'dnd',
+  'do not disturb', 'unsubscribed', 'test',
+]);
+
+// Fixed curated filter pills shown at the top of the contacts list
+const FILTER_PILL_TAGS = ['compró', 'vendido', 'cotizó', 'cotizado', 'cita', 'whatsapp', 'instagram', 'facebook', 'correo'];
+
+// Priority order for tag display on cards/detail
+const TAG_PRIORITY = ['compró', 'vendido', 'cotizó', 'cotizado', 'cita'];
+
+function sortTags(tags) {
+  return [...tags].sort((a, b) => {
+    const ai = TAG_PRIORITY.indexOf(a.toLowerCase());
+    const bi = TAG_PRIORITY.indexOf(b.toLowerCase());
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return 0;
+  });
+}
+
+function visibleTags(tags) {
+  return sortTags((tags || []).filter(t => !HIDDEN_TAGS.has(t.toLowerCase())));
+}
 
 function tagStyle(tag) {
   const lower = (tag || '').toLowerCase();
   return TAG_STYLES[lower] || TAG_STYLES.default;
 }
 
-// Gradient palette for avatars (cycles by first letter)
 const AVATAR_GRADIENTS = [
   'from-red-500 to-rose-700',
   'from-violet-500 to-purple-700',
@@ -73,223 +126,95 @@ function TagPill({ tag, selected, onClick }) {
   );
 }
 
-// ─── ContactCard ──────────────────────────────────────────────────────────────
+// ─── InlineTag ────────────────────────────────────────────────────────────────
 
-function ContactCard({ contact, linkedVehicles, onClick, index }) {
-  const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Sin nombre';
-  const tags = contact.tags || [];
-  const hasTags = tags.length > 0;
-  const primaryVehicle = linkedVehicles[0];
-  const gradient = avatarGradient(contact.firstName || contact.lastName || '?');
-
+function InlineTag({ tag }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: index * 0.04 }}
-      onClick={onClick}
-      className="group cursor-pointer"
-    >
-      <div className="
-        bg-white/70 backdrop-blur-xl border border-white/40 rounded-3xl p-5
-        shadow-[0_4px_24px_rgba(0,0,0,0.05)]
-        hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(0,0,0,0.10)]
-        hover:bg-white/90
-        transition-all duration-300 ease-[0.23,1,0.32,1]
-        flex items-center gap-4
-      ">
-        {/* Avatar */}
-        <div className={`
-          w-12 h-12 rounded-2xl bg-gradient-to-br ${gradient}
-          flex items-center justify-center text-white font-black text-base
-          shadow-md flex-shrink-0 group-hover:scale-105 transition-transform duration-300
-        `}>
-          {initials(contact.firstName, contact.lastName)}
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <p className="font-black text-slate-900 text-sm leading-tight truncate">{name}</p>
-            <ArrowUpRight size={14} className="text-slate-300 group-hover:text-red-500 transition-colors flex-shrink-0 mt-0.5" />
-          </div>
-
-          {contact.phone && (
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5 truncate">{contact.phone}</p>
-          )}
-
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            {/* Vehicle brand badge */}
-            {primaryVehicle && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-100">
-                <Car size={9} />
-                {primaryVehicle.make || primaryVehicle.marca || 'Vehículo'}
-              </span>
-            )}
-
-            {/* Status tags (vendido, cotizado first) */}
-            {tags.slice(0, 3).map((tag, i) => (
-              <span
-                key={i}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${tagStyle(tag)}`}
-              >
-                {tag}
-              </span>
-            ))}
-            {tags.length > 3 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 border border-slate-200">
-                +{tags.length - 3}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </motion.div>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${tagStyle(tag)}`}>
+      {tag}
+    </span>
   );
 }
 
-// ─── Loading Skeletons ────────────────────────────────────────────────────────
 
-function ContactSkeleton({ index }) {
+
+// ─── Generar documento modal ─────────────────────────────────────────────────
+
+function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: index * 0.05 }}
-      className="bg-white/60 backdrop-blur-xl border border-white/30 rounded-3xl p-5 flex items-center gap-4"
-    >
-      <div className="w-12 h-12 rounded-2xl bg-slate-100 animate-pulse flex-shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-4 w-32 bg-slate-100 rounded-full animate-pulse" />
-        <div className="h-3 w-24 bg-slate-100 rounded-full animate-pulse" />
-        <div className="flex gap-1.5">
-          <div className="h-4 w-16 bg-slate-100 rounded-full animate-pulse" />
-          <div className="h-4 w-14 bg-slate-100 rounded-full animate-pulse" />
+    <>
+      <motion.button
+        onClick={onOpen}
+        whileHover={{ scale: 1.02, y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        className="w-full flex items-center gap-4 p-5 rounded-[1.5rem] bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-[0_8px_28px_rgba(220,38,38,0.30)] hover:shadow-[0_14px_40px_rgba(220,38,38,0.45)] transition-all duration-300"
+      >
+        <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+          <FilePlus size={20} />
         </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── FolderSection ────────────────────────────────────────────────────────────
-
-function FolderSection({ title, icon: Icon, count, children, collapseThreshold = 2 }) {
-  const [expanded, setExpanded] = useState(false);
-  const shouldCollapse = count > collapseThreshold;
-  const showToggle = shouldCollapse;
-
-  return (
-    <div className="bg-white/50 backdrop-blur-lg border border-white/40 rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100/50">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center">
-            <Icon size={14} className="text-slate-600" />
-          </div>
-          <span className="text-sm font-black text-slate-800">{title}</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-500">{count}</span>
+        <div className="text-left">
+          <p className="font-black text-sm tracking-tight">Generar documento</p>
+          <p className="text-white/70 text-xs font-medium mt-0.5">Contrato o cotización para {toTitleCase(contactName || 'este contacto')}</p>
         </div>
-        {showToggle && (
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="flex items-center gap-1 text-[10px] font-black text-slate-400 hover:text-slate-700 transition-colors uppercase tracking-wider"
+        <div className="ml-auto w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+          <ChevronLeft size={14} className="rotate-180" />
+        </div>
+      </motion.button>
+
+      {open && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm" onClick={onClose}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className="w-[95%] max-w-sm bg-white rounded-[2rem] shadow-2xl overflow-hidden p-2"
+            onClick={e => e.stopPropagation()}
           >
-            {expanded ? 'Ver menos' : `Ver todos`}
-            <ChevronDown
-              size={12}
-              className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-            />
-          </button>
-        )}
-      </div>
-
-      {/* Items */}
-      <div className="divide-y divide-slate-50">
-        {React.Children.toArray(children).slice(0, shouldCollapse && !expanded ? collapseThreshold : undefined)}
-      </div>
-    </div>
-  );
-}
-
-// ─── VehicleItem ─────────────────────────────────────────────────────────────
-
-function VehicleItem({ vehicle }) {
-  const name = `${vehicle.year || ''} ${vehicle.make || vehicle.marca || ''} ${vehicle.model || vehicle.modelo || ''}`.trim() || 'Vehículo';
-  const status = vehicle.status || vehicle.estado || '';
-
-  const statusLabel = status === 'sold' || status === 'Vendido' ? 'Vendido'
-    : status === 'quoted' || status === 'Cotizado' ? 'Cotizado'
-    : 'Disponible';
-
-  const statusColor = statusLabel === 'Vendido' ? 'text-emerald-600 bg-emerald-50'
-    : statusLabel === 'Cotizado' ? 'text-amber-700 bg-amber-50'
-    : 'text-blue-600 bg-blue-50';
-
-  return (
-    <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/50 transition-colors">
-      <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-        <Car size={14} className="text-slate-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-slate-800 truncate">{name}</p>
-        {vehicle.vin && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{vehicle.vin}</p>}
-      </div>
-      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${statusColor}`}>
-        {statusLabel}
-      </span>
-    </div>
-  );
-}
-
-// ─── DocumentItem ─────────────────────────────────────────────────────────────
-
-function DocumentItem({ doc }) {
-  const label = doc.label || doc.name || doc.id || 'Documento';
-  const url = typeof doc === 'string' ? doc : doc.url;
-
-  return (
-    <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50/50 transition-colors">
-      <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-        <FileText size={14} className="text-slate-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-slate-800 truncate">{label}</p>
-      </div>
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => e.stopPropagation()}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-        >
-          <ExternalLink size={13} />
-        </a>
+            <div className="flex justify-between items-center mb-4 mt-2 px-4">
+              <h3 className="text-xl font-black tracking-tight text-slate-800 text-center w-full ml-6">Generar documento</h3>
+              <button onClick={onClose} className="p-1 flex-shrink-0">
+                <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
+              </button>
+            </div>
+            <div className="grid gap-4 px-2 pb-4">
+              <button
+                onClick={() => { onClose(); onSelect('cotizacion'); }}
+                className="flex flex-col items-center justify-center p-6 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-100 transition-colors" />
+                <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10">
+                  <Send size={24} />
+                </div>
+                <div className="mt-4 text-center relative z-10">
+                  <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Cotización</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enviar ficha técnica y precio</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { onClose(); onSelect('contrato'); }}
+                className="flex flex-col items-center justify-center p-6 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-100 transition-colors" />
+                <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10">
+                  <FilePlus size={24} />
+                </div>
+                <div className="mt-4 text-center relative z-10">
+                  <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Contrato</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Generar documento legal</p>
+                </div>
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
       )}
-    </div>
-  );
-}
-
-// ─── InfoRow ──────────────────────────────────────────────────────────────────
-
-function InfoRow({ icon: Icon, label, value }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-100/60 last:border-0">
-      <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Icon size={14} className="text-slate-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        <p className="text-sm font-semibold text-slate-800 mt-0.5 break-words">{value}</p>
-      </div>
-    </div>
+    </>
   );
 }
 
 // ─── 3-dot Menu ──────────────────────────────────────────────────────────────
 
-function ContactMenu({ onSellNewCar, onDelete }) {
+function ContactMenu({ onGenerateDoc, onDelete }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -309,7 +234,6 @@ function ContactMenu({ onSellNewCar, onDelete }) {
       >
         <MoreVertical size={20} />
       </button>
-
       <AnimatePresence>
         {open && (
           <motion.div
@@ -320,11 +244,11 @@ function ContactMenu({ onSellNewCar, onDelete }) {
             className="absolute right-0 top-full mt-1.5 w-56 bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-white/50 z-50 overflow-hidden"
           >
             <button
-              onClick={() => { setOpen(false); onSellNewCar(); }}
+              onClick={() => { setOpen(false); onGenerateDoc(); }}
               className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors text-left"
             >
-              <Car size={15} className="text-red-500 flex-shrink-0" />
-              Vender nuevo auto
+              <FilePlus size={15} className="text-red-500 flex-shrink-0" />
+              Generar documento
             </button>
             <div className="h-px bg-slate-100" />
             <button
@@ -343,182 +267,587 @@ function ContactMenu({ onSellNewCar, onDelete }) {
 
 // ─── ContactDetailView ────────────────────────────────────────────────────────
 
-function ContactDetailView({ contact, linkedVehicles, onBack, onSellNewCar, onDeleteContact }) {
-  const name = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Sin nombre';
-  const tags = contact.tags || [];
-  const gradient = avatarGradient(contact.firstName || contact.lastName || '?');
 
-  // Build document list from customFields or direct ghlDocumentUrls
-  const documents = useMemo(() => {
-    const urls = contact.ghlDocumentUrls || [];
-    if (Array.isArray(urls)) {
-      return urls.map((u, i) => (typeof u === 'string' ? { url: u, label: `Documento ${i + 1}` } : u));
-    }
-    return [];
-  }, [contact]);
-
-  // Birthday formatting
-  const birthday = contact.dateOfBirth
-    ? formatDate(contact.dateOfBirth)
-    : null;
-
-  // Address
-  const addressParts = [contact.address1, contact.city, contact.state, contact.country].filter(Boolean);
-  const address = addressParts.join(', ');
-
+// Single data field row inside a section
+function DataField({ icon: Icon, label, value }) {
+  if (!value) return null;
   return (
-    <motion.div
-      key="detail"
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -24 }}
-      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-      className="max-w-2xl mx-auto space-y-4"
-    >
-      {/* Back + Menu header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors group"
-        >
-          <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-          Contactos
-        </button>
-        <ContactMenu
-          onSellNewCar={onSellNewCar}
-          onDelete={onDeleteContact}
+    <div className="flex items-start gap-3 py-3.5 border-b border-slate-100/50 last:border-0">
+      <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <Icon size={14} className="text-slate-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.12em] mb-0.5">{label}</p>
+        <p className="text-sm font-semibold text-slate-800 break-words leading-snug">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── EditField — must be top-level to avoid remount on every keystroke ────────
+
+function EditField({ icon: Icon, label, field, type = 'text', form, setForm }) {
+  return (
+    <div className="flex items-start gap-3 py-3 border-b border-slate-100/50 last:border-0">
+      <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0 mt-1">
+        <Icon size={13} className="text-slate-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.12em] mb-1">{label}</p>
+        <input
+          type={type}
+          value={form[field]}
+          onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
+          placeholder={label}
+          className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 transition-all"
         />
       </div>
+    </div>
+  );
+}
 
-      {/* Hero card */}
-      <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
-        <div className="flex items-start gap-5">
-          {/* Avatar */}
-          <div className={`
-            w-16 h-16 rounded-3xl bg-gradient-to-br ${gradient}
-            flex items-center justify-center text-white font-black text-xl
-            shadow-lg flex-shrink-0
-          `}>
-            {initials(contact.firstName, contact.lastName)}
+// ─── ContactDetailView ────────────────────────────────────────────────────────
+
+function toTitleCase(str) {
+  return (str || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], linkedQuotes = [], onBack, onSellNewCar, onSellQuoted, onDeleteContact, onUpdateContact }) {
+  const name = toTitleCase(`${contact.firstName || ''} ${contact.lastName || ''}`.trim()) || 'Sin nombre';
+  const tags = visibleTags(contact.tags);
+  const gradient = avatarGradient(contact.firstName || contact.lastName || '?');
+
+  const [editingData, setEditingData] = useState(false);
+  const [editingTags, setEditingTags] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [docModalOpen, setDocModalOpen] = useState(false);
+  const tagInputRef = useRef(null);
+
+  const cedula = extractCedula(contact);
+  const [form, setForm] = useState({
+    firstName: contact.firstName || '',
+    lastName: contact.lastName || '',
+    phone: contact.phone || '',
+    email: contact.email || '',
+    address1: contact.address1 || '',
+    city: contact.city || '',
+    dateOfBirth: contact.dateOfBirth || '',
+    cedula,
+  });
+  const [localTags, setLocalTags] = useState(contact.tags || []);
+
+  useEffect(() => {
+    setForm({
+      firstName: contact.firstName || '',
+      lastName: contact.lastName || '',
+      phone: contact.phone || '',
+      email: contact.email || '',
+      address1: contact.address1 || '',
+      city: contact.city || '',
+      dateOfBirth: contact.dateOfBirth || '',
+      cedula: extractCedula(contact),
+    });
+    setLocalTags(contact.tags || []);
+    setEditingData(false);
+    setEditingTags(false);
+  }, [contact.id]);
+
+  const documents = linkedDocuments;
+  const actionTag = tags.find(t => ['compró', 'vendido', 'cotizó', 'cotizado'].includes(t.toLowerCase()));
+  const displayTags = visibleTags(localTags);
+  const birthday = form.dateOfBirth ? formatDate(form.dateOfBirth) : null;
+  const addressDisplay = [contact.address1, contact.city, contact.state, contact.country].filter(Boolean).join(', ');
+
+  async function saveData() {
+    setSaving(true);
+    try {
+      const raw = {
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        address1: form.address1.trim(),
+        city: form.city.trim(),
+        dateOfBirth: form.dateOfBirth,
+      };
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const update = Object.fromEntries(
+        Object.entries(raw).filter(([k, v]) => {
+          if (!v) return false;
+          if (k === 'email') return emailRegex.test(v);
+          return true;
+        })
+      );
+      await onUpdateContact(contact.id, update);
+      setEditingData(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveTags() {
+    setSaving(true);
+    try {
+      await onUpdateContact(contact.id, { tags: localTags });
+      setEditingTags(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addTag() {
+    const t = newTagInput.trim();
+    if (t && !localTags.includes(t)) setLocalTags(prev => [...prev, t]);
+    setNewTagInput('');
+    tagInputRef.current?.focus();
+  }
+
+  function removeTag(tag) {
+    setLocalTags(prev => prev.filter(t => t !== tag));
+  }
+
+  // Section header component
+  function SectionHeader({ icon: Icon, title, iconColor = 'text-slate-500', iconBg = 'bg-slate-100', children }) {
+    return (
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
+          <Icon size={14} className={iconColor} />
+        </div>
+        <span className="text-xs font-black text-slate-500 uppercase tracking-[0.14em]">{title}</span>
+        <div className="flex-1 h-px bg-slate-100" />
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-16">
+      {/* ── Top nav ── */}
+      <div className="flex items-center justify-between mb-8">
+        <motion.button
+          onClick={onBack}
+          whileHover={{ x: -3 }}
+          className="flex items-center gap-1.5 text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors duration-200"
+        >
+          <ChevronLeft size={17} />
+          Contactos
+        </motion.button>
+        <ContactMenu onGenerateDoc={() => setDocModalOpen(true)} onDelete={onDeleteContact} />
+      </div>
+
+      {/* ── HERO — full width ── */}
+      <div className="relative rounded-[2.5rem] overflow-hidden mb-6 shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
+        {/* Vivid gradient background */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
+        {/* Subtle texture overlay — keeps depth without washing out color */}
+        <div className="absolute inset-0 bg-black/10" />
+
+        <div className="relative px-8 pt-10 pb-8">
+          {/* Top row: avatar + name + tags */}
+          <div className="flex items-start gap-6 mb-6">
+            {/* Avatar */}
+            <div className="flex-shrink-0">
+              <div className="w-24 h-24 rounded-[1.6rem] bg-white/25 backdrop-blur-xl flex items-center justify-center text-white font-black text-3xl shadow-[0_8px_32px_rgba(0,0,0,0.20)] border border-white/40">
+                {initials(contact.firstName, contact.lastName)}
+              </div>
+            </div>
+
+            {/* Name + meta */}
+            <div className="flex-1 min-w-0 pt-1">
+              <h1 className="text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">{name}</h1>
+              {contact.companyName && (
+                <p className="text-white/70 font-medium text-sm mt-1">{contact.companyName}</p>
+              )}
+              {/* Tags row */}
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {tags.map((tag, i) => (
+                    <span key={i} className="px-3 py-1 rounded-full text-[11px] font-black bg-white/25 backdrop-blur text-white border border-white/30">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Action badge */}
+            {actionTag && (
+              <div className="flex-shrink-0 px-4 py-2 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white text-xs font-black uppercase tracking-wider">
+                {actionTag}
+              </div>
+            )}
           </div>
 
-          {/* Name & tags */}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-black text-slate-900 leading-tight">{name}</h1>
-            {contact.companyName && (
-              <p className="text-sm text-slate-500 font-medium mt-0.5">{contact.companyName}</p>
+          {/* Contact pills */}
+          <div className="flex flex-wrap gap-3">
+            {contact.phone && (
+              <a href={`tel:${contact.phone}`}
+                className="group flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold tabular-nums"
+              >
+                <Phone size={14} className="opacity-70 group-hover:opacity-100 transition-opacity" />
+                {contact.phone}
+              </a>
             )}
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {tags.map((tag, i) => (
-                  <span
-                    key={i}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${tagStyle(tag)}`}
-                  >
-                    {tag}
-                  </span>
-                ))}
+            {contact.email && (
+              <a href={`mailto:${contact.email}`}
+                className="group flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold"
+              >
+                <Mail size={14} className="opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                <span className="truncate max-w-[220px]">{contact.email}</span>
+              </a>
+            )}
+            {contact.dateAdded && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 border border-white/20 text-white/60 text-xs font-medium">
+                <Calendar size={12} />
+                {formatDate(contact.dateAdded)}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Contact info card */}
-      <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-3xl px-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
-        <InfoRow icon={Phone} label="Teléfono" value={contact.phone} />
-        <InfoRow icon={Mail} label="Correo" value={contact.email} />
-        {address && <InfoRow icon={MapPin} label="Dirección" value={address} />}
-        {birthday && <InfoRow icon={Calendar} label="Cumpleaños" value={birthday} />}
-        {contact.source && <InfoRow icon={User} label="Fuente" value={contact.source} />}
+      {/* ── TWO-COLUMN GRID ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* ── LEFT COLUMN ── */}
+        <div className="space-y-5">
+
+          {/* Datos personales */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05, ease: [0.23,1,0.32,1] }}
+            className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
+          >
+            <div className="px-6 pt-5 pb-4">
+              <SectionHeader icon={User} title="Datos personales" iconBg="bg-blue-50" iconColor="text-blue-500">
+                {editingData ? (
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingData(false); setForm({ firstName: contact.firstName||'', lastName: contact.lastName||'', phone: contact.phone||'', email: contact.email||'', address1: contact.address1||'', city: contact.city||'', dateOfBirth: contact.dateOfBirth||'', cedula }); }}
+                      className="px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button onClick={saveData} disabled={saving}
+                      className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black bg-slate-900 text-white hover:bg-slate-700 transition-colors disabled:opacity-50">
+                      <Check size={10} />{saving ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setEditingData(true)}
+                    className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                    <Pencil size={11} />Editar
+                  </button>
+                )}
+              </SectionHeader>
+
+              {editingData ? (
+                <div className="space-y-1">
+                  <EditField icon={User} label="Nombre" field="firstName" form={form} setForm={setForm} />
+                  <EditField icon={User} label="Apellido" field="lastName" form={form} setForm={setForm} />
+                  <EditField icon={FileText} label="Cédula / ID" field="cedula" form={form} setForm={setForm} />
+                  <EditField icon={Phone} label="Teléfono" field="phone" type="tel" form={form} setForm={setForm} />
+                  <EditField icon={Mail} label="Correo electrónico" field="email" type="email" form={form} setForm={setForm} />
+                  <EditField icon={MapPin} label="Dirección" field="address1" form={form} setForm={setForm} />
+                  <EditField icon={MapPin} label="Ciudad" field="city" form={form} setForm={setForm} />
+                  <EditField icon={Calendar} label="Cumpleaños" field="dateOfBirth" type="date" form={form} setForm={setForm} />
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  <DataField icon={User} label="Nombre completo" value={name} />
+                  {cedula && <DataField icon={FileText} label="Cédula / ID" value={cedula} />}
+                  <DataField icon={Phone} label="Teléfono" value={contact.phone} />
+                  <DataField icon={Mail} label="Correo electrónico" value={contact.email} />
+                  {addressDisplay && <DataField icon={MapPin} label="Dirección" value={addressDisplay} />}
+                  {birthday && <DataField icon={Calendar} label="Cumpleaños" value={birthday} />}
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Etiquetas */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.10, ease: [0.23,1,0.32,1] }}
+            className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
+          >
+            <div className="px-6 pt-5 pb-5">
+              <SectionHeader icon={Tag} title="Etiquetas" iconBg="bg-violet-50" iconColor="text-violet-500">
+                {editingTags ? (
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingTags(false); setLocalTags(contact.tags||[]); setNewTagInput(''); }}
+                      className="px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button onClick={saveTags} disabled={saving}
+                      className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black bg-slate-900 text-white hover:bg-slate-700 transition-colors disabled:opacity-50">
+                      <Check size={10} />{saving ? '...' : 'Guardar'}
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setEditingTags(true)}
+                    className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+                    <Pencil size={11} />Editar
+                  </button>
+                )}
+              </SectionHeader>
+
+              {editingTags ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {localTags.map((tag, i) => (
+                      <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black border ${tagStyle(tag)}`}>
+                        {tag}
+                        <button onClick={() => removeTag(tag)} className="w-3.5 h-3.5 rounded-full bg-black/10 hover:bg-black/20 flex items-center justify-center transition-colors">
+                          <X size={8} />
+                        </button>
+                      </span>
+                    ))}
+                    {localTags.length === 0 && <p className="text-sm text-slate-400">Sin etiquetas</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input ref={tagInputRef} value={newTagInput}
+                      onChange={e => setNewTagInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+                      placeholder="Nueva etiqueta..."
+                      className="flex-1 text-sm font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 transition-all"
+                    />
+                    <button onClick={addTag} disabled={!newTagInput.trim()}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-black hover:bg-slate-700 transition-colors disabled:opacity-30">
+                      <Plus size={12} />Agregar
+                    </button>
+                  </div>
+                </div>
+              ) : displayTags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {displayTags.map((tag, i) => (
+                    <motion.span key={i} whileHover={{ scale: 1.05 }} className={`px-3 py-1.5 rounded-full text-[11px] font-black border cursor-default ${tagStyle(tag)}`}>
+                      {tag}
+                    </motion.span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 font-medium">Sin etiquetas asignadas</p>
+              )}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* ── RIGHT COLUMN ── */}
+        <div className="space-y-5">
+
+          {/* Vehículos */}
+          {linkedVehicles.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.07, ease: [0.23,1,0.32,1] }}
+              className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
+            >
+              <div className="px-6 pt-5 pb-2">
+                <SectionHeader icon={Car} title={`Vehículos · ${linkedVehicles.length}`} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+              </div>
+              <div className="px-3 pb-4 space-y-2">
+                {linkedVehicles.map((v, i) => {
+                  const vName = `${v.year || ''} ${v.make || v.marca || ''} ${v.model || v.modelo || ''}`.trim() || 'Vehículo';
+                  const vStatus = v.status === 'sold' || v.estado === 'Vendido' ? 'Vendido'
+                    : v.status === 'quoted' || v.estado === 'Cotizado' ? 'Cotizado' : 'Disponible';
+                  const statusCls = vStatus === 'Vendido' ? 'bg-emerald-100 text-emerald-700'
+                    : vStatus === 'Cotizado' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-700';
+                  const img = v.image || (v.images && v.images[0]) || (v.fotos && v.fotos[0]);
+                  const isQuoted = vStatus === 'Cotizado';
+                  // Find associated quote for this vehicle to pre-fill client data
+                  const assocQuote = isQuoted
+                    ? linkedQuotes.find(q => String(q.vehicleId) === String(v.id) && q.status !== 'deleted') || null
+                    : null;
+
+                  return (
+                    <motion.div key={v.id || i} whileHover={{ scale: 1.01, y: -1 }}
+                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isQuoted ? 'border-amber-200/60 bg-amber-50/40' : 'border-slate-100/80 bg-slate-50/80 hover:bg-white hover:shadow-md'}`}
+                    >
+                      <div className="flex items-center gap-4 p-4">
+                        {/* Thumbnail */}
+                        <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-200">
+                          {img
+                            ? <img src={img} alt={vName} className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center"><Car size={22} className="text-slate-400" /></div>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-slate-900 text-sm leading-tight truncate">{vName}</p>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            {v.color && <span className="text-[10px] text-slate-400 font-medium">{v.color}</span>}
+                            {(v.vin || v.chasis_vin) && (
+                              <span className="text-[10px] font-mono text-slate-400">VIN: {v.vin || v.chasis_vin}</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full flex-shrink-0 ${statusCls}`}>{vStatus}</span>
+                      </div>
+                      {/* Vender ahora — only for quoted vehicles */}
+                      {isQuoted && onSellQuoted && (
+                        <div className="px-4 pb-4">
+                          <motion.button
+                            onClick={() => onSellQuoted(assocQuote || v)}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.97 }}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-900 font-black text-xs uppercase tracking-wider transition-all shadow-[0_4px_12px_rgba(251,191,36,0.35)]"
+                          >
+                            <Car size={13} />
+                            Vender ahora
+                          </motion.button>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Documentos */}
+          {documents.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12, ease: [0.23,1,0.32,1] }}
+              className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
+            >
+              <div className="px-6 pt-5 pb-2">
+                <SectionHeader icon={FileText} title={`Documentos · ${documents.length}`} iconBg="bg-red-50" iconColor="text-red-500" />
+              </div>
+              <div className="px-3 pb-4 space-y-2">
+                {documents.map((doc, i) => {
+                  const label = doc.label || doc.name || `Documento ${i + 1}`;
+                  const url = typeof doc === 'string' ? doc : doc.url;
+                  return (
+                    <motion.a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      whileHover={{ scale: 1.01, y: -1 }}
+                      className="group flex items-center gap-4 p-4 rounded-2xl bg-slate-50/80 hover:bg-red-50/60 hover:shadow-md transition-all duration-200 border border-slate-100/80 hover:border-red-200/60 cursor-pointer"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0 group-hover:bg-red-200 transition-colors">
+                        <FileText size={20} className="text-red-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 text-sm truncate">{label}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Abrir PDF</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-xl bg-white group-hover:bg-red-500 flex items-center justify-center transition-all duration-200 shadow-sm flex-shrink-0">
+                        <ExternalLink size={13} className="text-slate-400 group-hover:text-white transition-colors" />
+                      </div>
+                    </motion.a>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Generar documento — abre selector */}
+          <GenerateDocModal
+            open={docModalOpen}
+            onOpen={() => setDocModalOpen(true)}
+            onClose={() => setDocModalOpen(false)}
+            onSelect={onSellNewCar}
+            contactName={contact.firstName}
+          />
+        </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Vehicles section */}
-      {linkedVehicles.length > 0 && (
-        <FolderSection
-          title="Vehículos"
-          icon={Car}
-          count={linkedVehicles.length}
-          collapseThreshold={2}
-        >
-          {linkedVehicles.map((v, i) => <VehicleItem key={v.id || i} vehicle={v} />)}
-        </FolderSection>
-      )}
+// ─── Table skeleton row ───────────────────────────────────────────────────────
 
-      {/* Documents section */}
-      {documents.length > 0 && (
-        <FolderSection
-          title="Documentos"
-          icon={FileText}
-          count={documents.length}
-          collapseThreshold={2}
-        >
-          {documents.map((doc, i) => <DocumentItem key={i} doc={doc} />)}
-        </FolderSection>
-      )}
-
-      {/* Created date */}
-      {contact.dateAdded && (
-        <p className="text-center text-[10px] text-slate-400 font-medium pb-4">
-          Contacto creado el {formatDate(contact.dateAdded)}
-        </p>
-      )}
-    </motion.div>
+function TableRowSkeleton() {
+  return (
+    <tr className="border-b border-slate-100">
+      <td className="px-4 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-slate-100 animate-pulse flex-shrink-0" />
+          <div className="h-3.5 w-28 bg-slate-100 rounded-full animate-pulse" />
+        </div>
+      </td>
+      <td className="px-4 py-3.5"><div className="h-3 w-28 bg-slate-100 rounded-full animate-pulse" /></td>
+      <td className="px-4 py-3.5"><div className="h-3 w-36 bg-slate-100 rounded-full animate-pulse" /></td>
+      <td className="px-4 py-3.5">
+        <div className="flex gap-1.5">
+          <div className="h-4 w-14 bg-slate-100 rounded-full animate-pulse" />
+          <div className="h-4 w-12 bg-slate-100 rounded-full animate-pulse" />
+        </div>
+      </td>
+      <td className="px-4 py-3.5"><div className="h-3 w-20 bg-slate-100 rounded-full animate-pulse" /></td>
+      <td className="px-4 py-3.5" />
+    </tr>
   );
 }
 
 // ─── ContactsListView ─────────────────────────────────────────────────────────
 
 function ContactsListView({
-  contacts, contracts, inventory, isLoading,
-  onRefresh, onSelectContact, searchTerm, sortMode, setSortMode,
+  contacts, isLoading,
+  onRefresh, onLoadMore, onSearch, hasMore, totalContacts,
+  onSelectContact, sortMode, setSortMode,
   filterTag, setFilterTag,
+  lastActivityMap = new Map(),
 }) {
   const [localSearch, setLocalSearch] = useState('');
+  const [serverResults, setServerResults] = useState(null); // null = not searching, [] = no results
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef(null);
+  const debounceRef = useRef(null);
 
-  const effectiveSearch = searchTerm || localSearch;
+  // Debounced server search
+  function handleSearchChange(value) {
+    setLocalSearch(value);
+    setServerResults(null);
 
-  // Unique tags across all contacts
-  const allTags = useMemo(() => {
-    const tagSet = new Set();
-    contacts.forEach(c => (c.tags || []).forEach(t => tagSet.add(t)));
-    return Array.from(tagSet).sort();
-  }, [contacts]);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-  // Link vehicles to contacts
-  function getLinkedVehicles(contact) {
-    const phone = normalizePhone(contact.phone);
-    const email = (contact.email || '').toLowerCase();
-    const linked = contracts.filter(c =>
-      (phone && normalizePhone(c.phone) === phone) ||
-      (email && (c.email || '').toLowerCase() === email)
-    );
-    const vehicleIds = [...new Set(linked.map(c => c.vehicleId).filter(Boolean))];
-    return inventory.filter(v => vehicleIds.includes(String(v.id)));
+    if (!value.trim()) return;
+
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await onSearch(value.trim());
+        setServerResults(results || []);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
   }
+
+  function clearSearch() {
+    setLocalSearch('');
+    setServerResults(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }
+
+  // If we have server results, use those; otherwise filter the loaded contacts
+  const isServerSearch = serverResults !== null;
+  const baseList = isServerSearch ? serverResults : contacts;
+
+  // Filter pills: fixed curated list, only shown if at least one contact has that tag
+  const allTags = useMemo(() => {
+    const presentTags = new Set();
+    contacts.forEach(c => (c.tags || []).forEach(t => presentTags.add(t.toLowerCase())));
+    return FILTER_PILL_TAGS.filter(t => presentTags.has(t.toLowerCase()));
+  }, [contacts]);
 
   // Filter + sort
   const filtered = useMemo(() => {
-    let list = [...contacts];
-
-    // Tag filter
+    let list = [...baseList];
     if (filterTag) {
       list = list.filter(c => (c.tags || []).some(t => t.toLowerCase() === filterTag.toLowerCase()));
     }
-
-    // Search
-    if (effectiveSearch) {
-      const q = effectiveSearch.toLowerCase();
+    // Local filter only applies when NOT using server results
+    if (!isServerSearch && localSearch) {
+      const q = localSearch.toLowerCase();
       list = list.filter(c => {
         const fullName = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
-        const phone = (c.phone || '').toLowerCase();
-        const email = (c.email || '').toLowerCase();
-        return fullName.includes(q) || phone.includes(q) || email.includes(q);
+        return fullName.includes(q) || (c.phone || '').includes(q) || (c.email || '').toLowerCase().includes(q);
       });
     }
-
-    // Sort
     if (sortMode === 'alpha') {
       list.sort((a, b) => {
         const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase();
@@ -526,39 +855,43 @@ function ContactsListView({
         return nameA.localeCompare(nameB);
       });
     } else {
-      // Recent: by dateAdded desc
       list.sort((a, b) => {
-        const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
-        const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
-        return dateB - dateA;
+        const getActivity = (c) => {
+          const byPhone = c.phone ? (lastActivityMap.get(normalizePhone(c.phone)) || 0) : 0;
+          const byEmail = c.email ? (lastActivityMap.get(c.email.toLowerCase()) || 0) : 0;
+          const docActivity = Math.max(byPhone, byEmail);
+          const added = c.dateAdded ? new Date(c.dateAdded).getTime() : 0;
+          return Math.max(docActivity, added);
+        };
+        return getActivity(b) - getActivity(a);
       });
     }
-
     return list;
-  }, [contacts, filterTag, effectiveSearch, sortMode]);
+  }, [baseList, filterTag, localSearch, isServerSearch, sortMode]);
+
+  const displayedCount = contacts.length;
+  const serverTotal = totalContacts || displayedCount;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Contactos</h1>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            {isLoading ? 'Cargando...' : `${contacts.length} contacto${contacts.length !== 1 ? 's' : ''}`}
+            {isLoading && displayedCount === 0
+              ? 'Cargando...'
+              : `${displayedCount.toLocaleString()} de ${serverTotal.toLocaleString()} contacto${serverTotal !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Sort toggle */}
           <button
             onClick={() => setSortMode(m => m === 'recent' ? 'alpha' : 'recent')}
-            title={sortMode === 'recent' ? 'Ordenar A-Z' : 'Ordenar por reciente'}
             className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/40 text-xs font-black text-slate-600 hover:text-slate-900 hover:bg-white shadow-sm transition-all duration-200"
           >
             {sortMode === 'recent' ? <Clock size={13} /> : <SortAsc size={13} />}
             {sortMode === 'recent' ? 'Reciente' : 'A–Z'}
           </button>
-
-          {/* Refresh */}
           <button
             onClick={onRefresh}
             disabled={isLoading}
@@ -569,34 +902,39 @@ function ContactsListView({
         </div>
       </div>
 
-      {/* Search bar */}
+      {/* Search */}
       <div className="relative">
-        <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        {searching
+          ? <RefreshCw size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-red-400 animate-spin pointer-events-none" />
+          : <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        }
         <input
           ref={inputRef}
           value={localSearch}
-          onChange={e => setLocalSearch(e.target.value)}
-          placeholder="Buscar por nombre, teléfono o correo..."
-          className="w-full pl-11 pr-4 py-3 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl text-sm text-slate-800 placeholder-slate-400 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-300 transition-all"
+          onChange={e => handleSearchChange(e.target.value)}
+          placeholder="Buscar en todos los contactos..."
+          className="w-full pl-11 pr-10 py-3 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl text-sm text-slate-800 placeholder-slate-400 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-300 transition-all"
         />
         {localSearch && (
           <button
-            onClick={() => setLocalSearch('')}
+            onClick={clearSearch}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 transition-colors"
           >
             <X size={13} />
           </button>
         )}
       </div>
+      {/* Server search indicator */}
+      {isServerSearch && !searching && (
+        <p className="text-xs text-slate-400 font-medium -mt-2 pl-1">
+          {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} en todos los contactos
+        </p>
+      )}
 
       {/* Tag filter pills */}
       {allTags.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          <TagPill
-            tag="Todos"
-            selected={!filterTag}
-            onClick={() => setFilterTag(null)}
-          />
+          <TagPill tag="Todos" selected={!filterTag} onClick={() => setFilterTag(null)} />
           {allTags.map(tag => (
             <TagPill
               key={tag}
@@ -608,56 +946,154 @@ function ContactsListView({
         </div>
       )}
 
-      {/* List */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => <ContactSkeleton key={i} index={i} />)}
-        </div>
-      ) : filtered.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-20"
-        >
-          <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <Users size={28} className="text-slate-400" />
-          </div>
-          <p className="font-black text-slate-700 text-lg">
-            {effectiveSearch || filterTag ? 'Sin resultados' : 'Sin contactos'}
-          </p>
-          <p className="text-sm text-slate-400 mt-1">
-            {effectiveSearch || filterTag
-              ? 'Intenta con otros términos o limpia los filtros'
-              : 'Sincroniza tus contactos para verlos aquí'}
-          </p>
-          {(effectiveSearch || filterTag) && (
-            <button
-              onClick={() => { setLocalSearch(''); setFilterTag(null); }}
-              className="mt-4 px-4 py-2 rounded-xl bg-slate-100 text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors"
-            >
-              Limpiar filtros
-            </button>
-          )}
-        </motion.div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((contact, i) => (
-            <ContactCard
-              key={contact.id}
-              contact={contact}
-              linkedVehicles={getLinkedVehicles(contact)}
-              onClick={() => onSelectContact(contact)}
-              index={i}
-            />
-          ))}
-          {filtered.length > 0 && (
-            <p className="text-center text-[10px] text-slate-400 font-medium pt-2 pb-4">
-              {filtered.length} contacto{filtered.length !== 1 ? 's' : ''}
-              {filterTag || effectiveSearch ? ' encontrados' : ''}
+      {/* Table */}
+      <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-3xl shadow-[0_4px_24px_rgba(0,0,0,0.05)] overflow-hidden">
+        {/* Empty state */}
+        {!isLoading && filtered.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20"
+          >
+            <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <Users size={28} className="text-slate-400" />
+            </div>
+            <p className="font-black text-slate-700 text-lg">
+              {localSearch || filterTag ? 'Sin resultados' : 'Sin contactos'}
             </p>
-          )}
-        </div>
-      )}
+            <p className="text-sm text-slate-400 mt-1">
+              {localSearch || filterTag
+                ? 'Intenta con otros términos o limpia los filtros'
+                : 'Sincroniza tus contactos para verlos aquí'}
+            </p>
+            {(localSearch || filterTag) && (
+              <button
+                onClick={() => { setLocalSearch(''); setFilterTag(null); }}
+                className="mt-4 px-4 py-2 rounded-xl bg-slate-100 text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </motion.div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/60">
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[28%]">Nombre</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[16%]">Teléfono</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[22%]">Correo</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[20%]">Etiquetas</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[12%]">Fecha</th>
+                  <th className="px-4 py-3 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading && filtered.length === 0
+                  ? Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} />)
+                  : filtered.map((contact, i) => {
+                    const name = toTitleCase(`${contact.firstName || ''} ${contact.lastName || ''}`.trim()) || 'Sin nombre';
+                    const tags = visibleTags(contact.tags);
+                    const gradient = avatarGradient(contact.firstName || contact.lastName || '?');
+                    const date = formatDate(contact.dateAdded);
+
+                    return (
+                      <motion.tr
+                        key={contact.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.4) }}
+                        onClick={() => onSelectContact(contact)}
+                        className="border-b border-slate-100 hover:bg-slate-50/70 cursor-pointer transition-colors group"
+                      >
+                        {/* Name + avatar */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-black text-[10px] flex-shrink-0`}>
+                              {initials(contact.firstName, contact.lastName)}
+                            </div>
+                            <span className="text-sm font-bold text-slate-800 truncate max-w-[160px]">{name}</span>
+                          </div>
+                        </td>
+
+                        {/* Phone */}
+                        <td className="px-4 py-3.5">
+                          <span className="text-sm text-slate-600 font-medium tabular-nums">
+                            {contact.phone || <span className="text-slate-300">—</span>}
+                          </span>
+                        </td>
+
+                        {/* Email */}
+                        <td className="px-4 py-3.5">
+                          <span className="text-sm text-slate-600 font-medium truncate block max-w-[180px]">
+                            {contact.email || <span className="text-slate-300">—</span>}
+                          </span>
+                        </td>
+
+                        {/* Tags */}
+                        <td className="px-4 py-3.5">
+                          {tags.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {tags.slice(0, 3).map((tag, ti) => (
+                                <InlineTag key={ti} tag={tag} />
+                              ))}
+                              {tags.length > 3 && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                  +{tags.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 text-sm">—</span>
+                          )}
+                        </td>
+
+                        {/* Date */}
+                        <td className="px-4 py-3.5">
+                          <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                            {date || <span className="text-slate-300">—</span>}
+                          </span>
+                        </td>
+
+                        {/* Arrow */}
+                        <td className="px-3 py-3.5">
+                          <ChevronLeft size={14} className="rotate-180 text-slate-200 group-hover:text-slate-400 transition-colors" />
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+
+                {/* Skeleton rows while loading more */}
+                {isLoading && filtered.length > 0 &&
+                  Array.from({ length: 3 }).map((_, i) => <TableRowSkeleton key={`more-${i}`} />)
+                }
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Load more footer */}
+        {!isLoading && hasMore && filtered.length > 0 && (
+          <div className="border-t border-slate-100 px-6 py-4 flex items-center justify-between bg-slate-50/40">
+            <p className="text-xs text-slate-400 font-medium">
+              Mostrando {displayedCount.toLocaleString()} de {serverTotal.toLocaleString()}
+            </p>
+            <button
+              onClick={onLoadMore}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-700 transition-colors shadow-sm"
+            >
+              Cargar más
+              <ChevronDown size={13} />
+            </button>
+          </div>
+        )}
+
+        {isLoading && hasMore && filtered.length > 0 && (
+          <div className="border-t border-slate-100 px-6 py-4 flex justify-center bg-slate-50/40">
+            <RefreshCw size={14} className="animate-spin text-slate-400" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -668,21 +1104,43 @@ export default function ContactsView({
   contacts = [],
   inventory = [],
   contracts = [],
+  quotes = [],
   isLoading = false,
   onRefresh,
+  onLoadMore,
+  onSearch,
+  hasMore = false,
+  totalContacts = 0,
   onUpdateContact,
   onDeleteContact,
   onSellNewCar,
-  showToast,
+  onSellQuoted,
+  // showToast and userProfile reserved for future use
   requestConfirmation,
-  userProfile,
-  searchTerm = '',
 }) {
   const [selectedContact, setSelectedContact] = useState(null);
   const [sortMode, setSortMode] = useState('recent');
   const [filterTag, setFilterTag] = useState(null);
 
-  // Auto-fetch on mount if no contacts loaded yet
+  // Map: normalized phone/email → latest document createdAt timestamp
+  const lastActivityMap = useMemo(() => {
+    const map = new Map(); // key: phone or email → ms timestamp
+    const allDocs = [...contracts, ...quotes];
+    allDocs.forEach(doc => {
+      const ts = doc.createdAt ? new Date(doc.createdAt).getTime() : 0;
+      if (!ts) return;
+      if (doc.phone) {
+        const k = normalizePhone(doc.phone);
+        if (k && (!map.has(k) || ts > map.get(k))) map.set(k, ts);
+      }
+      const em = (doc.email || '').toLowerCase();
+      if (em) {
+        if (!map.has(em) || ts > map.get(em)) map.set(em, ts);
+      }
+    });
+    return map;
+  }, [contracts, quotes]);
+
   useEffect(() => {
     if (!isLoading && contacts.length === 0 && onRefresh) {
       onRefresh();
@@ -690,27 +1148,58 @@ export default function ContactsView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Scroll to top on navigation between list and detail
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [selectedContact]);
 
-  // Compute linked vehicles for selected contact
-  const linkedVehicles = useMemo(() => {
-    if (!selectedContact) return [];
+  const { linkedVehicles, linkedDocuments, linkedQuotes } = useMemo(() => {
+    if (!selectedContact) return { linkedVehicles: [], linkedDocuments: [], linkedQuotes: [] };
     const phone = normalizePhone(selectedContact.phone);
     const email = (selectedContact.email || '').toLowerCase();
     const linked = contracts.filter(c =>
       (phone && normalizePhone(c.phone) === phone) ||
       (email && (c.email || '').toLowerCase() === email)
     );
-    const vehicleIds = [...new Set(linked.map(c => c.vehicleId).filter(Boolean))];
-    return inventory.filter(v => vehicleIds.includes(String(v.id)));
-  }, [selectedContact, contracts, inventory]);
+    // Also match via quotes (stored separately from contracts)
+    const linkedQ = quotes.filter(q =>
+      (phone && normalizePhone(q.phone) === phone) ||
+      (email && (q.email || '').toLowerCase() === email)
+    );
+    const allVehicleIds = [...new Set([
+      ...linked.map(c => c.vehicleId),
+      ...linkedQ.map(q => q.vehicleId),
+    ].filter(Boolean))];
+    const vehicleIds = allVehicleIds;
+    const vehicles = inventory.filter(v => vehicleIds.includes(String(v.id)));
+
+    // Collect document URLs from linked Firestore contracts
+    const docMap = new Map(); // url → label, dedup by url
+    linked.forEach(c => {
+      const urls = c.ghlDocumentUrls || (c.documentUrl ? [c.documentUrl] : []);
+      urls.forEach((u, i) => {
+        if (u && !docMap.has(u)) {
+          const vehicle = vehicles.find(v => String(v.id) === String(c.vehicleId));
+          const vehicleName = vehicle
+            ? `${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.year || ''}`.trim()
+            : '';
+          const docLabel = c.documentType === 'cotizacion' ? 'Cotización' : 'Contrato';
+          docMap.set(u, { url: u, label: vehicleName ? `${docLabel} — ${vehicleName}` : `${docLabel} ${i + 1}` });
+        }
+      });
+    });
+    // Also include any URLs stored directly on the GHL contact (for backwards compat)
+    (selectedContact.ghlDocumentUrls || []).forEach((u, i) => {
+      if (u && !docMap.has(u)) {
+        docMap.set(u, { url: u, label: `Documento ${i + 1}` });
+      }
+    });
+
+    return { linkedVehicles: vehicles, linkedDocuments: [...docMap.values()], linkedQuotes: linkedQ };
+  }, [selectedContact, contracts, quotes, inventory]);
 
   function handleDeleteContact() {
     if (!selectedContact) return;
-    const name = `${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim();
+    const name = toTitleCase(`${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim());
     requestConfirmation({
       title: 'Borrar contacto',
       message: `¿Seguro que deseas borrar a ${name || 'este contacto'}? Esta acción no se puede deshacer.`,
@@ -723,18 +1212,15 @@ export default function ContactsView({
     });
   }
 
-  function handleSellNewCar() {
+  function handleSellNewCar(docType = 'contrato') {
     if (!selectedContact) return;
     onSellNewCar({
-      // Pass contact info so GenerateContractModal can pre-fill client fields
       name: selectedContact.firstName || '',
       lastname: selectedContact.lastName || '',
       phone: selectedContact.phone || '',
       email: selectedContact.email || '',
-      cedula: selectedContact.customFields?.find?.(f =>
-        (f.key || '').toLowerCase().includes('cedula')
-      )?.value || '',
-    });
+      cedula: extractCedula(selectedContact),
+    }, docType);
   }
 
   return (
@@ -751,9 +1237,17 @@ export default function ContactsView({
             <ContactDetailView
               contact={selectedContact}
               linkedVehicles={linkedVehicles}
+              linkedDocuments={linkedDocuments}
+              linkedQuotes={linkedQuotes}
               onBack={() => setSelectedContact(null)}
               onSellNewCar={handleSellNewCar}
+              onSellQuoted={onSellQuoted}
               onDeleteContact={handleDeleteContact}
+              onUpdateContact={async (id, data) => {
+                await onUpdateContact(id, data);
+                // Reflect changes in selectedContact locally
+                setSelectedContact(prev => prev ? { ...prev, ...data } : prev);
+              }}
             />
           </motion.div>
         ) : (
@@ -766,16 +1260,18 @@ export default function ContactsView({
           >
             <ContactsListView
               contacts={contacts}
-              contracts={contracts}
-              inventory={inventory}
               isLoading={isLoading}
               onRefresh={onRefresh}
+              onLoadMore={onLoadMore}
+              hasMore={hasMore}
+              totalContacts={totalContacts}
               onSelectContact={setSelectedContact}
-              searchTerm={searchTerm}
+              onSearch={onSearch}
               sortMode={sortMode}
               setSortMode={setSortMode}
               filterTag={filterTag}
               setFilterTag={setFilterTag}
+              lastActivityMap={lastActivityMap}
             />
           </motion.div>
         )}

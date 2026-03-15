@@ -2572,7 +2572,7 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
   }
 
   try {
-    const { contactData, templateId, ghl_access_token, vehicleData, financialData, dealerId: bodyDealerId } = req.body;
+    const { contactData, templateId, ghl_access_token, vehicleData, financialData, documentType, dealerId: bodyDealerId } = req.body;
 
     console.log(`[${VERSION}] 🟢 Inicia apiGHL. Template: ${templateId}, Dealer: ${bodyDealerId}`);
 
@@ -2975,15 +2975,54 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
     });
 
     const docResult = await docRes.json();
+    console.log("📄 GHL docResult raw:", JSON.stringify(docResult));
     if (!docRes.ok) {
       console.error("❌ Error Generate Document GHL:", docResult);
       throw new Error(docResult.message || docResult.error || "Error al generar documento en GHL");
     }
 
+    // ── AGREGAR ETIQUETAS AL CONTACTO ─────────────────────────────────────────
+    // Tags: marca del vehículo + acción (cotizó / compró)
+    try {
+      const veh = vehicleData || {};
+      const make = (veh.make || veh.marca || '').trim().toUpperCase();
+      const isQuote = documentType === 'cotizacion';
+      // Add both variants for compatibility (cotizó/cotizado, compró/vendido)
+      const tagsToAdd = isQuote ? ['cotizó', 'cotizado'] : ['compró', 'vendido'];
+      if (make) tagsToAdd.push(make);
+
+      await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}/tags`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          Version: '2021-07-28',
+        },
+        body: JSON.stringify({ tags: tagsToAdd }),
+      });
+      console.log(`🏷️ Tags añadidos al contacto ${contactId}:`, tagsToAdd);
+    } catch (tagErr) {
+      // Non-fatal: log but don't fail the response
+      console.warn('[apiGHL] Error añadiendo tags:', tagErr.message);
+    }
+
+    // GHL returns { document: { _id, ... } }
+    const docId = (docResult.document && (docResult.document._id || docResult.document.id || docResult.document.documentId))
+      || (docResult.links && docResult.links[0] && docResult.links[0].documentId)
+      || docResult.documentId
+      || docResult.id
+      || null;
+
+    const previewUrl = docId
+      ? `https://app.iagil.ai/v2/location/${finalLocationId}/payments/proposals-estimates/edit/preview/${docId}?locale=es`
+      : (docResult.url || docResult.documentUrl || `https://app.gohighlevel.com/v2/location/${finalLocationId}/contacts/detail/${contactId}`);
+
+    console.log(`📎 Document URL generado: ${previewUrl} (docId: ${docId})`);
+
     res.json({
-      documentUrl: docResult.url || docResult.documentUrl || (docResult.document && docResult.document.url) || `https://app.gohighlevel.com/v2/location/${finalLocationId}/contacts/detail/${contactId}`,
+      documentUrl: previewUrl,
       status: "ok",
-      ghlDocumentId: docResult.id || (docResult.document && docResult.document.id)
+      ghlDocumentId: docId
     });
 
   } catch (error) {
@@ -2996,6 +3035,103 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
       error: error.message,
       details: error.response?.data || null
     });
+  }
+});
+
+// ── Contacts API ─────────────────────────────────────────────────────────────
+exports.ghlContacts = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
+  const GHL_BASE = 'https://services.leadconnectorhq.com';
+
+  // Webhook receiver: POST ?webhook=1
+  if (req.method === 'POST' && req.query.webhook) {
+    const locationId = req.body?.locationId || req.body?.location_id;
+    if (locationId) {
+      try {
+        const supa = createClient(SUPABASE_URL, supabaseServiceKey.value());
+        await supa.from('dealers').update({ updated_at: new Date().toISOString() }).eq('ghl_location_id', locationId);
+      } catch (_) {}
+    }
+    return res.status(200).json({ received: true });
+  }
+
+  const { dealerId, contactId, limit = '100', startAfterId, query: searchQuery } = req.query;
+  if (!dealerId) return res.status(400).json({ error: 'dealerId es requerido' });
+
+  try {
+    const { access_token, locationId } = await getGHLConfig(dealerId, ghlClientId.value(), ghlClientSecret.value(), supabaseServiceKey.value());
+    const headers = {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+      Version: '2021-07-28',
+    };
+
+    if (req.method === 'GET') {
+      // Fetch custom field schema once to annotate contacts (maps UUID id → readable fieldKey)
+      let cfSchema = {}; // id → normalized key (e.g. "cedula", "placa")
+      try {
+        const cfRes = await fetch(`${GHL_BASE}/locations/${locationId}/customFields`, { headers });
+        if (cfRes.ok) {
+          const cfData = await cfRes.json();
+          console.log('[ghlContacts] Custom field schema:', JSON.stringify((cfData.customFields || []).map(cf => ({ id: cf.id, fieldKey: cf.fieldKey, name: cf.name }))));
+          (cfData.customFields || []).forEach(cf => {
+            if (cf.id) {
+              // Normalize fieldKey: strip "contact." prefix and braces
+              const fromKey = (cf.fieldKey || '').replace(/^\{\{?\s*contact\.\s*/i, '').replace(/\s*\}?\}?$/, '').toLowerCase().trim();
+              // Also normalize name: remove accents, lowercase
+              const fromName = (cf.name || '').toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+                .replace(/[^a-z0-9_]/g, '_').trim();
+              // Use fieldKey if available, fall back to normalized name
+              cfSchema[cf.id] = fromKey || fromName;
+            }
+          });
+        }
+      } catch (_) {}
+
+      // Helper to annotate a contact's customFields with readable key
+      const annotateContact = (contact) => {
+        if (!contact || !contact.customFields) return contact;
+        return {
+          ...contact,
+          customFields: contact.customFields.map(cf => ({
+            ...cf,
+            fieldKey: cfSchema[cf.id] || cf.fieldKey || cf.id || '',
+          }))
+        };
+      };
+
+      if (contactId) {
+        const r = await fetch(`${GHL_BASE}/contacts/${contactId}`, { headers });
+        if (!r.ok) return res.status(r.status).json(await r.json());
+        const data = await r.json();
+        return res.json(annotateContact(data.contact || data));
+      }
+      const params = new URLSearchParams({ locationId, limit });
+      if (startAfterId) params.set('startAfterId', startAfterId);
+      if (searchQuery) params.set('query', searchQuery);
+      const r = await fetch(`${GHL_BASE}/contacts/?${params}`, { headers });
+      if (!r.ok) return res.status(r.status).json(await r.json());
+      const data = await r.json();
+      const contacts = (data.contacts || []).map(annotateContact);
+      return res.json({ ...data, contacts });
+    }
+
+    if (req.method === 'PUT') {
+      if (!contactId) return res.status(400).json({ error: 'contactId requerido' });
+      const r = await fetch(`${GHL_BASE}/contacts/${contactId}`, { method: 'PUT', headers, body: JSON.stringify(req.body) });
+      return res.status(r.status).json(await r.json());
+    }
+
+    if (req.method === 'DELETE') {
+      if (!contactId) return res.status(400).json({ error: 'contactId requerido' });
+      const r = await fetch(`${GHL_BASE}/contacts/${contactId}`, { method: 'DELETE', headers });
+      return res.status(r.status).json({ ok: r.ok });
+    }
+
+    return res.status(405).json({ error: 'Método no permitido' });
+  } catch (err) {
+    console.error('[ghlContacts] Error:', err.message);
+    return res.status(500).json({ error: err.message });
   }
 });
 

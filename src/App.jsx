@@ -1397,7 +1397,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
   );
 };
 
-const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast, userProfile, initialDocumentType = 'contrato', resolvedDealerId }) => {
+const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast, userProfile, initialDocumentType = 'contrato', resolvedDealerId, ghlContacts = [] }) => {
   const [selectedTemplates, setSelectedTemplates] = useState([]); // Ahora es array
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle ? initialVehicle.vehicleId || initialVehicle.id : '');
   const [clientName, setClientName] = useState('');
@@ -1416,6 +1416,93 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   const [successData, setSuccessData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const documentType = initialDocumentType; // Viene del modal de acción: 'cotizacion' | 'contrato'
+
+  // ── Vehicle dropdown ──
+  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const vehicleDropdownRef = useRef(null);
+
+  // Close vehicle dropdown on outside click
+  useEffect(() => {
+    if (!vehicleDropdownOpen) return;
+    function handler(e) {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target)) {
+        setVehicleDropdownOpen(false);
+        setVehicleSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [vehicleDropdownOpen]);
+
+  // ── Contact autocomplete ──
+  const [contactSuggestions, setContactSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [contactSearchLoading, setContactSearchLoading] = useState(false);
+  const suggestionsRef = React.useRef(null);
+  const contactSearchDebounceRef = React.useRef(null);
+
+  // Search contacts via server-side API (searches ALL contacts, not just loaded ones)
+  function searchContacts(query) {
+    if (contactSearchDebounceRef.current) clearTimeout(contactSearchDebounceRef.current);
+    if (!query || query.trim().length < 2) {
+      setContactSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    contactSearchDebounceRef.current = setTimeout(async () => {
+      const dealerUuid = userProfile?.supabaseDealerId || userProfile?.dealerId;
+      if (!dealerUuid) return;
+      setContactSearchLoading(true);
+      try {
+        const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&limit=8&query=${encodeURIComponent(query.trim())}`);
+        if (!r.ok) throw new Error('search failed');
+        const data = await r.json();
+        const results = data.contacts || [];
+        setContactSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } catch {
+        setContactSuggestions([]);
+        setShowSuggestions(false);
+      } finally {
+        setContactSearchLoading(false);
+      }
+    }, 350);
+  }
+
+  function applyContact(c) {
+    setClientName((c.firstName || '').toUpperCase());
+    setClientLastName((c.lastName || '').toUpperCase());
+    setClientPhone(c.phone || '');
+    setClientEmail(c.email || '');
+    // Extract cedula — check annotated fieldKey (set by Cloud Function) with same keywords as ContactsView
+    const CEDULA_KW = ['cedula', 'c_dula', 'cdula', 'cedula_pasaporte', 'identification', 'id_number', 'pasaporte', 'passport', 'documento', 'dni'];
+    const cf = c.customFields || [];
+    for (const f of cf) {
+      if (!f.value) continue;
+      const k = (f.fieldKey || f.key || f.id || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9_]/g, '_');
+      if (CEDULA_KW.some(kw => k === kw || k.includes(kw))) {
+        setClientCedula(f.value);
+        break;
+      }
+    }
+    setShowSuggestions(false);
+    setContactSuggestions([]);
+  }
+
+  // Close suggestions on outside click
+  React.useEffect(() => {
+    function handleClickOutside(e) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (isOpen && userProfile?.dealerId) {
@@ -1479,11 +1566,16 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 
   useEffect(() => {
     if (initialVehicle) {
-      setSelectedVehicleId(initialVehicle.vehicleId || initialVehicle.id);
+      // When coming from Contacts ("Vender nuevo auto"), initialVehicle only has contact fields — no vehicleId
+      if (!initialVehicle.isContactData) {
+        setSelectedVehicleId(initialVehicle.vehicleId || initialVehicle.id);
+      } else {
+        setSelectedVehicleId('');
+      }
 
       // Handle client name/lastname more robustly
       if (initialVehicle.client) {
-        const parts = initialVehicle.client.trim().split(' ');
+        const parts = initialVehicle.client.trim().toUpperCase().split(' ');
         if (parts.length > 1) {
           setClientName(parts[0]);
           setClientLastName(parts.slice(1).join(' '));
@@ -1492,14 +1584,14 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
           setClientLastName('');
         }
       } else {
-        setClientName(initialVehicle.name || initialVehicle.first_name || '');
-        setClientLastName(initialVehicle.lastname || initialVehicle.last_name || '');
+        setClientName((initialVehicle.name || initialVehicle.first_name || '').toUpperCase());
+        setClientLastName((initialVehicle.lastname || initialVehicle.last_name || '').toUpperCase());
       }
 
       setClientCedula(initialVehicle.cedula || initialVehicle.id_number || '');
       setClientPhone(String(initialVehicle.phone || initialVehicle.tel || ''));
       setClientEmail(initialVehicle.email || initialVehicle.mail || '');
-      setBankName(initialVehicle.bank || initialVehicle.banco || '');
+      setBankName(initialVehicle.bankName || initialVehicle.bank || initialVehicle.banco || '');
 
       // Auto-fill price/downPayment from initial data or the vehicle in inventory
       const v = inventory.find(i => String(i.id) === String(initialVehicle.vehicleId || initialVehicle.id));
@@ -1536,9 +1628,9 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
     }
   }, [initialVehicle, isOpen, inventory, templates]);
 
-  // When vehicle selected, auto-fill price if empty and NOT editing
+  // When vehicle selected, auto-fill price if empty and NOT editing (or coming from contact)
   useEffect(() => {
-    if (selectedVehicleId && !initialVehicle) {
+    if (selectedVehicleId && (!initialVehicle || initialVehicle?.isContactData)) {
       const v = inventory.find(i => i.id === selectedVehicleId);
       if (v) {
         setFinalPrice(v.price_dop > 0 ? v.price_dop : (v.price || 0));
@@ -1615,7 +1707,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       const errors = [];
       for (const templateId of selectedTemplates) {
         try {
-          const docUrl = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, resolvedDealerId || userProfile?.dealerId, ghlToken);
+          const docUrl = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, resolvedDealerId || userProfile?.dealerId, ghlToken, documentType);
           results.push(docUrl);
         } catch (e) {
           console.error(`⚠️ Error GHL Generate para template ${templateId}:`, e);
@@ -1833,13 +1925,16 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                 </div>
 
                 {(() => {
-                  const selectedObj = !initialVehicle && selectedVehicleId ? inventory.find(v => String(v.id) === String(selectedVehicleId)) : null;
-                  const displayVehicle = initialVehicle || selectedObj;
+                  const isContactPrefill = !!initialVehicle?.isContactData;
+                  const selectedObj = selectedVehicleId ? inventory.find(v => String(v.id) === String(selectedVehicleId)) : null;
+                  // Prefer selectedObj (inventory data) when initialVehicle is a quote/contract doc without vehicle specs
+                  const displayVehicle = isContactPrefill
+                    ? selectedObj
+                    : (selectedObj || initialVehicle);
 
                   if (displayVehicle) {
-                    const isFromQuote = !!initialVehicle && (initialVehicle.vehicleId || initialVehicle.template);
+                    const isFromQuote = !isContactPrefill && !!initialVehicle && (initialVehicle.vehicleId || initialVehicle.template);
                     const vinValue = displayVehicle.vin || displayVehicle.chasis_vin || displayVehicle.chassis || displayVehicle.chasis || displayVehicle.VIN || '';
-                    const last4Vin = String(vinValue).slice(-4);
 
                     return (
                       <div className={`relative flex items-center gap-5 p-6 rounded-[2rem] transition-all duration-500 border-2 ${isFromQuote ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
@@ -1852,11 +1947,11 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                           </p>
                           <div className="flex items-center gap-3">
                             <span className={`text-sm font-bold uppercase ${isFromQuote ? 'text-emerald-600' : 'text-slate-500'}`}>
-                              {displayVehicle.year || displayVehicle.ano} • <span className="text-red-600 font-black">{String(displayVehicle.color || 'N/A').toUpperCase()}</span> • VIN: <span className="text-red-600 font-black">{last4Vin ? last4Vin.toUpperCase() : 'N/A'}</span>
+                              {displayVehicle.year || displayVehicle.ano} • <span className="text-red-600 font-black">{String(displayVehicle.color || 'N/A').toUpperCase()}</span>{vinValue && <> • VIN: <span className="text-red-600 font-black">{vinValue.slice(-4).toUpperCase()}</span></>}
                             </span>
                           </div>
                         </div>
-                        {!initialVehicle && (
+                        {(!initialVehicle || isContactPrefill) && (
                           <button
                             onClick={() => setSelectedVehicleId("")}
                             className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-white bg-slate-900 hover:bg-red-600 px-5 py-3 rounded-2xl transition-all uppercase tracking-widest shadow-xl shadow-slate-900/10 active:scale-95"
@@ -1868,22 +1963,101 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                     );
                   }
 
+                  // Custom vehicle picker — replaces native <select>
+                  const filteredVehicles = vehicleSearch.trim()
+                    ? availableVehicles.filter(v =>
+                        `${v.make} ${v.model} ${v.year}`.toLowerCase().includes(vehicleSearch.toLowerCase())
+                      )
+                    : availableVehicles;
+
                   return (
-                    <div className="relative group">
-                      <select
-                        className="w-full pl-12 pr-10 py-4 border-2 border-slate-100 rounded-3xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-red-500/5 focus:border-red-500 font-bold text-slate-700 uppercase transition-all appearance-none cursor-pointer"
-                        value={selectedVehicleId}
-                        onChange={(e) => setSelectedVehicleId(e.target.value)}
+                    <div className="relative" ref={vehicleDropdownRef}>
+                      {/* Trigger button */}
+                      <button
+                        type="button"
+                        onClick={() => { setVehicleDropdownOpen(o => !o); setVehicleSearch(''); }}
+                        className={`w-full flex items-center gap-3 pl-4 pr-4 py-4 border-2 rounded-3xl transition-all duration-200 text-left ${
+                          vehicleDropdownOpen
+                            ? 'border-red-400 bg-white shadow-[0_0_0_4px_rgba(239,68,68,0.08)]'
+                            : 'border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white'
+                        }`}
                       >
-                        <option value="">-- SELECCIONAR VEHÍCULO DEL INVENTARIO --</option>
-                        {availableVehicles.map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${(v.price || v.precio || 0).toLocaleString()}`}
-                          </option>
-                        ))}
-                      </select>
-                      <Car className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-red-500 transition-colors" size={20} />
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                        <div className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors ${vehicleDropdownOpen ? 'bg-red-50' : 'bg-white'}`}>
+                          <Car size={17} className={vehicleDropdownOpen ? 'text-red-500' : 'text-slate-400'} />
+                        </div>
+                        <span className="flex-1 font-bold text-slate-400 text-sm uppercase tracking-wide">
+                          Seleccionar vehículo del inventario
+                        </span>
+                        <ChevronDown size={16} className={`text-slate-300 transition-transform duration-200 ${vehicleDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Dropdown panel */}
+                      <AnimatePresence>
+                        {vehicleDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                            className="absolute z-50 top-full mt-2 left-0 right-0 bg-white rounded-[1.5rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden"
+                          >
+                            {/* Search inside dropdown */}
+                            <div className="p-3 border-b border-slate-100">
+                              <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={vehicleSearch}
+                                  onChange={e => setVehicleSearch(e.target.value)}
+                                  placeholder="Buscar marca, modelo, año..."
+                                  className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-2xl text-sm font-medium text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:bg-white transition-all"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Vehicle list */}
+                            <div className="max-h-72 overflow-y-auto overscroll-contain">
+                              {filteredVehicles.length === 0 ? (
+                                <div className="px-4 py-8 text-center text-sm text-slate-400 font-medium">Sin resultados</div>
+                              ) : (
+                                filteredVehicles.map((v, i) => {
+                                  const priceStr = v.price_dop > 0
+                                    ? `RD$ ${v.price_dop.toLocaleString()}`
+                                    : `US$ ${(v.price || v.precio || 0).toLocaleString()}`;
+                                  const img = v.image || (v.images && v.images[0]) || (v.fotos && v.fotos[0]) || null;
+                                  return (
+                                    <button
+                                      key={v.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedVehicleId(v.id);
+                                        setVehicleDropdownOpen(false);
+                                        setVehicleSearch('');
+                                      }}
+                                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors duration-150 ${i < filteredVehicles.length - 1 ? 'border-b border-slate-50' : ''}`}
+                                    >
+                                      {/* Thumbnail or icon */}
+                                      <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                                        {img
+                                          ? <img src={img} alt="" className="w-full h-full object-cover" />
+                                          : <Car size={16} className="text-slate-300" />
+                                        }
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight truncate">
+                                          {v.make} {v.model} <span className="text-slate-400 font-bold">({v.year})</span>
+                                        </p>
+                                        <p className="text-xs font-bold text-red-500 mt-0.5">{priceStr}</p>
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
                 })()}
@@ -1896,13 +2070,60 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                   <label className="text-xs font-black text-slate-900 uppercase tracking-widest">DATOS DEL COMPRADOR</label>
                 </div>
 
+                {/* Contact autocomplete search — server-side, searches all contacts */}
+                <div ref={suggestionsRef} className="relative mb-4">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Buscar contacto existente..."
+                      className="w-full pl-9 pr-9 py-2.5 text-sm font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 transition-all placeholder:text-slate-400"
+                      onChange={e => searchContacts(e.target.value)}
+                      onFocus={e => { if (e.target.value.trim().length >= 2) searchContacts(e.target.value); }}
+                    />
+                    {contactSearchLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-red-300 border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </div>
+                  {showSuggestions && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                      {contactSuggestions.map((c, i) => {
+                        const fn = (s) => (s || '').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+                        const fullName = `${fn(c.firstName)} ${fn(c.lastName)}`.trim();
+                        const tags = (c.tags || []).filter(t => ['compró', 'vendido', 'cotizó', 'cotizado'].includes(t.toLowerCase()));
+                        return (
+                          <button
+                            key={c.id || i}
+                            type="button"
+                            onClick={() => applyContact(c)}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0"
+                          >
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
+                              {(c.firstName || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-900 truncate">{fullName || 'Sin nombre'}</p>
+                              <p className="text-xs text-slate-400 font-medium truncate">{c.phone || c.email || ''}</p>
+                            </div>
+                            {tags.length > 0 && (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex-shrink-0">
+                                {tags[0]}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
                     label="NOMBRE"
                     placeholder="NOMBRES"
                     icon={User}
                     value={clientName}
-                    onChange={(e) => setClientName(e.target.value.toUpperCase())}
+                    onChange={(e) => { setClientName(e.target.value.toUpperCase()); }}
                     error={submitted && !clientName ? "OBLIGATORIO" : ""}
                     required
                   />
@@ -1919,7 +2140,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                     placeholder="001-0000000-0"
                     icon={IdCard}
                     value={clientCedula}
-                    onChange={(e) => setClientCedula(e.target.value)}
+                    onChange={(e) => { setClientCedula(e.target.value); }}
                     error={submitted && !clientCedula ? "OBLIGATORIO" : ""}
                     required
                   />
@@ -1928,7 +2149,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                     placeholder="809-000-0000"
                     icon={Phone}
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
+                    onChange={(e) => { setClientPhone(e.target.value); }}
                     error={submitted && !clientPhone ? "OBLIGATORIO" : ""}
                     required
                   />
@@ -1939,7 +2160,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                       placeholder="CLIENTE@EJEMPLO.COM"
                       icon={Mail}
                       value={clientEmail}
-                      onChange={(e) => setClientEmail(e.target.value.toUpperCase())}
+                      onChange={(e) => { setClientEmail(e.target.value.toUpperCase()); }}
                       error={submitted && !clientEmail ? "OBLIGATORIO" : ""}
                       required
                     />
@@ -3897,7 +4118,7 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
     </motion.div>
   );
 };
-const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSellQuoted, onSave, onDelete, onDeleteQuote, onRedoSale, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [], resolvedDealerId, isLoading, readOnly }) => {
+const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSellQuoted, onSave, onDelete, onDeleteQuote, onRedoSale, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [], resolvedDealerId, isLoading, readOnly, ghlContacts = [] }) => {
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('brand_asc'); // Default alphabetical by Make
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -4232,34 +4453,31 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
                             </div>
                           </div>
                         ) : isQuoted && associatedQuote ? (
-                          <div className="mb-6 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 space-y-3">
-                            <p className="text-[11px] font-black text-emerald-800 uppercase tracking-[0.2em] flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse relative">
-                                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-50"></span>
-                              </span>
-                              DATOS DEL COMPRADOR
+                          <div className="mb-6 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 space-y-2">
+                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Datos del Comprador
                             </p>
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-3 text-slate-700 bg-white/50 p-2 rounded-xl">
-                                <User size={14} className="text-emerald-600" />
-                                <span className="text-sm font-bold truncate">{`${associatedQuote.name || ''} ${associatedQuote.lastname || ''}`}</span>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <User size={12} className="text-amber-600" />
+                                <span className="text-[10px] font-bold truncate">{associatedQuote.client || `${associatedQuote.name || ''} ${associatedQuote.lastname || ''}`.trim() || 'N/A'}</span>
                               </div>
-                              <div className="flex items-center gap-3 text-slate-500 px-2">
-                                <IdCard size={14} className="text-emerald-500/70" />
-                                <span className="text-xs font-bold">{associatedQuote.cedula || 'N/A'}</span>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <IdCard size={12} className="text-amber-600" />
+                                <span className="text-[10px] font-bold">{associatedQuote.cedula || 'N/A'}</span>
                               </div>
-                              <div className="flex items-center gap-3 text-slate-500 px-2">
-                                <Phone size={14} className="text-emerald-500/70" />
-                                <span className="text-xs font-bold">{associatedQuote.phone || 'N/A'}</span>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Phone size={12} className="text-amber-600" />
+                                <span className="text-[10px] font-bold">{associatedQuote.phone || 'N/A'}</span>
                               </div>
-                              <div className="flex items-center gap-3 text-slate-500 px-2">
-                                <Mail size={14} className="text-emerald-500/70" />
-                                <span className="text-xs font-bold truncate lowercase">{associatedQuote.email || 'N/A'}</span>
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Mail size={12} className="text-amber-600" />
+                                <span className="text-[10px] font-bold truncate lowercase">{associatedQuote.email || 'N/A'}</span>
                               </div>
-                              {associatedQuote.bank && (
-                                <div className="flex items-center gap-3 text-slate-500 px-2">
-                                  <Building2 size={14} className="text-emerald-500/70" />
-                                  <span className="text-xs font-bold truncate">{associatedQuote.bank}</span>
+                              {(associatedQuote.bankName || associatedQuote.bank || associatedQuote.banco) && (
+                                <div className="flex items-center gap-2 text-slate-500">
+                                  <Building2 size={12} className="text-amber-600" />
+                                  <span className="text-[10px] font-bold truncate uppercase">{associatedQuote.bankName || associatedQuote.bank || associatedQuote.banco}</span>
                                 </div>
                               )}
                             </div>
@@ -4788,6 +5006,7 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
               userProfile={userProfile}
               showToast={showToast}
               resolvedDealerId={resolvedDealerId}
+              ghlContacts={ghlContacts}
             />,
             document.body
           )}
@@ -5256,6 +5475,7 @@ export default function CarbotApp() {
   const [ghlContacts, setGhlContacts] = useState([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactsLastFetched, setContactsLastFetched] = useState(null);
+  const [contactsMeta, setContactsMeta] = useState({ total: 0, startAfterId: null });
 
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(params.get('dealer') || params.get('dealerID') || null);
@@ -6196,10 +6416,13 @@ export default function CarbotApp() {
 
     setContactsLoading(true);
     try {
-      const r = await fetch(`/api/ghl-contacts?dealerId=${dealerUuid}&limit=100`);
+      const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&limit=100`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      setGhlContacts(data.contacts || []);
+      const contacts = data.contacts || [];
+      const meta = data.meta || {};
+      setGhlContacts(contacts);
+      setContactsMeta({ total: meta.total || contacts.length, startAfterId: contacts[contacts.length - 1]?.id || null });
       setContactsLastFetched(Date.now());
     } catch (err) {
       console.error('❌ fetchGHLContacts error:', err);
@@ -6208,6 +6431,52 @@ export default function CarbotApp() {
       setContactsLoading(false);
     }
   }, [effectiveDealerId, userProfile, contactsLastFetched]);
+
+  // Load next page of contacts (appends to existing list)
+  const fetchMoreGHLContacts = useCallback(async () => {
+    const dealerUuid = userProfile?.supabaseDealerId || (() => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null;
+    })();
+    if (!dealerUuid || !contactsMeta.startAfterId) return;
+
+    setContactsLoading(true);
+    try {
+      const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&limit=100&startAfterId=${contactsMeta.startAfterId}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      const newContacts = data.contacts || [];
+      const meta = data.meta || {};
+      setGhlContacts(prev => [...prev, ...newContacts]);
+      setContactsMeta(prev => ({
+        total: meta.total || prev.total,
+        startAfterId: newContacts.length === 100 ? (newContacts[newContacts.length - 1]?.id || null) : null,
+      }));
+    } catch (err) {
+      console.error('❌ fetchMoreGHLContacts error:', err);
+      showToast('Error cargando más contactos', 'error');
+    } finally {
+      setContactsLoading(false);
+    }
+  }, [effectiveDealerId, userProfile, contactsMeta.startAfterId]);
+
+  // Server-side search across ALL contacts (not just the loaded page)
+  const searchGHLContacts = useCallback(async (query) => {
+    const dealerUuid = userProfile?.supabaseDealerId || (() => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null;
+    })();
+    if (!dealerUuid || !query) return null;
+    try {
+      const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&limit=100&query=${encodeURIComponent(query)}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      return data.contacts || [];
+    } catch (err) {
+      console.error('❌ searchGHLContacts error:', err);
+      return null;
+    }
+  }, [effectiveDealerId, userProfile]);
 
   // Auto-fetch GHL contacts when navigating to Contactos tab
   useEffect(() => {
@@ -6337,10 +6606,12 @@ export default function CarbotApp() {
     const all = [
       ...legacyQuotes,
       ...legacyDocs.filter(d => d && (d.type === 'quote' || (d.id && d.id.startsWith('Cotizacion')))),
-      ...newQuotes
-    ].filter(Boolean); // Remover nulls/undefineds
+      ...newQuotes,
+      // Cotizaciones generadas via contract modal también viven en contratos/items con documentType='cotizacion'
+      ...newContracts.filter(c => c && (c.documentType === 'cotizacion' || c.category === 'cotizacion' || c.type === 'quote')),
+    ].filter(Boolean);
     return all.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [legacyQuotes, legacyDocs, newQuotes]);
+  }, [legacyQuotes, legacyDocs, newQuotes, newContracts]);
 
 
   // 3. GUARDAR (Crear o Editar en Supabase)
@@ -6890,7 +7161,7 @@ export default function CarbotApp() {
 
           try {
             await supabase.from('vehiculos')
-              .update({ estado: newEstado, status: newStatus })
+              .update({ estado: newEstado })
               .eq('id', contractData.vehicleId);
 
             // Actualizar estado local para que el cambio sea reflejado en la UI inmediatamente
@@ -7024,7 +7295,7 @@ export default function CarbotApp() {
     })();
     if (!dealerUuid) return;
     try {
-      const r = await fetch(`/api/ghl-contacts?dealerId=${dealerUuid}&contactId=${contactId}`, {
+      const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&contactId=${contactId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
@@ -7046,7 +7317,7 @@ export default function CarbotApp() {
     })();
     if (!dealerUuid) return;
     try {
-      const r = await fetch(`/api/ghl-contacts?dealerId=${dealerUuid}&contactId=${contactId}`, {
+      const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&contactId=${contactId}`, {
         method: 'DELETE',
       });
       if (!r.ok) throw new Error(await r.text());
@@ -7060,23 +7331,19 @@ export default function CarbotApp() {
 
   // ────────────────────────────────────────────────────────────────────────────
 
-  const handleSellQuoted = (vehicle, docType = 'contrato') => {
-    console.log("App: handleSellQuoted triggered", { vehicleId: vehicle?.id, docType });
-    // Buscar la última cotización para este vehículo (la más reciente y no eliminada)
-    const activeQuotes = (quotes || []).filter(q => String(q.vehicleId) === String(vehicle.id) && q.status !== 'deleted');
-    console.log("App: activeQuotes found", activeQuotes.length);
-
-    if (activeQuotes.length === 0) {
-      console.log("App: No active quotes, using vehicle as is");
-      setCurrentVehicleForModal(vehicle);
+  const handleSellQuoted = (quoteOrVehicle, docType = 'contrato') => {
+    // If already a quote/doc object (has client data + vehicleId), use it directly
+    const isQuoteObj = !!(quoteOrVehicle?.name || quoteOrVehicle?.lastname || quoteOrVehicle?.client) && !!quoteOrVehicle?.vehicleId;
+    if (isQuoteObj) {
+      setCurrentVehicleForModal(quoteOrVehicle);
     } else {
-      activeQuotes.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-      console.log("App: Using latest quote", activeQuotes[0].id);
-      setCurrentVehicleForModal(activeQuotes[0]);
+      // It's a vehicle — find its latest active quote
+      const activeQuotes = (quotes || [])
+        .filter(q => String(q.vehicleId) === String(quoteOrVehicle?.id) && q.status !== 'deleted')
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      setCurrentVehicleForModal(activeQuotes.length > 0 ? activeQuotes[0] : quoteOrVehicle);
     }
-
     setSelectedDocType(docType);
-    console.log("App: Opening Contract Modal...");
     setIsContractModalOpen(true);
   };
 
@@ -7181,6 +7448,7 @@ export default function CarbotApp() {
               userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} resolvedDealerId={resolvedDealerId}
               isLoading={isInventoryLoading}
               readOnly={isStoreRoute}
+              ghlContacts={ghlContacts}
             />;
             case 'contacts': return (
               <ContactsView
@@ -7189,13 +7457,20 @@ export default function CarbotApp() {
                 contracts={contracts || []}
                 isLoading={contactsLoading}
                 onRefresh={() => fetchGHLContacts(true)}
+                onLoadMore={fetchMoreGHLContacts}
+                onSearch={searchGHLContacts}
+                hasMore={!!contactsMeta.startAfterId}
+                totalContacts={contactsMeta.total}
                 onUpdateContact={handleUpdateGHLContact}
                 onDeleteContact={handleDeleteGHLContact}
-                onSellNewCar={(contactData) => {
-                  setCurrentVehicleForModal(contactData);
-                  setSelectedDocType('contrato');
+                onSellNewCar={(contactData, docType = 'contrato') => {
+                  // isContactData flag prevents modal from treating this as a vehicle pre-selection
+                  setCurrentVehicleForModal({ ...contactData, isContactData: true });
+                  setSelectedDocType(docType);
                   setIsContractModalOpen(true);
                 }}
+                quotes={quotes || []}
+                onSellQuoted={handleSellQuoted}
                 showToast={showToast}
                 requestConfirmation={requestConfirmation}
                 userProfile={shadowProfile}
@@ -7351,6 +7626,7 @@ export default function CarbotApp() {
           showToast={showToast}
           initialDocumentType={selectedDocType}
           resolvedDealerId={resolvedDealerId}
+          ghlContacts={ghlContacts}
         />,
         document.body
       )}
