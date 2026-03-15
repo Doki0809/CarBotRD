@@ -5285,14 +5285,6 @@ export default function CarbotApp() {
 
   useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
 
-  // Auto-fetch GHL contacts when navigating to Contactos tab
-  useEffect(() => {
-    if (activeTab === 'contacts' && effectiveDealerId) {
-      fetchGHLContacts();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, effectiveDealerId]);
-
   const showToast = (message, type = 'success') => setToast({ message, type });
 
 
@@ -6216,6 +6208,14 @@ export default function CarbotApp() {
       setContactsLoading(false);
     }
   }, [effectiveDealerId, userProfile, contactsLastFetched]);
+
+  // Auto-fetch GHL contacts when navigating to Contactos tab
+  useEffect(() => {
+    if (activeTab === 'contacts' && effectiveDealerId) {
+      fetchGHLContacts();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, effectiveDealerId]);
 
   // 2. DATA LISTENERS (REACTIVE TO CONTEXT)
   useEffect(() => {
