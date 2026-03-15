@@ -62,8 +62,9 @@ async function getGHLConfig(dealerId) {
   const now = Date.now();
   const expiresAt = expires_at ? new Date(expires_at).getTime() : 0;
 
-  // Refresh if within 5-minute buffer — only if credentials available
-  if (clientId && clientSecret && now >= expiresAt - 300000) {
+  // Always attempt refresh if token is expired or within 5-minute buffer
+  const tokenExpired = now >= expiresAt - 300000;
+  if (clientId && clientSecret && refresh_token && tokenExpired) {
     try {
       const response = await fetch(`${GHL_BASE}/oauth/token`, {
         method: 'POST',
@@ -77,21 +78,29 @@ async function getGHLConfig(dealerId) {
         }),
       });
       const data = await response.json();
-      if (response.ok) {
-        const newExpiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+      if (response.ok && data.access_token) {
+        const newExpiresAt = new Date(Date.now() + (data.expires_in || 86400) * 1000).toISOString();
         await supabaseAdmin
           .from('dealers')
           .update({
             ghl_access_token: data.access_token,
-            ghl_refresh_token: data.refresh_token,
+            ghl_refresh_token: data.refresh_token || refresh_token,
             ghl_token_expires_at: newExpiresAt,
             updated_at: new Date().toISOString(),
           })
           .eq('id', dealer.id);
+        console.log(`[ghl-contacts] Token refrescado para dealer ${dealer.id}`);
         return { access_token: data.access_token, locationId };
+      } else {
+        console.error('[ghl-contacts] Refresh falló:', data.error || data.message || JSON.stringify(data));
+        // Token expired and refresh failed — throw so the caller gets a clear error
+        if (now >= expiresAt) {
+          throw new Error(`Token expirado y no se pudo renovar para dealer ${dealerId}. Reconecta la integración desde Ajustes.`);
+        }
       }
     } catch (e) {
-      console.warn('[ghl-contacts] Token refresh failed, using existing token:', e.message);
+      if (e.message.includes('Reconecta')) throw e;
+      console.warn('[ghl-contacts] Token refresh error:', e.message);
     }
   }
 
