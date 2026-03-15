@@ -31,9 +31,10 @@ import {
   PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy, Link,
   AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
   ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode, AtSign, Building, LayoutGrid, ShieldCheck,
-  Phone, Mail, RefreshCw
+  Phone, Mail, RefreshCw, Users
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
+import ContactsView from './ContactsView';
 import { generarContratoEnGHL } from './ghl_integration/ghlService';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -3744,11 +3745,11 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
 
           <div className="flex flex-row gap-3 w-full md:w-auto">
             <button
-              onClick={() => onNavigate('contracts')}
+              onClick={() => onNavigate('contacts')}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl backdrop-blur-sm border border-white/20 transition-all shadow-lg active:scale-95 text-xs sm:text-base"
             >
-              <FileText size={18} className="sm:w-[20px] sm:h-[20px]" />
-              <span>Ver Reporte</span>
+              <Users size={18} className="sm:w-[20px] sm:h-[20px]" />
+              <span>Ver Contactos</span>
             </button>
             <button
               onClick={() => onNavigate('inventory')}
@@ -3834,8 +3835,8 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         <Card className="lg:col-span-2 p-8 border-none shadow-sm bg-white h-full">
           <div className="flex justify-between items-start mb-1">
             <h3 className="text-lg font-black text-slate-900">Contratos Recientes</h3>
-            <button onClick={() => onNavigate('contracts')} className="text-[10px] font-black text-red-600 hover:text-red-700 uppercase tracking-widest flex items-center gap-1 transition-colors">
-              VER TODOS <ArrowUpRight size={14} />
+            <button onClick={() => onNavigate('contacts')} className="text-[10px] font-black text-red-600 hover:text-red-700 uppercase tracking-widest flex items-center gap-1 transition-colors">
+              VER CONTACTOS <ArrowUpRight size={14} />
             </button>
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">ÚLTIMAS TRANSACCIONES GENERADAS EN EL SISTEMA</p>
@@ -4833,7 +4834,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
   const menuItems = [
     { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
     { id: 'inventory', label: 'INVENTARIO', icon: Box },
-    { id: 'contracts', label: 'CONTRATOS', icon: FileText },
+    { id: 'contacts', label: 'CONTACTOS', icon: Users },
     { id: 'settings', label: 'AJUSTES', icon: Settings },
   ];
 
@@ -5251,6 +5252,11 @@ export default function CarbotApp() {
   const [newQuotes, setNewQuotes] = useState([]);
   const [templates, setTemplates] = useState([]);
 
+  // GHL Contacts state
+  const [ghlContacts, setGhlContacts] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactsLastFetched, setContactsLastFetched] = useState(null);
+
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(params.get('dealer') || params.get('dealerID') || null);
 
@@ -5278,6 +5284,14 @@ export default function CarbotApp() {
   const [selectedDocType, setSelectedDocType] = useState('contrato');
 
   useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
+
+  // Auto-fetch GHL contacts when navigating to Contactos tab
+  useEffect(() => {
+    if (activeTab === 'contacts' && effectiveDealerId) {
+      fetchGHLContacts();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, effectiveDealerId]);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -6177,6 +6191,32 @@ export default function CarbotApp() {
     }
   }, [effectiveDealerId, userProfile, urlLocationId]);
 
+  // GHL Contacts fetch (lazy — called when user opens Contactos tab)
+  const fetchGHLContacts = useCallback(async (force = false) => {
+    const dealerUuid = userProfile?.supabaseDealerId || (() => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null;
+    })();
+    if (!dealerUuid) return;
+
+    // TTL: skip if fetched within 60s (unless forced)
+    if (!force && contactsLastFetched && Date.now() - contactsLastFetched < 60000) return;
+
+    setContactsLoading(true);
+    try {
+      const r = await fetch(`/api/ghl-contacts?dealerId=${dealerUuid}&limit=100`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setGhlContacts(data.contacts || []);
+      setContactsLastFetched(Date.now());
+    } catch (err) {
+      console.error('❌ fetchGHLContacts error:', err);
+      showToast('Error cargando contactos de GoHighLevel', 'error');
+    } finally {
+      setContactsLoading(false);
+    }
+  }, [effectiveDealerId, userProfile, contactsLastFetched]);
+
   // 2. DATA LISTENERS (REACTIVE TO CONTEXT)
   useEffect(() => {
     if (!effectiveDealerId) {
@@ -6975,6 +7015,51 @@ export default function CarbotApp() {
     }
   };
 
+  // ── GHL Contact Handlers ────────────────────────────────────────────────────
+
+  const handleUpdateGHLContact = async (contactId, updateData) => {
+    const dealerUuid = userProfile?.supabaseDealerId || (() => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null;
+    })();
+    if (!dealerUuid) return;
+    try {
+      const r = await fetch(`/api/ghl-contacts?dealerId=${dealerUuid}&contactId=${contactId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      // Optimistic update
+      setGhlContacts(prev => prev.map(c => c.id === contactId ? { ...c, ...updateData } : c));
+      showToast('Contacto actualizado en GoHighLevel');
+    } catch (err) {
+      console.error('handleUpdateGHLContact error:', err);
+      showToast('Error actualizando contacto: ' + err.message, 'error');
+    }
+  };
+
+  const handleDeleteGHLContact = async (contactId) => {
+    const dealerUuid = userProfile?.supabaseDealerId || (() => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(effectiveDealerId) ? effectiveDealerId : null;
+    })();
+    if (!dealerUuid) return;
+    try {
+      const r = await fetch(`/api/ghl-contacts?dealerId=${dealerUuid}&contactId=${contactId}`, {
+        method: 'DELETE',
+      });
+      if (!r.ok) throw new Error(await r.text());
+      setGhlContacts(prev => prev.filter(c => c.id !== contactId));
+      showToast('Contacto eliminado de GoHighLevel');
+    } catch (err) {
+      console.error('handleDeleteGHLContact error:', err);
+      showToast('Error eliminando contacto: ' + err.message, 'error');
+    }
+  };
+
+  // ────────────────────────────────────────────────────────────────────────────
+
   const handleSellQuoted = (vehicle, docType = 'contrato') => {
     console.log("App: handleSellQuoted triggered", { vehicleId: vehicle?.id, docType });
     // Buscar la última cotización para este vehículo (la más reciente y no eliminada)
@@ -7097,9 +7182,26 @@ export default function CarbotApp() {
               isLoading={isInventoryLoading}
               readOnly={isStoreRoute}
             />;
-            case 'contracts': return <ContractsView contracts={contracts || []} quotes={quotes || []} templates={templates} inventory={activeInventory} resolvedDealerId={resolvedDealerId}
-              onGenerateContract={handleGenerateContract}
-              onDeleteContract={handleDeleteContract} onGenerateQuote={handleQuoteSent} onDeleteQuote={handleDeleteQuote} onSaveTemplate={handleSaveTemplate} onDeleteTemplate={handleDeleteTemplate} setActiveTab={setActiveTab} userProfile={shadowProfile} searchTerm={globalSearch} requestConfirmation={requestConfirmation} showToast={showToast} />;
+            case 'contacts': return (
+              <ContactsView
+                contacts={ghlContacts}
+                inventory={activeInventory}
+                contracts={contracts || []}
+                isLoading={contactsLoading}
+                onRefresh={() => fetchGHLContacts(true)}
+                onUpdateContact={handleUpdateGHLContact}
+                onDeleteContact={handleDeleteGHLContact}
+                onSellNewCar={(contactData) => {
+                  setCurrentVehicleForModal(contactData);
+                  setSelectedDocType('contrato');
+                  setIsContractModalOpen(true);
+                }}
+                showToast={showToast}
+                requestConfirmation={requestConfirmation}
+                userProfile={shadowProfile}
+                searchTerm={globalSearch}
+              />
+            );
             case 'trash': return <TrashView trash={trashInventory} contracts={contracts} quotes={quotes} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onRestoreDocument={handleRestoreDocument} onPermanentDeleteDocument={handlePermanentDeleteDocument} onEmptyTrash={handleEmptyTrash} showToast={showToast} userProfile={shadowProfile} />;
             default: return <DashboardView inventory={activeInventory} contracts={contracts} onNavigate={handleNavigate} userProfile={shadowProfile} />;
           }
