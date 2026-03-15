@@ -6203,7 +6203,7 @@ export default function CarbotApp() {
       setContactsLastFetched(Date.now());
     } catch (err) {
       console.error('❌ fetchGHLContacts error:', err);
-      showToast('Error cargando contactos de GoHighLevel', 'error');
+      showToast('Error cargando contactos', 'error');
     } finally {
       setContactsLoading(false);
     }
@@ -7032,7 +7032,7 @@ export default function CarbotApp() {
       if (!r.ok) throw new Error(await r.text());
       // Optimistic update
       setGhlContacts(prev => prev.map(c => c.id === contactId ? { ...c, ...updateData } : c));
-      showToast('Contacto actualizado en GoHighLevel');
+      showToast('Contacto actualizado');
     } catch (err) {
       console.error('handleUpdateGHLContact error:', err);
       showToast('Error actualizando contacto: ' + err.message, 'error');
@@ -7051,7 +7051,7 @@ export default function CarbotApp() {
       });
       if (!r.ok) throw new Error(await r.text());
       setGhlContacts(prev => prev.filter(c => c.id !== contactId));
-      showToast('Contacto eliminado de GoHighLevel');
+      showToast('Contacto eliminado');
     } catch (err) {
       console.error('handleDeleteGHLContact error:', err);
       showToast('Error eliminando contacto: ' + err.message, 'error');

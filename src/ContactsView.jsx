@@ -544,7 +544,7 @@ function ContactsListView({
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Contactos</h1>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
-            {isLoading ? 'Cargando...' : `${contacts.length} en GoHighLevel`}
+            {isLoading ? 'Cargando...' : `${contacts.length} contacto${contacts.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -628,7 +628,7 @@ function ContactsListView({
           <p className="text-sm text-slate-400 mt-1">
             {effectiveSearch || filterTag
               ? 'Intenta con otros términos o limpia los filtros'
-              : 'Conecta GoHighLevel para ver tus contactos aquí'}
+              : 'Sincroniza tus contactos para verlos aquí'}
           </p>
           {(effectiveSearch || filterTag) && (
             <button
@@ -713,7 +713,7 @@ export default function ContactsView({
     const name = `${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim();
     requestConfirmation({
       title: 'Borrar contacto',
-      message: `¿Seguro que deseas borrar a ${name || 'este contacto'} de GoHighLevel? Esta acción no se puede deshacer.`,
+      message: `¿Seguro que deseas borrar a ${name || 'este contacto'}? Esta acción no se puede deshacer.`,
       isDestructive: true,
       confirmText: 'Borrar',
       onConfirm: async () => {
