@@ -503,6 +503,8 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
 
     // ── FORMAT=JSON: Respuesta plana para GHL Bot / Knowledge Base ──
     if (req.query.format === 'json') {
+      const dealerSlugForLinks = slugify(dealerName);
+      const catalogoUrl = `https://carbotsystem.com/inventario/${dealerSlugForLinks}/catalogo`;
       const sortedForJson = [...inventory].sort((a, b) => (a.marca || "").localeCompare(b.marca || ""));
       const flatInventory = sortedForJson.map(v => ({
         marca: v.marca || "-",
@@ -528,18 +530,17 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         asientos: v.asientos_fmt || "-",
         vidrios_electricos: v.vidrios_fmt || "-",
         material_interior: v.material_fmt || "-",
-        link_fotos: v.link_catalogo || null,
+        "FOTOS Y DETALLES:": v.has_images && v.link_catalogo ? `Aqui puedes ver las fotos y detalles del carro: ${v.link_catalogo}` : "No tengo las fotos en este momento, un compañero te ayudará",
         estado: "Disponible"
       }));
 
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      const dealerSlugForLinks = slugify(dealerName);
       return res.status(200).json({
         dealer: dealerName,
         total: flatInventory.length,
-        link_catalogo: `https://carbotsystem.com/inventario/${dealerSlugForLinks}/catalogo`,
+        link_catalogo: `Mira este es nuestro catalogo actual, puedes ver y decirme cual te interesa: ${catalogoUrl}`,
         vehiculos: flatInventory
       });
     }
@@ -573,6 +574,9 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
     };
 
     if (viewMode) {
+      // El catálogo público renderiza TODO con sus propios templates HTML.
+      // El detalle de vehículos usa el template de abajo (vehicleId check).
+
       if (!isCatalogPath) {
         // --- MODO DOCUMENTO (BASE LINK - ALL IN ONE PAGE) ---
         // Sort inventory by brand alphabetically
@@ -679,9 +683,13 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
       }
 
       if (vehicleId) {
+        console.log(`🔍 [inventarioIA] MODO DETALLE para vehículo: ${vehicleId}`);
         // --- MODO DETALLE ---
         const v = inventory.find(item => String(item.id) === String(vehicleId));
-        if (!v) return res.status(404).send("Vehículo no encontrado");
+        if (!v) {
+          console.log(`❌ [inventarioIA] Vehículo no encontrado en inventory`);
+          return res.status(404).send("Vehículo no encontrado");
+        }
 
         let raw = {};
         if (v.is_supabase) {
@@ -758,507 +766,273 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${v.nombre} | ${dealerName}</title>
             <style>
-              :root { --primary: #d32f2f; --bg: #f8fafc; --text: #1e293b; }
-              * { box-sizing: border-box; }
-              body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; line-height: 1.5; padding-bottom: 50px; }
-              .header { background: #fff; padding: 20px; text-align: center; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; }
-              .header p { margin: 0; font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: #64748b; letter-spacing: 1px; }
-              .header h1 { margin: 5px 0 0; font-size: 1.8rem; font-weight: 900; text-transform: uppercase; color: #d32f2f; }
+              :root { --primary: #d32f2f; --bg: #f5f5f7; --text: #1e293b; }
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 60px; -webkit-font-smoothing: antialiased; }
               
-              .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+              /* ── HEADER ──────────────────────────────── */
+              .header-wrapper { padding: 20px; display: flex; justify-content: center; }
+              .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 15px 40px; text-align: center; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.1); position: relative; display: flex; align-items: center; gap: 20px; }
+              .header-content { display: flex; flex-direction: column; align-items: center; }
+              .header p { margin: 0; font-size: 0.55rem; font-weight: 800; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase; }
+              .header h1 { margin: 2px 0 0; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; color: #ffffff; letter-spacing: 0px; }
+              .header-back { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; text-decoration: none; border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s; }
+              .header-back:hover { background: rgba(255,255,255,0.2); }
+              .header-back svg { width: 18px; height: 18px; }
               
-              .top-section { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; margin-bottom: 40px; }
-              @media (max-width: 768px) { .top-section { grid-template-columns: 1fr; } }
+              /* ── CONTAINER ──────────────────────────── */
+              body { background-color: #f3f4f6; } /* Light gray background for the whole page */
+              .container { max-width: 1400px; margin: 0 auto; padding: 20px 20px 50px; }
               
-              .main-image { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #fff; border-radius: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-              
-              .info-card { background: transparent; padding: 0; margin-top: 20px; }
-              .badge { font-size: 1.2rem; font-weight: 800; color: #94a3b8; margin-bottom: 10px; display: flex; gap: 10px; }
-              .vehicle-title { font-size: 2.2rem; font-weight: 900; line-height: 1.1; margin: 0 0 20px; text-transform: uppercase; }
-              .vehicle-title span { color: var(--primary); }
-              
-              .price-box { margin-bottom: 30px; }
-              .price-label { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-              .main-price { font-size: 3.5rem; font-weight: 900; color: var(--text); margin: 0; }
-              .down-payment { font-size: 1.5rem; font-weight: 700; color: #64748b; margin: 0; }
-              
-              .section-title { font-size: 1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-              .section-title::before { content: ""; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; }
-              
-              .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #fff; padding: 25px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-              .spec-item { display: flex; flex-direction: column; }
-              .spec-label { font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-              .spec-value { font-size: 1rem; font-weight: 700; color: var(--text); }
-              
-              .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-              .gallery-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; border: 2px solid transparent; cursor: pointer; transition: 0.2s; }
-              .gallery-img:hover { border-color: var(--primary); }
+              /* ── TWO COLUMN LAYOUT (DESKTOP) ──────── */
+              .details-card {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 30px;
+              }
 
-              /* SINGLE COLUMN LAYOUT STYLES */
-              .vehicle-header { text-align: left; margin-bottom: 15px; }
-              .vehicle-title { font-size: 2rem; font-weight: 900; line-height: 1.1; margin: 0; color: #1e293b; text-transform: uppercase; }
-              .vehicle-subtitle { font-size: 1.1rem; color: #64748b; font-weight: 600; margin-top: 5px; }
+              @media (min-width: 900px) {
+                .details-card {
+                  grid-template-columns: 1.4fr 1fr;
+                  gap: 30px;
+                  align-items: start;
+                }
+              }
               
-              .main-image-container { position: relative; margin-bottom: 20px; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-              .main-image { width: 100%; height: auto; aspect-ratio: 4/3; object-fit: cover; display: block; cursor: zoom-in; }
+              /* ── IMAGE SECTION ──────────────────────── */
+              .image-column {
+                background: #ffffff;
+                border-radius: 2rem;
+                padding: 12px;
+                box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
+                border: 1px solid rgba(0,0,0,0.02);
+              }
+              .main-image-container { 
+                position: relative; 
+                border-radius: 1.5rem; 
+                overflow: hidden; 
+              }
+              .main-image { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; cursor: zoom-in; }
               
-              .thumbs-reel { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 25px; scrollbar-width: none; }
-              .thumbs-reel::-webkit-scrollbar { display: none; }
-              .thumb-item { width: 100px; height: 100px; flex-shrink: 0; border-radius: 8px; overflow: hidden; opacity: 0.7; transition: 0.2s; border: 2px solid transparent; }
-              .thumb-item.active { opacity: 1; border-color: #d32f2f; }
-              .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+              /* Image Nav Arrows */
+              .img-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; background: #ffffff; color: #d32f2f; border: 1px solid rgba(0,0,0,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.2s; z-index: 5; }
+              .img-nav:hover { background: #f8fafc; transform: translateY(-50%) scale(1.05); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+              .img-nav.prev { left: 16px; }
+              .img-nav.next { right: 16px; }
+              .img-nav svg { width: 20px; height: 20px; }
+              @media (max-width: 768px) { .img-nav { width: 36px; height: 36px; } .img-nav svg { width: 16px; height: 16px; } }
+              
+              /* ── INFO COLUMN ────────────────────────── */
+              .info-column { 
+                background: #ffffff; 
+                border-radius: 2rem; 
+                padding: 40px; 
+                box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08); 
+                border: 1px solid rgba(0,0,0,0.02);
+              }
+              
+              /* Year / Color Badge */
+              .vehicle-badge { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+              .vehicle-badge span { font-weight: 800; font-size: 0.85rem; letter-spacing: 0.5px; }
+              .badge-year { color: #d32f2f; }
+              .badge-dot { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; display: inline-block; }
+              .badge-text { color: #94a3b8; text-transform: uppercase; }
+              
+              /* Vehicle Title */
+              .vehicle-title { font-size: 2.2rem; font-weight: 900; line-height: 1.1; margin: 0 0 24px; text-transform: uppercase; color: #0f172a; letter-spacing: -1px; }
+              .vehicle-title .model { color: #d32f2f; }
+              @media (min-width: 900px) { .vehicle-title { font-size: 2.4rem; } }
+              @media (max-width: 500px) { .vehicle-title { font-size: 1.8rem; } }
+              
+              /* Price Block */
+              .price-block { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px dashed #e2e8f0; }
+              .price-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+              .price-label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 6px; }
+              .price-label svg { color: #d32f2f; }
+              .currency-toggle { display: flex; background: #f8fafc; border-radius: 999px; padding: 2px; border: 1px solid #e2e8f0; }
+              .currency-btn { background: transparent; border: none; font-size: 0.65rem; font-weight: 800; color: #64748b; padding: 4px 10px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
+              .currency-btn.active { background: #ffffff; color: #d32f2f; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+              .price-value { display: flex; align-items: baseline; gap: 6px; }
+              .price-currency { font-size: 1.8rem; font-weight: 800; color: #d32f2f; }
+              .price-amount { font-size: 2.4rem; font-weight: 900; color: #0f172a; letter-spacing: -1px; }
+              
+              /* Initial Payment Block */
+              .initial-block { margin-bottom: 30px; }
+              .initial-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+              .initial-label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 6px; }
+              .initial-value { display: flex; align-items: baseline; gap: 6px; justify-content: flex-end; }
+              .initial-curr { font-size: 1rem; font-weight: 800; color: #94a3b8; }
+              .initial-amt { font-size: 1.4rem; font-weight: 900; color: #475569; letter-spacing: -0.5px; }
 
-              .price-section { margin-bottom: 30px; }
-              .price-currency { color: #d32f2f; font-weight: 900; font-size: 2.5rem; margin-right: 5px; }
-              .price-amount { color: #000000; font-weight: 900; font-size: 2.5rem; }
-              .down-payment { color: #94a3b8; font-size: 0.9rem; font-weight: 600; margin-top: 0px; text-transform: uppercase; }
+              /* ── CARRETE / THUMBNAILS ───────────────── */
+              .thumbs-section { margin-top: 24px; padding-top: 20px; border-top: 1px dashed #e2e8f0; }
+              .thumbs-title { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
+              .thumbs-title svg { color: #d32f2f; }
+              .thumbs-reel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+              .thumb-item { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; aspect-ratio: 4/3; }
+              .thumb-item.active { border-color: #d32f2f; }
+              .thumb-item:hover { border-color: #fca5a5; }
+              .thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+              .thumb-badge { position: absolute; top: 4px; left: 4px; background: #e3342f; color: #fff; font-size: 0.5rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+              @media (max-width: 768px) { .thumbs-reel { grid-template-columns: repeat(4, 1fr); gap: 8px; } }
+              @media (max-width: 500px) { .thumbs-reel { grid-template-columns: repeat(3, 1fr); } }
               
-              .specs-section { background: #f8fafc; border-radius: 15px; padding: 20px; }
-              .section-title { font-size: 1.1rem; margin-bottom: 15px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; display: inline-block; }
-              .spec-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+              /* ── BACK BUTTON ────────────────────────── */
+              .back-btn { display: inline-flex; align-items: center; gap: 8px; background: #e3342f; color: #fff !important; padding: 10px 20px; border-radius: 9999px; text-decoration: none; font-weight: 800; font-size: 0.70rem; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; cursor: pointer; border: 2px solid transparent; margin-bottom: 24px; }
+              .back-btn:hover { background: #cc1f1a; }
+              .back-btn svg { width: 14px; height: 14px; }
               
-              .back-btn {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                background-color: #ef4444; 
-                color: white !important;
-                padding: 12px 24px;
-                border-radius: 8px;
-                text-decoration: none;
-                font-weight: 800;
-                font-size: 0.85rem;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                transition: transform 0.2s, background-color 0.2s;
-                cursor: pointer;
-              }
-              .back-btn:hover {
-                background-color: #dc2626; 
-                transform: translateY(-2px);
-                color: white !important;
-              }
-              
-              
-              @media (min-width: 768px) {
-                  .container { max-width: 800px; margin: 0 auto; }
-                  .vehicle-title { font-size: 2.5rem; }
-              }
-              
-              /* LIGHTBOX STYLES */
-              .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; overflow: hidden; background: #ffffff; touch-action: none; }
-              .lightbox-backdrop { display: none; } 
-              
-              .lightbox-header { position: absolute; top: 30px; left: 30px; z-index: 20; text-align: left; pointer-events: none; }
+              /* ── LIGHTBOX ───────────────────────────── */
+              .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; overflow: hidden; background: #fff; touch-action: none; }
+              .lightbox-backdrop { display: none; }
+              .lightbox-header { position: absolute; top: 30px; left: 30px; z-index: 20; pointer-events: none; }
               .lb-title { color: #d32f2f; font-weight: 900; font-size: 1.5rem; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
               .lb-counter { color: #64748b; font-size: 0.8rem; font-weight: 700; margin: 5px 0 0; letter-spacing: 2px; text-transform: uppercase; }
-
-              /* IMAGE CONTAINER - STRICT & CENTERED */
-              .lightbox-img-wrapper { 
-                position: absolute; 
-                top: 0; left: 0; width: 100%; height: 100%; 
-                display: flex; align-items: center; justify-content: center; 
-                pointer-events: none; z-index: 10;
-              }
-              .lightbox-img { 
-                max-width: 90%; 
-                max-height: 80vh; 
-                object-fit: contain; 
-                pointer-events: auto; /* allow clicks on image */
-                filter: drop-shadow(0 20px 50px rgba(0,0,0,0.1)); 
-                border-radius: 15px; 
-              }
-              
+              .lightbox-img-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; }
+              .lightbox-img { max-width: 90%; max-height: 80vh; object-fit: contain; pointer-events: auto; filter: drop-shadow(0 20px 50px rgba(0,0,0,0.1)); border-radius: 15px; }
               .close-btn { position: absolute; top: 20px; right: 30px; color: #d32f2f; font-size: 3rem; cursor: pointer; z-index: 20; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 50%; background: #f1f5f9; }
               .close-btn:hover { background: #e2e8f0; transform: rotate(90deg); }
-
               .nav-btn { position: fixed; top: 50%; transform: translateY(-50%); color: #d32f2f !important; font-size: 3rem; cursor: pointer; user-select: none; padding: 20px; z-index: 20; transition: all 0.2s; background: #f1f5f9; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
               .nav-btn:hover { background: #fee2e2; scale: 1.1; }
               .nav-btn svg { width: 50px; height: 50px; stroke-width: 4px; }
               .prev { left: 40px; }
               .next { right: 40px; }
-              
-              /* THUMBNAIL STRIP (LIGHTBOX) - RESTORED */
-              .lb-thumbs-container { 
-                  position: absolute; 
-                  bottom: 20px; 
-                  left: 0; 
-                  width: 100%; 
-                  display: flex; 
-                  justify-content: center; 
-                  z-index: 30; 
-                  pointer-events: none; /* Let clicks pass through empty space */
-              }
-              .lb-thumbs-scroll { 
-                  display: flex; 
-                  gap: 8px; 
-                  overflow-x: auto; 
-                  padding: 10px 0; /* Vertical padding only */
-                  max-width: 95%; 
-                  background: transparent; /* Removed black background as requested */
-                  pointer-events: auto; 
-                  scrollbar-width: none; 
-              }
+              .lb-thumbs-container { position: absolute; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 30; pointer-events: none; }
+              .lb-thumbs-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; max-width: 95%; background: transparent; pointer-events: auto; scrollbar-width: none; }
               .lb-thumbs-scroll::-webkit-scrollbar { display: none; }
               .lb-thumb { height: 60px; width: 60px; border-radius: 8px; object-fit: cover; opacity: 0.6; transition: 0.2s; border: 2px solid transparent; flex-shrink: 0; cursor: pointer; background: #000; }
               .lb-thumb.active { opacity: 1; border-color: #d32f2f; transform: scale(1.05); }
+              @media (max-width: 1024px) { .nav-btn { display: none !important; } .lightbox-img { max-height: 70vh !important; } .close-btn { top: 15px; right: 15px; width: 50px; height: 50px; } }
+              @media (min-width: 900px) { .nav-btn { display: flex; } .lb-thumbs-container { display: flex; } }
               
-              /* AGGRESSIVE MOBILE LIGHTBOX FIXES */
-              @media (max-width: 1024px) {
-                  .nav-btn { display: none !important; } 
-                  /* Thumbnails visible on mobile now */
-                  .lightbox-img { max-height: 70vh !important; transform: none; } /* Removed translateY to center properly */
-                  .close-btn { top: 15px; right: 15px; width: 50px; height: 50px; }
-              }
-
-              /* LAYOUT & RESPONSIVENESS */
-              .container {
-                  display: grid;
-                  gap: 20px;
-                  /* MOBILE DEFAULT: Single Column Vertical Stack */
-                  grid-template-areas: 
-                      "header"
-                      "image"
-                      "thumbs"
-                      "price"
-                      "specs";
-              }
-              
-              .vehicle-header { grid-area: header; text-align: left; margin-bottom: 10px; }
-              .main-image-container { grid-area: image; position: relative; margin-bottom: 10px; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-              
-              /* Thumbnails Wrapper handles both Title and Reel */
-              .thumbs-section { grid-area: thumbs; margin-bottom: 10px; }
-              /* RESTORE THUMBS TITLE */
-              .thumbs-title { 
-                  display: flex; 
-                  align-items: center;
-                  gap: 8px;
-                  font-size: 0.8rem; 
-                  font-weight: 800; 
-                  color: #64748b; 
-                  text-transform: uppercase; 
-                  margin-bottom: 10px; 
-                  letter-spacing: 1px;
-              }
-              .thumbs-reel { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
-              
-              .price-section { grid-area: price; margin-bottom: 30px; }
-              
-              /* Specs Section - Transparent on Desktop, Card on Mobile */
-              .specs-section { grid-area: specs; background: #f8fafc; border-radius: 15px; padding: 20px; }
-              .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-              .section-icon { color: #d32f2f; }
-              .section-title { font-size: 1.1rem; margin: 0; color: #1e293b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
-
-
-              .related-section { grid-area: related; margin-top: 20px; padding-left: 20px; }
-              .related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; } /* Mobile: 2 cols */
-              .related-card { text-decoration: none; color: inherit; display: block; border-radius: 10px; overflow: hidden; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; transition: transform 0.2s; }
+              /* ── RELATED VEHICLES ───────────────────── */
+              .related-section { margin-top: 40px; }
+              .related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+              .related-card { text-decoration: none; color: inherit; display: block; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #f1f5f9; transition: all 0.3s; }
               .related-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-              .related-card h4 { margin: 10px 10px 5px; font-size: 0.9rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-              .related-card p { margin: 0 10px 10px; font-size: 0.9rem; color: #d32f2f; font-weight: 800; }
+              .related-card h4 { margin: 12px 14px 4px; font-size: 0.85rem; font-weight: 800; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .related-card p { margin: 0 14px 12px; font-size: 0.85rem; color: #d32f2f; font-weight: 900; }
+              @media (min-width: 900px) { .related-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } .related-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); } }
 
-              /* DESKTOP (Split Column) */
-              @media (min-width: 900px) {
-                  .container {
-                      max-width: 1250px;
-                      margin: 0 auto;
-                      display: block; /* Stack vertically: Card then Related */
-                  }
-
-                  /* MAIN WHITE CARD WRAPPER */
-                  .details-card {
-                      background: #ffffff;
-                      border-radius: 20px;
-                      padding: 40px;
-                      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-                      display: grid;
-                      grid-template-columns: 1.2fr 0.8fr;
-                      column-gap: 60px;
-                      align-items: start;
-                      grid-template-areas:
-                          "image header"
-                          "image price"
-                          "image thumbs"
-                          "specs specs"; /* Specs FULL WIDTH for balance */
-                  }
-                  
-                  .vehicle-title { font-size: 3.5rem; line-height: 0.9; margin-bottom: 5px; }
-                  
-                  /* Clean Specs inside the card */
-                  .specs-section { 
-                      background: transparent; 
-                      border-radius: 0; 
-                      padding: 0; 
-                      box-shadow: none;
-                      margin-top: 10px; /* More space since it's full width */
-                  }
-                  
-                  /* Remove the double line/border as requested */
-                  .section-header { border-bottom: none; margin-bottom: 20px; }
-
-                  .spec-grid {
-                      background: transparent;
-                      padding: 0;
-                      border-radius: 0;
-                      box-shadow: none;
-                      display: grid;
-                      grid-template-columns: repeat(2, 1fr);
-                      column-gap: 30px;
-                      row-gap: 20px;
-                  }
-                  .spec-item { border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
-                  .spec-item:last-child { border-bottom: none; }
-
-              .related-section { grid-area: related; margin-top: 20px; }
-                  
-                  /* Add padding to match the card above (40px) */
-                  .related-section { margin-top: 50px; border-top: 1px solid #e2e8f0; padding: 40px; }
-                  .related-grid { grid-template-columns: repeat(4, 1fr); gap: 25px; } /* Desktop: 4 cols */
-                  .related-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-                  
-                  /* On Desktop, show title and use grid */
-                  .thumbs-title { 
-                      display: flex; 
-                      align-items: center;
-                      gap: 8px;
-                      font-size: 0.9rem; 
-                      font-weight: 800; 
-                      color: #64748b; /* Gray text base */
-                      text-transform: uppercase; 
-                      margin-bottom: 15px; 
-                      letter-spacing: 1px;
-                  }
-                  
-                  .thumbs-reel {
-                      display: grid;
-                      grid-template-columns: repeat(4, 1fr); /* 4 Cols = Larger Thumbs */
-                      gap: 15px;
-                      overflow-x: visible;
-                  }
-                  .thumb-item { width: 100%; height: auto; aspect-ratio: 4/3; } /* Responsive grid items */
-
-                  .nav-btn { display: flex; color: #d32f2f !important; }
-                  /* HIDE REEL ON DESKTOP LIGHTBOX? USER SAID "Pc uicamente le pondras las flechas rojas" on top of the lightbox requirement */
-                  /* Wait, user said: "cuadn se pone la foto en grande debe de salir el carrete adentro tambien tanto en el celular como pc" */
-                  /* SO Thumbs should be VISIBLE on Desktop Lightbox too. */
-                  .lb-thumbs-container { display: flex; } 
-              }
-
-              @media (max-width: 768px) {
-                  .nav-btn { display: none; } 
-                  /* Fix Main Image on Mobile: Full Width & Natural Ratio */
-                  .main-image-container { 
-                      width: calc(100% + 40px); 
-                      margin-left: -20px; 
-                      border-radius: 0 !important; 
-                      height: auto !important;
-                      max-height: 350px !important;
-                      aspect-ratio: 4/3;
-                      box-shadow: none !important;
-                  }
-                  .main-image-container img { width: 100%; height: 100%; object-fit: cover; }
-                  
-                  .lightbox-img { max-height: 70vh; transform: none; border-radius: 12px; }
-                  .lb-title { font-size: 1.1rem; }
-                  /* .lb-thumbs-container removed from here to allow it to show */
-                  .close-btn { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 2rem; }
-                  .lightbox-header { top: 20px; left: 20px; }
-                  .vehicle-title { font-size: 1.5rem; }
-                  .price-currency, .price-amount { font-size: 2rem; }
-                  .container {
-                      grid-template-areas: 
-                          "header"
-                          "image"
-                          "thumbs"
-                          "price"
-                          "specs"
-                          "related";
-                  }
-                  
-                  /* SMALLER DEALER NAME ON MOBILE */
-                  .header h1 { font-size: 1.8rem; }
-              }
-
-              /* NEW FICHA TECNICA DESIGN */
-              .specs-section { 
-                  grid-area: specs;
-                  background: transparent !important; 
-                  padding: 0 !important; 
-                  border-radius: 0 !important; 
-                  box-shadow: none !important;
-                  margin-top: 40px !important;
-              }
-
-              .tech-sheet-wrapper {
-                  background: #fff;
-                  border-radius: 35px;
-                  padding: 50px;
-                  box-shadow: 0 10px 40px rgba(0,0,0,0.04);
-                  border: 1px solid #f1f5f9;
-              }
-
-              .tech-header {
-                  display: flex;
-                  align-items: center;
-                  gap: 12px;
-                  margin-bottom: 25px;
-              }
-
+              /* ── FICHA TÉCNICA ───────────────────────── */
+              .specs-section { margin-top: 40px; }
+              .tech-sheet-wrapper { background: #fff; border-radius: 2rem; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; }
+              @media (max-width: 768px) { .tech-sheet-wrapper { padding: 24px; border-radius: 1.5rem; } }
+              .tech-header { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
               .tech-header svg { color: #d32f2f; }
-
-              .tech-header h2 {
-                  font-size: 1rem;
-                  font-weight: 900;
-                  color: #1e293b;
-                  text-transform: uppercase;
-                  letter-spacing: 1.5px;
-                  margin: 0;
-              }
-
-              .tech-grid {
-                  display: grid;
-                  grid-template-columns: repeat(3, 1fr);
-                  gap: 50px;
-              }
-
-              @media (max-width: 1024px) {
-                  .tech-grid { grid-template-columns: repeat(2, 1fr); }
-              }
-
-              @media (max-width: 600px) {
-                  .tech-grid { grid-template-columns: 1fr; }
-              }
-
-              .tech-group-title {
-                  display: flex;
-                  align-items: center;
-                  gap: 8px;
-                  font-size: 0.72rem;
-                  font-weight: 800;
-                  color: #94a3b8;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                  margin-bottom: 15px;
-              }
-
-              .tech-items-container {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 15px; /* Increased gap for labels outside */
-              }
-
-              .row-2 {
-                  display: grid;
-                  grid-template-columns: 1fr 1fr;
-                  gap: 15px;
-              }
-
-              .tech-item {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 5px;
-              }
-
-              .item-label {
-                  font-size: 0.65rem;
-                  font-weight: 800;
-                  color: #94a3b8;
-                  text-transform: uppercase;
-                  letter-spacing: 0.8px;
-                  padding-left: 2px;
-              }
-
-              .item-box {
-                  background: #f8fafc;
-                  border-radius: 14px;
-                  padding: 14px 18px;
-                  border: 1px solid #f1f5f9;
-                  display: flex;
-                  align-items: center;
-                  min-height: 50px;
-                  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-              }
-
-              .item-box:hover {
-                  background: #ffffff;
-                  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
-                  border-color: #cbd5e1;
-                  transform: translateY(-1px);
-              }
-
-              .item-value {
-                  font-size: 1rem;
-                  font-weight: 800;
-                  color: #1e293b;
-                  line-height: 1.1;
-                  text-transform: uppercase;
-              }
+              .tech-header h2 { font-size: 0.9rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+              .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+              @media (max-width: 1024px) { .tech-grid { grid-template-columns: repeat(2, 1fr); } }
+              @media (max-width: 600px) { .tech-grid { grid-template-columns: 1fr; } }
+              .tech-group-title { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 15px; }
+              .tech-items-container { display: flex; flex-direction: column; gap: 12px; }
+              .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+              .tech-item { display: flex; flex-direction: column; gap: 4px; }
+              .item-label { font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; padding-left: 2px; }
+              .item-box { background: #f8fafc; border-radius: 14px; padding: 14px 18px; border: 1px solid #f1f5f9; display: flex; align-items: center; min-height: 48px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+              .item-box:hover { background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.04); border-color: #cbd5e1; transform: translateY(-1px); }
+              .item-value { font-size: 0.95rem; font-weight: 800; color: #1e293b; line-height: 1.1; text-transform: uppercase; }
             </style>
           </head>
           <body>
-            <div class="header" style="text-align:center;">
-               <span style="font-weight: 800; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px;">Inventario de</span>
-               <h1 style="font-weight: 900; font-size: 1.4rem; color: #1e293b; line-height: 1; margin: 5px 0 0; text-transform: uppercase; letter-spacing: -0.5px;">${dealerName}</h1>
+            <div class="header-wrapper">
+              <div class="header">
+                 <div class="header-content">
+                   <span style="font-weight: 700; font-size: 0.65rem; color: #94a3b8; letter-spacing: 3px; text-transform: uppercase;">Inventario de</span>
+                   <h1>${dealerName}</h1>
+                 </div>
+              </div>
             </div>
             
             <div class="container">
-              
-              <!-- GIANT WHITE CARD WRAPPER -->
               <div class="details-card">
-
-              <!-- 1. HEADER / TITLE -->
-              <div class="vehicle-header">
-                <!-- Relocated Back Button -->
-                <!-- Relocated Back Button -->
-                <a href="?dealer=${req.query.dealer || matchedDealerId}" class="back-btn" style="margin-bottom: 20px;">
-                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                   Regresar al Inventario
-                </a>
-
-                <!-- Clean Text Badge -->
-                <div style="margin-bottom: 5px; font-weight: 800; font-size: 0.9rem; letter-spacing: 1px;">
-                    <span style="color: #d32f2f;">${raw.year}</span> 
-                    <span style="color: #94a3b8; margin: 0 5px;">•</span> 
-                    <span style="color: #94a3b8;">${(raw.color || 'N/A').toUpperCase()}</span>
-                    ${raw.edition || raw.version ? `
-                    <span style="color: #94a3b8; margin: 0 5px;">•</span> 
-                    <span style="color: #94a3b8;">${(raw.edition || raw.version).toUpperCase()}</span>` : ''}
-                </div>
-                <h2 class="vehicle-title" style="margin-top:0; color: #1e293b;">${raw.make} <br><span style="color:#d32f2f">${raw.model}</span></h2>
-              </div>
-
-              <!-- 2. MAIN IMAGE -->
-              <div class="main-image-container">
-                 ${photos.length > 0
+                <!-- LEFT COLUMN: IMAGE -->
+                <div class="image-column">
+                  <div class="main-image-container">
+                    ${photos.length > 0
             ? `<img src="${photos[0]}" class="main-image" id="mainImg" onclick="openLightbox()">`
             : `<img src="${logoUrl || 'https://via.placeholder.com/800x600?text=Sin+Imagen'}" class="main-image" id="mainImg" style="object-fit:contain;background:#f8fafc;padding:15%;">`}
-              </div>
-
-              <!-- 3. THUMBNAIL REEL -->
-              <div class="thumbs-section">
-                <!-- Title with Icon -->
-                <div class="thumbs-title">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d32f2f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    <span>CARRETE DE IMÁGENES (${photos.length})</span>
+                    ${photos.length > 1 ? `
+                    <button class="img-nav prev" onclick="prevPageImg()">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <button class="img-nav next" onclick="nextPageImg()">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                    ` : ''}
+                  </div>
                 </div>
-                <div class="thumbs-reel">
-                    ${photos.map((img, idx) => `
+
+                <!-- RIGHT COLUMN: INFO -->
+                <div class="info-column">
+                  <!-- Back Button -->
+                  <a href="?dealer=${req.query.dealer || matchedDealerId}" class="back-btn" style="margin-bottom: 24px;">
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                     Regresar al Inventario
+                  </a>
+
+                  <!-- Year / Color Badge -->
+                  <div class="vehicle-badge">
+                    <span class="badge-year">${raw.year}</span>
+                    <span class="badge-dot"></span>
+                    <span class="badge-text">${(raw.color || 'N/A').toUpperCase()}</span>
+                    ${raw.edition || raw.version ? `
+                    <span class="badge-dot"></span>
+                    <span class="badge-text">${(raw.edition || raw.version).toUpperCase()}</span>` : ''}
+                  </div>
+
+                  <!-- Vehicle Title -->
+                  <h2 class="vehicle-title">${raw.make}<br><span class="model">${raw.model}</span></h2>
+
+                  <!-- Price Section with Currency Toggle -->
+                  <div class="price-block">
+                    <div class="price-header">
+                      <span class="price-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        Precio de Venta
+                      </span>
+                      <div class="currency-toggle" id="priceToggle">
+                        <button class="currency-btn active" data-currency="original" onclick="setPriceCurrency('original')">US$</button>
+                        <button class="currency-btn" data-currency="alt" onclick="setPriceCurrency('alt')">RD$</button>
+                      </div>
+                    </div>
+                    <div class="price-value">
+                      <span class="price-currency" id="priceCurrLabel">${(v.precio || '').split(' ')[0]}</span>
+                      <span class="price-amount" id="priceAmtLabel">${(v.precio || '').substring((v.precio || '').indexOf(' ') + 1)}</span>
+                    </div>
+                  </div>
+
+                  <!-- Initial Payment -->
+                  <div class="initial-block">
+                    <div class="initial-header">
+                      <span class="initial-label">Pago Inicial Sugerido</span>
+                      <div class="currency-toggle" id="initialToggle">
+                        <button class="currency-btn active" data-currency="original" onclick="setInitialCurrency('original')">US$</button>
+                        <button class="currency-btn" data-currency="alt" onclick="setInitialCurrency('alt')">RD$</button>
+                      </div>
+                    </div>
+                    <div class="initial-value">
+                      <span class="initial-curr" id="initialCurrLabel">${(v.inicial_calculado || '').split(' ')[0]}</span>
+                      <span class="initial-amt" id="initialAmtLabel">${(v.inicial_calculado || '').substring((v.inicial_calculado || '').indexOf(' ') + 1)}</span>
+                    </div>
+                  </div>
+
+                  <!-- Thumbnail Reel -->
+                  <div class="thumbs-section">
+                    <div class="thumbs-title">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                      <span>Carrete (${photos.length})</span>
+                    </div>
+                    <div class="thumbs-reel">
+                      ${photos.map((img, idx) => `
                         <div class="thumb-item ${idx === 0 ? 'active' : ''}" onclick="selectImage(${idx})" id="pageThumb${idx}">
-                            <img src="${img}" class="thumb-img">
+                          ${idx === 0 ? '<span class="thumb-badge">Portada</span>' : ''}
+                          <img src="${img}" class="thumb-img">
                         </div>
-                    `).join('')}
+                      `).join('')}
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <!-- 4. PRICE -->
-              <div class="price-section" style="margin-bottom: 20px;">
-                <div style="margin-bottom: 5px; line-height: 1.1; white-space: nowrap;">
-                    <span class="price-currency" style="color: #d32f2f; font-size: 2.2rem; letter-spacing: -1px;">${(v.precio || '').split(' ')[0]}</span>
-                    <span class="price-amount" style="color: #1e293b; font-size: 2.2rem; letter-spacing: -1.5px;">${(v.precio || '').substring((v.precio || '').indexOf(' ') + 1)}</span>
-                </div>
-                <div class="down-payment" style="font-size: 0.9rem; color: #64748b; margin-top: 5px;">INICIAL: ${v.inicial_calculado}</div>
               </div>
                <!-- 5. SPECS -->
               <div class="specs-section">
@@ -1407,6 +1181,34 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
               function selectImage(index) {
                 currentIndex = index;
                 document.getElementById('mainImg').src = photos[index];
+                // Update page thumbs
+                document.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active'));
+                const pageThumb = document.getElementById('pageThumb' + index);
+                if (pageThumb) pageThumb.classList.add('active');
+              }
+
+              function prevPageImg() {
+                currentIndex--;
+                if (currentIndex < 0) currentIndex = photos.length - 1;
+                selectImage(currentIndex);
+              }
+
+              function nextPageImg() {
+                currentIndex++;
+                if (currentIndex >= photos.length) currentIndex = 0;
+                selectImage(currentIndex);
+              }
+
+              // Currency toggle functions (visual only - the stored price is what it is)
+              function setPriceCurrency(type) {
+                const btns = document.querySelectorAll('#priceToggle .currency-btn');
+                btns.forEach(b => b.classList.remove('active'));
+                btns.forEach(b => { if (b.dataset.currency === type) b.classList.add('active'); });
+              }
+              function setInitialCurrency(type) {
+                const btns = document.querySelectorAll('#initialToggle .currency-btn');
+                btns.forEach(b => b.classList.remove('active'));
+                btns.forEach(b => { if (b.dataset.currency === type) b.classList.add('active'); });
               }
 
               function openLightbox() {
@@ -1493,10 +1295,11 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
           </html>
         `;
         res.set('Content-Type', 'text/html');
+        console.log(`✅ [inventarioIA] Retornando HTML de MODO DETALLE, tamaño: ${html.length}`);
         return res.send(html);
       }
 
-      // --- MODO LISTA (REDISEÑO TIENDA PREMIUM) ---
+      console.log(`👉 [inventarioIA] Pasando a MODO LISTA (REDISEÑO TIENDA PREMIUM)`);
       const grouped = inventory.reduce((acc, v) => {
         const marca = (v.marca || 'Otras').toUpperCase();
         if (!acc[marca]) acc[marca] = [];
@@ -1922,15 +1725,16 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                   <div class="filter-item">
                     <div class="sort-group">
                       <div class="custom-select" id="sortSelect" style="flex: 1;">
-                        <input type="hidden" id="sortFilter" value="recientes">
+                        <input type="hidden" id="sortFilter" value="marca">
                         <div class="select-trigger" onclick="toggleDropdown('sortSelect')">
-                          <span class="trigger-text">Recientes</span>
+                          <span class="trigger-text">Marca (A-Z)</span>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </div>
                         <div class="options-list">
+                          <div class="option selected" onclick="selectOption('sortSelect', 'marca', 'Marca (A-Z)')">Marca (A-Z)</div>
                           <div class="option" onclick="selectOption('sortSelect', 'anio', 'Año')">Año</div>
                           <div class="option" onclick="selectOption('sortSelect', 'precio', 'Precio')">Precio</div>
-                          <div class="option selected" onclick="selectOption('sortSelect', 'recientes', 'Recientes')">Recientes</div>
+                          <div class="option" onclick="selectOption('sortSelect', 'recientes', 'Recientes')">Recientes</div>
                         </div>
                       </div>
                       <button id="sortDirBtn" class="btn-sort-dir desc" onclick="toggleSortDirection()" title="Cambiar dirección">
@@ -2104,6 +1908,9 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 } else if (sortField === 'precio') {
                    valA = parseInt(a.dataset.priceRef || 0);
                    valB = parseInt(b.dataset.priceRef || 0);
+                } else if (sortField === 'marca') {
+                   valA = (a.dataset.brand || '').trim().toUpperCase();
+                   valB = (b.dataset.brand || '').trim().toUpperCase();
                 } else { // anio
                    valA = parseInt(a.dataset.year || 0);
                    valB = parseInt(b.dataset.year || 0);
@@ -2114,10 +1921,20 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 // So Arrow Up (dir: 1) -> DESC (Highest first)
                 // Arrow Down (dir: -1) -> ASC (Lowest first)
                 
-                if (sortDir === 1) { // Up = DESC
-                  return valB - valA;
-                } else { // Down = ASC
-                  return valA - valB;
+                if (sortField === 'marca') {
+                   // For strings, Dir 1 (which acts like 'DESC' for numbers) will mean A-Z here manually mapped
+                   // because A-Z is usually the default. Let's make sortDir === 1 mean A-Z.
+                   if (sortDir === 1) {
+                     return valA.localeCompare(valB);
+                   } else {
+                     return valB.localeCompare(valA);
+                   }
+                } else {
+                   if (sortDir === 1) { // Up = DESC
+                     return valB - valA;
+                   } else { // Down = ASC
+                     return valA - valB;
+                   }
                 }
               });
 
@@ -2998,6 +2815,32 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
     console.log(`[${VERSION}] 🔢 RAW VALUES => precio: ${rawPrecio} (${monedaVenta}), inicial: ${rawInicial} (${monedaInicial}), millaje: ${rawMileage}`);
     console.log(`[${VERSION}] 🔢 FORMATTED => precio: ${fmtCur(rawPrecio, monedaVenta)}, inicial: ${fmtCur(rawInicial, monedaInicial)}, millaje: ${fmtMil(rawMileage, veh)}`);
     console.log(`[${VERSION}] 🔢 carfax raw: "${veh.carfax || veh.clean_carfax || ''}" => formatted: "${fmtCfx(veh.carfax || veh.clean_carfax)}"`);
+
+    // 2. Prepara fallback de email para GHL Proposals (evita error 40035)
+    // Si no hay email, o el contacto se creó sin email debido a validación previa,
+    // inyectamos uno temporal solo para que la propuesta se pueda generar.
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const finalClientEmail = (cleanContactData.email && emailRegex.test(cleanContactData.email))
+      ? cleanContactData.email
+      : `${cleanContactData.firstName || 'cliente'}.${Date.now()}@carbot-fallback.com`;
+
+    if (!cleanContactData.email || !emailRegex.test(cleanContactData.email)) {
+      console.log(`⚠️ Email inválido o ausente para contacto ${contactId}. Usando fallback: ${finalClientEmail}`);
+      // Actualizar el contacto con el email de fallback para permitir la propuesta
+      try {
+        await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Version': '2021-07-28'
+          },
+          body: JSON.stringify({ email: finalClientEmail })
+        });
+      } catch (e) {
+        console.warn("⚠️ No se pudo inyectar email de fallback:", e.message);
+      }
+    }
 
     const fieldsToInject = [
       // Vehículo (Básico)

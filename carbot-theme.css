@@ -1,0 +1,94 @@
+/**
+ * CarBot System - Custom CSS Theme v2
+ * Scoped to html[data-brand="carbot"]
+ */
+
+/* Redirección de variables y colores base */
+html[data-brand="carbot"] {
+    --carbot-primary: #FF3B30;
+    /* Rojo CarBot */
+    --carbot-primary-rgb: 255, 59, 48;
+    --carbot-bg: #0A0A0A;
+    --carbot-card: #1C1C1E;
+    --carbot-border: rgba(255, 255, 255, 0.1);
+    --carbot-text: #FFFFFF;
+    --carbot-text-dim: rgba(255, 255, 255, 0.6);
+}
+
+/* Sidebar Styling Premium */
+html[data-brand="carbot"] #sidebar-v2,
+html[data-brand="carbot"] .sidebar-v2-container {
+    background-color: var(--carbot-bg) !important;
+    border-right: 1px solid var(--carbot-border) !important;
+}
+
+html[data-brand="carbot"] #sidebar-v2 .nav-link:hover,
+html[data-brand="carbot"] #sidebar-v2 .active,
+html[data-brand="carbot"] .sidebar-v2-container .nav-link.active {
+    background: linear-gradient(90deg, rgba(var(--carbot-primary-rgb), 0.1) 0%, transparent 100%) !important;
+    border-left: 3px solid var(--carbot-primary) !important;
+    color: var(--carbot-primary) !important;
+}
+
+/* Glassmorphism en el Header */
+html[data-brand="carbot"] .hl_header,
+html[data-brand="carbot"] .hl_navbar {
+    background: rgba(10, 10, 10, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    border-bottom: 1px solid var(--carbot-border) !important;
+}
+
+/* Botones y Acciones */
+html[data-brand="carbot"] .btn-primary,
+html[data-brand="carbot"] button[type="submit"],
+html[data-brand="carbot"] .hl_btn-primary {
+    background-color: var(--carbot-primary) !important;
+    border-color: var(--carbot-primary) !important;
+    border-radius: 8px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    font-weight: 600 !important;
+}
+
+html[data-brand="carbot"] .btn-primary:hover,
+html[data-brand="carbot"] .hl_btn-primary:hover {
+    box-shadow: 0 0 20px rgba(var(--carbot-primary-rgb), 0.4) !important;
+    transform: translateY(-1px) !important;
+    filter: brightness(1.1);
+}
+
+/* Tipografía y Textos */
+html[data-brand="carbot"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+html[data-brand="carbot"] h1,
+html[data-brand="carbot"] h2,
+html[data-brand="carbot"] h3 {
+    color: var(--carbot-text) !important;
+}
+
+/* Scrollbar personalizado */
+html[data-brand="carbot"] ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+html[data-brand="carbot"] ::-webkit-scrollbar-track {
+    background: var(--carbot-bg);
+}
+
+html[data-brand="carbot"] ::-webkit-scrollbar-thumb {
+    background: rgba(var(--carbot-primary-rgb), 0.5);
+    border-radius: 10px;
+}
+
+html[data-brand="carbot"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--carbot-primary);
+}
+
+/* Logos (Soporte CSS en caso de que JS tarde un ms) */
+html[data-brand="carbot"] .hl_navbar--logo img,
+html[data-brand="carbot"] .hl_header--logo img {
+    max-height: 40px !important;
+    object-fit: contain !important;
+}

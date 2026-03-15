@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Calendar, Fuel, Settings, Save, DollarSign,
-  IdCard, Maximize, ChevronLeft, ChevronRight, ChevronDown,
-  X, Info, Share2, Heart, Files, CheckCircle, Lock, Trash2, Camera, Phone, Mail,
-  ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon
+  IdCard, Maximize2, ChevronLeft, ChevronRight, ChevronDown,
+  X, Info, Share2, Heart, Files, CheckCircle, CheckCircle2, Lock, Trash2, Camera, Phone, Mail,
+  Shield, User, Users, Activity, Zap, FileText, Quote, Tag, AlertTriangle,
+  FileSignature, MoreVertical, Copy, RefreshCw, Edit, Plus, CloudUpload, Check,
+  Briefcase, MapPin, Gauge, LifeBuoy, Key, Palette, Hash, Building2, Car
 } from 'lucide-react';
 
 const formatWithCommas = (value) => {
@@ -100,7 +102,29 @@ const Select = ({ label, options = [], name, value, onChange, disabled, classNam
   );
 };
 
-const FormInput = ({ label, icon: Icon, name, value, onChange, type = "text", disabled, isSold, className = "" }) => (
+const Badge = ({ status }) => {
+  const styles = {
+    available: "bg-emerald-500 text-white border-emerald-400",
+    quoted: "bg-amber-500 text-white border-amber-400",
+    sold: "bg-red-600 text-white border-red-500",
+    upcoming: "bg-indigo-600 text-white border-indigo-500",
+    trash: "bg-slate-500 text-white border-slate-400"
+  };
+  const labels = {
+    available: "Disponible",
+    quoted: "Cotizado",
+    sold: "Vendido",
+    upcoming: "En Camino",
+    trash: "Papelera"
+  };
+  return (
+    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-lg ${styles[status] || styles.available}`}>
+      {labels[status] || status}
+    </span>
+  );
+};
+
+const FormInput = ({ label, icon: Icon, name, value, onChange, type = "text", disabled, isSold, className = "", readOnly }) => (
   <div className="flex flex-col gap-2 group">
     {label && (
       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
@@ -121,12 +145,25 @@ const FormInput = ({ label, icon: Icon, name, value, onChange, type = "text", di
   </div>
 );
 
-export default function VehicleEditView({ vehicle, contract, onBack, onSave, readOnly = false, userProfile }) {
+export default function VehicleEditView({
+  vehicle,
+  contract,
+  quote,
+  onBack,
+  onSave,
+  onSellQuoted,
+  onSolicitInfo,
+  readOnly = false,
+  userProfile,
+  allVehicles = [],
+  onSelectVehicle
+}) {
+  console.log("VehicleEditView render start", { vehicleId: vehicle?.id, readOnly });
   const [loading, setLoading] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.currency || (vehicle?.price_dop > 0 ? 'DOP' : 'USD'));
   const [downPaymentCurrency, setDownPaymentCurrency] = useState(vehicle?.downPaymentCurrency || (vehicle?.initial_payment_dop > 0 ? 'DOP' : 'USD'));
-  const [mileageUnit, setMileageUnit] = useState(vehicle?.mileage_unit || 'MI');
+  const [mileageUnit, setMileageUnit] = useState(vehicle?.mileage_unit || 'KM');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -150,6 +187,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
   };
 
   const isSold = vehicle?.status === 'sold';
+  const isQuoted = vehicle?.status === 'quoted' || vehicle?.estado === 'Cotizado';
 
   const [formData, setFormData] = useState({
     ...vehicle,
@@ -160,14 +198,19 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString(),
 
     // Defaults for selects
-    transmission: vehicle?.transmission || '-',
-    fuel: vehicle?.fuel || '-',
-    traction: vehicle?.traction || '-',
-    engine_type: vehicle?.engine_type || '-',
+    transmission: vehicle?.transmission || vehicle?.transmision || '-',
+    transmision: vehicle?.transmision || vehicle?.transmission || '-',
+    fuel: vehicle?.fuel || vehicle?.combustible || '-',
+    combustible: vehicle?.combustible || vehicle?.fuel || '-',
+    traction: vehicle?.traction || vehicle?.traccion || '-',
+    traccion: vehicle?.traccion || vehicle?.traction || '-',
+    engine_type: vehicle?.engine_type || vehicle?.motor || '-',
+    motor: vehicle?.motor || vehicle?.engine_type || '-',
     seat_material: vehicle?.seat_material || '-',
     roof_type: vehicle?.roof_type || '-',
     key_type: vehicle?.key_type || '-',
-    seats: vehicle?.seats || '-',
+    seats: vehicle?.seats || vehicle?.cantidad_asientos || '-',
+    asientos: vehicle?.asientos || vehicle?.cantidad_asientos || vehicle?.seats || '-',
     condition: vehicle?.condition || '-',
 
     // Convert boolean flags to "Sí" / "No" / "-" for the dropdowns
@@ -194,14 +237,19 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
         initial_unified: (vehicle?.initial_payment_dop > 0 ? vehicle.initial_payment_dop : (vehicle?.initial_payment || 0)).toString(),
 
         // Defaults for selects
-        transmission: vehicle?.transmission || '-',
-        fuel: vehicle?.fuel || '-',
-        traction: vehicle?.traction || '-',
-        engine_type: vehicle?.engine_type || '-',
+        transmission: vehicle?.transmission || vehicle?.transmision || '-',
+        transmision: vehicle?.transmision || vehicle?.transmission || '-',
+        fuel: vehicle?.fuel || vehicle?.combustible || '-',
+        combustible: vehicle?.combustible || vehicle?.fuel || '-',
+        traction: vehicle?.traction || vehicle?.traccion || '-',
+        traccion: vehicle?.traccion || vehicle?.traction || '-',
+        engine_type: vehicle?.engine_type || vehicle?.motor || '-',
+        motor: vehicle?.motor || vehicle?.engine_type || '-',
         seat_material: vehicle?.seat_material || '-',
         roof_type: vehicle?.roof_type || '-',
         key_type: vehicle?.key_type || '-',
-        seats: vehicle?.seats || '-',
+        seats: vehicle?.seats || vehicle?.cantidad_asientos || '-',
+        asientos: vehicle?.asientos || vehicle?.cantidad_asientos || vehicle?.seats || '-',
         condition: vehicle?.condition || '-',
 
         // Convert boolean flags to "Sí" / "No" / "-" for the dropdowns
@@ -335,6 +383,25 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
     }
   };
 
+  const handleSellQuotedAction = (e) => {
+    console.log("VehicleEditView: handleSellQuotedAction clicked");
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (onSellQuoted) {
+      console.log("VehicleEditView: Calling onSellQuoted with vehicle", vehicle?.id);
+      onSellQuoted(vehicle);
+    } else {
+      console.warn("onSellQuoted not provided to VehicleEditView");
+    }
+  };
+
+  const handleSolicitInfoAction = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (onSolicitInfo) onSolicitInfo(vehicle);
+    else if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast("Solicitud enviada al vendedor", "success");
+    }
+  };
+
   const nextPhoto = () => setActivePhotoIndex(prev => (prev + 1) % formData.images.length);
   const prevPhoto = () => setActivePhotoIndex(prev => (prev - 1 + formData.images.length) % formData.images.length);
 
@@ -382,196 +449,437 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
 
 
   if (readOnly) {
-    return (
-      <div className='animate-in fade-in duration-700 p-3 sm:p-6 lg:p-10 max-w-[1400px] mx-auto bg-white min-h-screen'>
-        {/* PUBLIC HEADER */}
-        <div className="flex justify-between items-center mb-6 sm:mb-12">
-          <button onClick={onBack} className='flex items-center text-slate-400 hover:text-red-700 font-black transition-all group px-3 py-2 hover:bg-red-50 rounded-2xl'>
-            <ArrowLeft size={20} className='mr-2 group-hover:-translate-x-1 transition-transform' />
-            <span className="text-xs uppercase tracking-[0.2em]">CERRAR VISTA</span>
-          </button>
+    // ── Helpers de precio ──────────────────────────────────────────────────────
+    const displayPrice = Number(formData.price_unified || 0);
+    const displayInitial = Number(formData.initial_unified || 0);
+    const priceLabel = currency === 'USD' ? 'US$' : 'RD$';
+    const initialLabel = downPaymentCurrency === 'USD' ? 'US$' : 'RD$';
 
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">DOCUMENTO OFICIAL CARBOT</span>
-          </div>
+    // ─── Sección de ficha técnica ───────────────────────────────────────────────
+    // Estilo igual a carbotsystem.com: 3 columnas, cada campo es label pequeño + valor en caja gris
+    const FichaCelda = ({ label, value }) => (
+      <div className="flex flex-col gap-1">
+        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">{label}</span>
+        <div className="bg-[#f4f6f8] border border-slate-100 rounded-xl px-4 py-3">
+          <span className="text-[13px] font-semibold text-slate-700 uppercase">{value || '—'}</span>
         </div>
+      </div>
+    );
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
-          {/* LEFT: MEDIA GALLERY */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="relative group rounded-[2rem] overflow-hidden bg-slate-100 aspect-[16/10] shadow-2xl border border-slate-100 flex items-center justify-center">
-              {(formData.images[activePhotoIndex] && !formData.images[activePhotoIndex].includes('unsplash')) ? (
-                <img
-                  src={formData.images[activePhotoIndex]}
-                  alt="Main"
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                  onClick={() => setIsLightboxOpen(true)}
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50 transition-transform duration-1000 group-hover:scale-105" onClick={() => formData.images.length > 0 && setIsLightboxOpen(true)}>
-                  {userProfile?.dealer_logo ? (
-                    <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
+    const CurrencyToggle = ({ activeCurrency }) => (
+      <div className="flex bg-[#f4f6f8] p-1 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 border border-slate-100">
+        <div className={`px-3 py-1 rounded-full transition-all ${activeCurrency === 'USD' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400'}`}>US$</div>
+        <div className={`px-3 py-1 rounded-full transition-all ${activeCurrency === 'DOP' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400'}`}>RD$</div>
+      </div>
+    );
+
+    return (
+      <div
+        className="min-h-screen font-sans"
+        style={{ background: '#f4f6f8', fontFamily: "'Inter', 'Outfit', system-ui, sans-serif" }}
+      >
+        {/* DEALER HEADER (FIXED) - OCULTO PORQUE SE USA EL GLOBAL DE APPLAYOUT */}
+        {/*
+        <div className="fixed top-0 left-0 right-0 z-50 px-4 pt-3 pb-2">
+          ...
+        </div>
+        */}
+
+        <div className="h-4 sm:h-6"></div> {/* Spacer minimal para el nuevo header global */}
+
+
+        {/* ── MAIN CONTENT ──────────────────────────────────────────────── */}
+        <div className="max-w-[1600px] mx-auto px-4 pb-16">
+
+          {/* ENCABEZADO MÓVIL (sólo visible en < xl) */}
+          <div className="xl:hidden mb-6 px-2">
+            {/* AÑO • COLOR • VERSIÓN */}
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="text-red-600 font-black text-sm tracking-tight">{formData.year}</span>
+              <span className="text-slate-300 font-bold">•</span>
+              <span className="text-slate-400 font-bold text-xs uppercase">{formData.color}</span>
+              {formData.edition && formData.edition.toUpperCase() !== 'VALUE' && (
+                <>
+                  <span className="text-slate-300 font-bold">•</span>
+                  <span className="text-slate-400 font-bold text-xs uppercase">{formData.edition}</span>
+                </>
+              )}
+            </div>
+
+            {/* MARCA + MODELO */}
+            <div className="leading-none">
+              <h1 className="text-4xl sm:text-[2.2rem] font-black text-slate-900 uppercase tracking-tighter mb-1">
+                {formData.make}
+              </h1>
+              <h1 className="text-4xl sm:text-[2.2rem] font-black text-red-600 uppercase tracking-tighter">
+                {formData.model}
+              </h1>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10">
+
+            {/* ── LEFT: FOTO PRINCIPAL ───────────────────────────────────────── */}
+            <div className="xl:col-span-8 space-y-4">
+              {/* Imagen principal — mismo estilo que la vista interna */}
+              <div className="relative bg-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white h-[400px] md:h-[650px]">
+                <div
+                  className="w-full h-full relative group cursor-zoom-in flex items-center justify-center"
+                  onClick={() => formData.images.length > 0 && setIsLightboxOpen(true)}
+                  onTouchStart={onTouchStart}
+                  onTouchMove={onTouchMove}
+                  onTouchEnd={onSwipeEnd}
+                >
+                  {formData.images[activePhotoIndex] && !formData.images[activePhotoIndex].includes('unsplash') ? (
+                    <img
+                      src={formData.images[activePhotoIndex]}
+                      alt={`${formData.make} ${formData.model}`}
+                      className="max-w-full max-h-full object-contain transition-transform duration-700 group-hover:scale-[1.02]"
+                    />
                   ) : (
-                    <div className="flex flex-col items-center text-slate-300">
-                      <Camera size={64} className="mb-4 opacity-50" />
-                      <p className="font-bold text-lg opacity-50">Sin Imágenes</p>
+                    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50">
+                      {userProfile?.dealer_logo ? (
+                        <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
+                      ) : (
+                        <div className="flex flex-col items-center text-slate-300">
+                          <Camera size={64} className="mb-4 opacity-50" />
+                          <p className="font-bold text-lg opacity-50">Sin Imágenes</p>
+                        </div>
+                      )}
                     </div>
                   )}
+
+                  {/* Flechas de navegación */}
+                  {formData.images.length > 1 && (
+                    <div className="absolute inset-x-2 sm:inset-x-8 top-[65%] sm:top-[75%] -translate-y-1/2 flex justify-between pointer-events-none">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10">
+                        <ChevronLeft size={16} className="sm:w-6 sm:h-6" />
+                      </button>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10">
+                        <ChevronRight size={16} className="sm:w-6 sm:h-6" />
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+              {/* ── THUMBNAILS / CARRETE (debajo de la foto) ────────────────── */}
+              {formData.images.length > 1 && (
+                <div className="pt-3">
+                  <div className="flex items-center justify-center gap-2 overflow-x-auto pb-1">
+                    {formData.images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActivePhotoIndex(idx)}
+                        className={`relative w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${idx === activePhotoIndex
+                          ? 'border-red-500 shadow-md'
+                          : 'border-transparent opacity-75 hover:opacity-100 hover:border-slate-200'
+                          }`}
+                      >
+                        <img src={img} className="w-full h-full object-cover" alt={`Foto ${idx + 1}`} />
+                        {idx === 0 && (
+                          <div className="absolute top-1 left-1 bg-emerald-500 text-white text-[6px] font-black px-1 py-0.5 rounded uppercase tracking-wider shadow-sm">
+                            PORTADA
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              <div className="absolute inset-x-0 bottom-0 p-8 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none">
-                <div className="flex justify-between items-end">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest">
-                    FOTO {activePhotoIndex + 1} / {formData.images.length}
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* THUMBNAILS */}
-            <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-              {formData.images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActivePhotoIndex(idx)}
-                  className={`relative shrink-0 w-24 h-16 rounded-xl overflow-hidden border-2 transition-all ${idx === activePhotoIndex ? 'border-red-600 scale-105 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                >
-                  <img src={img} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
+            {/* ── RIGHT: INFO + PRECIO + CARRETE ─────────────────────────────── */}
+            <div className="xl:col-span-4 space-y-4 md:space-y-8">
+              <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-6 md:gap-8">
 
-          {/* RIGHT: SPECS & PRICING */}
-          <div className="lg:col-span-12 xl:col-span-5 space-y-10">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="bg-red-50 text-red-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-100">
-                  {formData.year || '2025'}
-                </span>
-                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${formData.status === 'sold' ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/10' :
-                  formData.status === 'quoted' ? 'bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 shadow-xl shadow-amber-500/20 border border-amber-400/50' :
-                    'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                  }`}>
-                  {formData.status === 'sold' ? 'VENDIDO' : (formData.status === 'quoted' ? 'COTIZADO' : 'DISPONIBLE')}
-                </span>
-              </div>
+                {/* ENCABEZADO DESKTOP (sólo visible en >= xl) */}
+                <div className="hidden xl:block">
+                  {/* AÑO • COLOR • VERSIÓN */}
+                  <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="text-red-600 font-black text-sm tracking-tight">{formData.year}</span>
+                    <span className="text-slate-300 font-bold">•</span>
+                    <span className="text-slate-400 font-bold text-xs uppercase">{formData.color}</span>
+                    {formData.edition && formData.edition.toUpperCase() !== 'VALUE' && (
+                      <>
+                        <span className="text-slate-300 font-bold">•</span>
+                        <span className="text-slate-400 font-bold text-xs uppercase">{formData.edition}</span>
+                      </>
+                    )}
+                  </div>
 
-              <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-4">
-                {formData.make} <span className="text-red-700">{formData.model}</span>
-              </h1>
-
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.3em] mb-8">
-                {formData.edition || 'VERSIÓN ESTÁNDAR'} • {formData.color || 'COLOR'}
-              </p>
-
-              <div className="h-px w-full bg-slate-100 mb-10"></div>
-
-              {/* PRICING GRID */}
-              <div className="grid grid-cols-2 gap-6 mb-12">
-                <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">PRECIO DE VENTA</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm font-black text-red-700">{currency}</span>
-                    <span className="text-3xl font-black text-slate-900">{Number(formData.price_unified).toLocaleString()}</span>
+                  {/* MARCA + MODELO */}
+                  <div className="leading-none mb-10">
+                    <h1 className="text-4xl sm:text-[2.2rem] font-black text-slate-900 uppercase tracking-tighter mb-1">
+                      {formData.make}
+                    </h1>
+                    <h1 className="text-4xl sm:text-[2.2rem] font-black text-red-600 uppercase tracking-tighter">
+                      {formData.model}
+                    </h1>
                   </div>
                 </div>
-                <div className="bg-red-700 p-6 rounded-[2rem] shadow-xl shadow-red-600/20 text-white">
-                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-2">INICIAL REQUERIDO</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm font-black text-white/80">{downPaymentCurrency}</span>
-                    <span className="text-3xl font-black">{Number(formData.initial_unified).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* TECH GRID */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-2 gap-4">
-                {[
-                  { label: 'Transmisión', value: formData.transmision, icon: Settings },
-                  { label: 'Motor', value: formData.motor, icon: Fuel },
-                  { label: 'Kilometraje', value: `${formData.mileage} ${mileageUnit}`, icon: Activity },
-                  { label: 'Tracción', value: formData.traccion, icon: Zap },
-                  { label: 'Asientos', value: `${formData.asientos} Filas`, icon: User },
-                  { label: 'Combustible', value: formData.combustible, icon: Fuel }
-                ].filter(s => s.value && s.value !== 'undefined').map((spec, i) => (
-                  <div key={i} className="flex flex-col p-5 bg-white border border-slate-100 rounded-3xl hover:border-red-100 transition-colors group">
-                    <div className="p-2.5 bg-slate-50 rounded-xl w-fit mb-3 group-hover:bg-red-50 transition-colors">
-                      <spec.icon size={18} className="text-slate-400 group-hover:text-red-600" />
+                {/* PRECIOS */}
+                <div className="space-y-6 mb-10">
+                  {/* PRECIO DE VENTA */}
+                  {displayPrice > 0 && (
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1.5">
+                          <DollarSign size={10} className="text-slate-400" />
+                          PRECIO DE VENTA
+                        </p>
+                        <CurrencyToggle activeCurrency={currency} />
+                      </div>
+                      <p className="text-[2.6rem] font-black tracking-tighter flex items-center gap-2">
+                        <span className="text-red-600">{priceLabel}</span>
+                        <span className="text-slate-900">{displayPrice.toLocaleString('en-US')}</span>
+                      </p>
                     </div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{spec.label}</p>
-                    <p className="text-xs font-black text-slate-800 uppercase">{spec.value}</p>
+                  )}
+
+                  {(displayPrice > 0 && displayInitial > 0) && (
+                    <div className="h-px bg-slate-100 w-full my-6"></div>
+                  )}
+
+                  {/* PAGO INICIAL */}
+                  {displayInitial > 0 && (
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                          PAGO INICIAL SUGERIDO
+                        </p>
+                        <CurrencyToggle activeCurrency={downPaymentCurrency} />
+                      </div>
+                      <p className="text-2xl pt-1 font-black tracking-tight flex items-center gap-2">
+                        <span className="text-slate-400">{initialLabel}</span>
+                        <span className="text-slate-700">{displayInitial.toLocaleString('en-US')}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+
+
+                {/* (Botón removido y movido al header superior) */}
+
+              </div> {/* END inner white card */}
+            </div> {/* END right column */}
+          </div> {/* END grid */}
+
+          {/* ── FICHA TÉCNICA COMPLETA ─────────────────────────────────────────── */}
+          <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 mt-8 p-6 lg:p-8">
+            {/* Header ficha */}
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
+                <Info size={14} className="text-red-600" />
+              </div>
+              <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">FICHA TÉCNICA COMPLETA</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+
+              {/* ── COLUMNA 1: INFORMACIÓN BÁSICA ───────────────────────────── */}
+              <div className="space-y-4">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                  <span className="w-3.5 h-3.5 rounded flex items-center justify-center text-slate-400">
+                    <Info size={11} />
+                  </span>
+                  INFORMACIÓN BÁSICA
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="AÑO" value={formData.year} />
+                  <FichaCelda label="COLOR" value={formData.color} />
+                </div>
+                <FichaCelda label="EDICIÓN / VERSIÓN" value={formData.edition} />
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="KILOMETRAJE" value={formData.mileage ? `${Number(formData.mileage).toLocaleString('en-US')} ${mileageUnit}` : null} />
+                  <FichaCelda label="PLACA" value={formData.plate} />
+                </div>
+                <FichaCelda label="CHASIS / VIN" value={formData.vin || formData.chassis} />
+              </div>
+
+              {/* ── COLUMNA 2: MECÁNICA ──────────────────────────────────────── */}
+              <div className="space-y-4">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                  <span className="w-3.5 h-3.5 rounded flex items-center justify-center text-slate-400">
+                    <Settings size={11} />
+                  </span>
+                  MECÁNICA
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="CLEAN CARFAX" value={formData.carfax || formData.condition} />
+                  <FichaCelda label="TIPO DE VEHÍCULO" value={formData.type || formData.tipo_vehiculo} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="TRANSMISIÓN" value={formData.transmision || formData.transmission} />
+                  <FichaCelda label="TRACCIÓN" value={formData.traccion || formData.traction} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="COMBUSTIBLE" value={formData.combustible || formData.fuel} />
+                  <FichaCelda label="MOTOR" value={formData.motor || formData.engine_type} />
+                </div>
+              </div>
+
+              {/* ── COLUMNA 3: CONFORT Y EXTRAS ─────────────────────────────── */}
+              <div className="space-y-4">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                  <span className="w-3.5 h-3.5 rounded flex items-center justify-center text-slate-400">
+                    <Shield size={11} />
+                  </span>
+                  CONFORT Y EXTRAS
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="INTERIOR" value={formData.seat_material} />
+                  <FichaCelda label="TECHO" value={formData.roof_type} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="CARPLAY" value={formData.carplay} />
+                  <FichaCelda label="CÁMARA" value={formData.camera || formData.camara} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="SENSORES" value={formData.sensors || formData.sensores} />
+                  <FichaCelda label="BAÚL ELÉCTRICO" value={formData.trunk || formData.baul_electrico} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FichaCelda label="CRISTALES ELÉCT." value={formData.electric_windows || formData.vidrios_electricos} />
+                  <FichaCelda label="LLAVE" value={formData.key_type} />
+                </div>
+                <FichaCelda label="FILAS DE ASIENTOS" value={formData.asientos || formData.seats} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── VEHÍCULOS RELACIONADOS ──────────────────────────────────────── */}
+          {readOnly && allVehicles.length > 1 && (() => {
+            const related = allVehicles
+              .filter(v => v.id !== vehicle?.id && v.status !== 'trash' && v.status !== 'sold')
+              .slice(0, 4);
+            if (related.length === 0) return null;
+            return (
+              <div className="mt-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
+                    <Car size={14} className="text-red-600" />
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-12 pt-8 border-t border-slate-100">
-                <button className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-700 transition-all active:scale-95 shadow-2xl">
-                  SOLICITAR INFORMACIÓN
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* DETAILS SECTION */}
-        <div className="mt-20">
-          <div className="inline-block border-b-4 border-red-600 pb-2 mb-8">
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-wider">Equipamiento & Detalles</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            <div className="prose prose-slate max-w-none">
-              <p className="text-slate-600 leading-relaxed font-medium">
-                {formData.notes || "Este vehículo ha sido inspeccionado y cumple con los estándares de calidad de CarBot. Cuenta con todos sus documentos en regla y está listo para traspaso inmediato."}
-              </p>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100">
-                <div className="flex items-center gap-3">
-                  <CheckCircle size={20} />
-                  <span className="text-xs font-black uppercase tracking-widest">Garantía de Motor & Transmisión</span>
+                  <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">VEHÍCULOS RELACIONADOS</h2>
                 </div>
-                <span className="text-[10px] font-black">ACTIVA</span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100">
-                <div className="flex items-center gap-3">
-                  <Shield size={20} />
-                  <span className="text-xs font-black uppercase tracking-widest">Certificado CarBot Libre Accidentes</span>
+                <div className="w-12 h-1 bg-red-500 rounded-full mb-6"></div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {related.map(r => {
+                    const img = r.images?.[0] || r.imagen || '';
+                    const name = r.nombre || `${r.year || ''} ${r.make || ''} ${r.model || ''} ${r.trim || ''}`.trim();
+
+                    const hasUsd = r.price_usd > 0 || (r.price > 0 && r.currency === 'USD');
+                    const hasDop = r.price_dop > 0 || (r.price > 0 && (!r.currency || r.currency === 'DOP'));
+
+                    let priceText = '';
+                    if (hasUsd) {
+                      const val = r.price_usd > 0 ? r.price_usd : r.price;
+                      priceText = `US$ ${Number(val).toLocaleString('en-US')}`;
+                    } else if (hasDop) {
+                      const val = r.price_dop > 0 ? r.price_dop : r.price;
+                      priceText = `RD$ ${Number(val).toLocaleString('en-US')}`;
+                    }
+
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => onSelectVehicle?.(r)}
+                        className="bg-white rounded-2xl shadow-lg overflow-hidden text-left hover:shadow-xl hover:-translate-y-1 transition-all group"
+                      >
+                        <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                          {img ? (
+                            <img src={img} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt={name} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                              <Car size={40} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <h4 className="text-xs font-black text-slate-800 uppercase line-clamp-1 tracking-tight">{name}</h4>
+                          {priceText && <p className="text-xs font-bold text-red-600 mt-1">{priceText}</p>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className="text-[10px] font-black">VERIFICADO</span>
               </div>
-            </div>
-          </div>
-        </div>
+            );
+          })()}
 
-        {isLightboxOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/98 flex flex-col pt-12" onClick={() => setIsLightboxOpen(false)}>
-            <div className="absolute top-8 right-8 text-white/50 hover:text-white cursor-pointer transition-colors">
-              <X size={40} strokeWidth={1.5} />
-            </div>
-
-            <div className="flex-1 flex items-center justify-center relative p-10" onClick={e => e.stopPropagation()}>
-              <button onClick={prevPhoto} className="absolute left-4 sm:left-10 p-4 bg-white/5 hover:bg-white/10 text-white rounded-full backdrop-blur-md transition-all">
-                <ChevronLeft size={32} />
+          {/* ── BOTÓN REGRESAR AL INVENTARIO (BOTTOM) ───────────────────────── */}
+          {readOnly && (
+            <div className="flex justify-center mt-12 mb-4">
+              <button
+                onClick={onBack}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] uppercase tracking-wider py-3 px-8 rounded-full transition-all active:scale-95 shadow-lg hover:shadow-xl"
+              >
+                <ArrowLeft size={16} strokeWidth={2.5} />
+                Regresar al Inventario
               </button>
+            </div>
+          )}
 
+        </div>
+
+        {/* ── LIGHTBOX MODAL ─────────────────────────────────────────────────── */}
+        {isLightboxOpen && (
+          <div
+            className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onSwipeEnd}
+          >
+            {/* HEADER - ABSOLUTE TO NOT PUSH CONTENT DOWN INCORRECTLY */}
+            <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-4 sm:p-8 z-50 pointer-events-none">
+              <div className="text-slate-900 pointers-events-auto">
+                <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-red-600 line-clamp-1 drop-shadow-sm">{formData.make} {formData.model}</h4>
+                <p className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
+              </div>
+              <button
+                onClick={() => setIsLightboxOpen(false)}
+                className="p-3 sm:p-4 rounded-full bg-slate-100/80 text-slate-500 hover:bg-slate-100 hover:text-red-600 transition-all shadow-sm pointer-events-auto"
+              >
+                <X size={24} className="sm:w-[32px] sm:h-[32px]" />
+              </button>
+            </div>
+
+            <div className="flex-1 w-full h-full flex items-center justify-center p-4 relative">
               <img
                 src={formData.images[activePhotoIndex]}
-                className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl"
-                alt="Lightbox"
+                className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-lg"
+                alt="Lightbox View"
               />
 
-              <button onClick={nextPhoto} className="absolute right-4 sm:right-10 p-4 bg-white/5 hover:bg-white/10 text-white rounded-full backdrop-blur-md transition-all">
-                <ChevronRight size={32} />
-              </button>
+              {/* NAV CONTROLS FLOATING */}
+              <div className="hidden sm:flex absolute inset-x-4 sm:inset-x-10 top-1/2 -translate-y-1/2 justify-between pointer-events-none">
+                <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
+                  <ChevronLeft size={24} className="sm:w-8 sm:h-8" />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
+                  <ChevronRight size={24} className="sm:w-8 sm:h-8" />
+                </button>
+              </div>
             </div>
 
-            <p className="text-center text-white/40 text-[10px] font-black uppercase tracking-[0.5em] pb-12">
-              {activePhotoIndex + 1} / {formData.images.length}
-            </p>
+            {/* THUMBNAILS CAROUSEL IN LIGHTBOX - MOBILE OPTIMIZED */}
+            <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+              <div className="flex gap-2 sm:gap-3 overflow-x-auto max-w-full pointer-events-auto no-scrollbar py-2 px-2">
+                {formData.images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={(e) => { e.stopPropagation(); setActivePhotoIndex(idx); }}
+                    className={`relative w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-lg overflow-hidden transition-all duration-300 shadow-sm ${activePhotoIndex === idx ? 'ring-2 ring-red-600 scale-100 opacity-100' : 'opacity-40 hover:opacity-100 scale-95 grayscale'}`}
+                  >
+                    <img src={img} className="w-full h-full object-cover" alt={`Thumb ${idx}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -636,7 +944,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
               {formData.images.length > 0 && (
                 <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <div className="bg-white/20 backdrop-blur-md p-4 rounded-full text-white">
-                    <Maximize size={32} />
+                    <Maximize2 size={32} />
                   </div>
                 </div>
               )}
@@ -644,8 +952,8 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
               {/* NAV CONTROLS */}
               {formData.images.length > 1 && (
                 <div className="absolute inset-x-2 sm:inset-x-8 top-[65%] sm:top-[75%] -translate-y-1/2 flex justify-between pointer-events-none">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10"><ChevronLeftIcon size={16} className="sm:w-6 sm:h-6" /></button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10"><ChevronRightIcon size={16} className="sm:w-6 sm:h-6" /></button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10"><ChevronLeft size={16} className="sm:w-6 sm:h-6" /></button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10"><ChevronRight size={16} className="sm:w-6 sm:h-6" /></button>
                 </div>
               )}
 
@@ -708,6 +1016,7 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                 <span className="text-red-700">{formData.model}</span>
               </h2>
             </div>
+
 
             {/* 2. PRICING SECTION */}
             {!isSold && (
@@ -772,52 +1081,106 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
               </div>
             )}
 
-            {/* SOLD CONTEXT SECTION - Showing if applicable */}
-            {isSold && (
-              <div className="relative overflow-hidden p-6 sm:p-8 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-2xl sm:rounded-[2rem] text-white shadow-xl shadow-emerald-200 transition-all border border-emerald-400/20">
+            {/* QUOTED CONTEXT SECTION - Finalize Sale */}
+            {isQuoted && !isSold && !readOnly && (
+              <div className="relative overflow-hidden p-6 sm:p-8 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-2xl sm:rounded-[2rem] text-white shadow-xl shadow-emerald-200 transition-all border border-emerald-400/20 group">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <DollarSign size={80} />
+                </div>
+
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <h3 className="text-sm sm:text-base font-black uppercase tracking-widest flex items-center gap-2">
-                      <CheckCircle size={18} className="sm:w-5 sm:h-5" /> VENTA Completada
+                      <CheckCircle size={18} className="sm:w-5 sm:h-5 text-emerald-200" /> Vehículo en Cotización
                     </h3>
-                    <div className="p-1.5 sm:p-2 bg-white/20 rounded-lg sm:rounded-xl backdrop-blur-sm">
-                      <Lock size={14} className="sm:w-4 sm:h-4" />
+                    <div className="px-3 py-1 bg-white/20 rounded-full backdrop-blur-sm text-[10px] font-black uppercase tracking-widest line-clamp-1">
+                      Paso Final: Generar Contrato
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="p-4 bg-emerald-900/30 rounded-2xl backdrop-blur-md border border-white/10 ring-1 ring-white/5">
+                      <p className="text-[10px] font-black text-emerald-200 uppercase mb-3 tracking-widest flex items-center gap-2">
+                        <Info size={12} /> Cliente Interesado
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[9px] font-bold text-emerald-300 uppercase">Nombre</p>
+                          <p className="text-sm font-black truncate">
+                            {quote?.client || (quote?.name ? `${quote.name} ${quote.lastname || ''}` : 'Cliente en Proceso')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold text-emerald-300 uppercase">Monto Cotizado</p>
+                          <p className="text-sm font-black">
+                            {quote?.price || quote?.finalPrice ? `${quote.priceCurrency || 'RD$'} ${Number(quote.price || quote.finalPrice).toLocaleString()}` : 'Ver detalles'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-4 border-t border-slate-100/50">
+                      <button
+                        onClick={handleSellQuotedAction}
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      >
+                        <DollarSign size={16} />
+                        Vender Ahora
+                      </button>
+                    </div>
+                    <p className="text-[10px] font-bold text-emerald-100/70 text-center tracking-wide italic">
+                      Al hacer clic, se abrirá el generador de contratos con los datos del cliente precargados.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SOLD CONTEXT SECTION - Showing if applicable */}
+            {isSold && (
+              <div className="relative overflow-hidden p-6 sm:p-8 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl sm:rounded-[2rem] text-white shadow-xl transition-all border border-slate-700">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <h3 className="text-sm sm:text-base font-black uppercase tracking-widest flex items-center gap-2">
+                      <CheckCircle size={18} className="sm:w-5 sm:h-5 text-emerald-400" /> VENTA Completada
+                    </h3>
+                    <div className="p-1.5 sm:p-2 bg-white/10 rounded-lg sm:rounded-xl backdrop-blur-sm border border-white/5">
+                      <Lock size={14} className="sm:w-4 sm:h-4 text-slate-400" />
                     </div>
                   </div>
 
                   <div className="space-y-4 sm:y-6">
-                    <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                      <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
+                    <div className="p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/5">
+                      <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">PROPIETARIO ACTUAL</p>
                       <p className="text-lg sm:text-xl font-black mb-2">{contract?.client || 'N/A'}</p>
-                      <div className="space-y-1.5 opacity-90 border-t border-white/10 pt-2">
+                      <div className="space-y-1.5 opacity-90 border-t border-white/5 pt-2">
                         {contract?.cedula && (
                           <div className="flex items-center gap-2 text-[10px] font-bold">
-                            <IdCard size={12} className="text-emerald-200" /> {contract.cedula}
+                            <IdCard size={12} className="text-slate-500" /> {contract.cedula}
                           </div>
                         )}
                         {contract?.phone && (
                           <div className="flex items-center gap-2 text-[10px] font-bold">
-                            <Phone size={12} className="text-emerald-200" /> {contract.phone}
+                            <Phone size={12} className="text-slate-500" /> {contract.phone}
                           </div>
                         )}
                         {contract?.email && (
                           <div className="flex items-center gap-2 text-[10px] font-bold truncate">
-                            <Mail size={12} className="text-emerald-200" /> {contract.email}
+                            <Mail size={12} className="text-slate-500" /> {contract.email}
                           </div>
                         )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PRECIO LISTA</p>
+                      <div className="p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/5 text-center">
+                        <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">PRECIO LISTA</p>
                         <p className="text-xs sm:text-sm font-black whitespace-nowrap">
                           {formData.price_dop > 0 ? `RD$ ${Number(formData.price_dop).toLocaleString()}` : `US$ ${Number(formData.price).toLocaleString()}`}
                         </p>
                       </div>
-                      <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10">
-                        <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest">PRECIO VENTA</p>
-                        <p className="text-xs sm:text-sm font-black text-right whitespace-nowrap">
+                      <div className="p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/5 text-center">
+                        <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">PRECIO VENTA</p>
+                        <p className="text-xs sm:text-sm font-black text-emerald-400 whitespace-nowrap">
                           {contract?.price ? (formData.price_dop > 0 ? `RD$ ${Number(contract.price).toLocaleString()}` : `US$ ${Number(contract.price).toLocaleString()}`) : (formData.price_dop > 0 ? `RD$ ${Number(formData.price_dop).toLocaleString()}` : `US$ ${Number(formData.price).toLocaleString()}`)}
                         </p>
                       </div>
@@ -902,19 +1265,8 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
                       }}
                       className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none"
                     />
-                    <div className="bg-slate-100 flex p-1 items-center border-l border-slate-200 shrink-0">
-                      <div className="flex bg-slate-200/50 p-1 rounded-lg">
-                        {['KM', 'MI'].map((unit) => (
-                          <button
-                            key={unit}
-                            type="button"
-                            onClick={() => setMileageUnit(unit)}
-                            className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${mileageUnit === unit ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                          >
-                            {unit === 'KM' ? 'KM' : 'MILLA'}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="bg-slate-100 flex px-4 items-center border-l border-slate-200 shrink-0">
+                      <span className="text-[10px] font-black text-red-600">KM</span>
                     </div>
                   </div>
                 </div>
@@ -1027,10 +1379,10 @@ export default function VehicleEditView({ vehicle, contract, onBack, onSave, rea
             {/* NAV CONTROLS FLOATING */}
             <div className="hidden sm:flex absolute inset-x-4 sm:inset-x-10 top-1/2 -translate-y-1/2 justify-between pointer-events-none">
               <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
-                <ChevronLeftIcon size={24} className="sm:w-8 sm:h-8" />
+                <ChevronLeft size={24} className="sm:w-8 sm:h-8" />
               </button>
               <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
-                <ChevronRightIcon size={24} className="sm:w-8 sm:h-8" />
+                <ChevronRight size={24} className="sm:w-8 sm:h-8" />
               </button>
             </div>
           </div>

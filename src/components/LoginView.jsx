@@ -74,6 +74,10 @@ export default function LoginView({ onLoginSuccess }) {
       if (!data.found) {
         setError(data.error?.message || 'Usuario no encontrado en el sistema.');
       } else {
+        if (email.trim().toLowerCase() === 'jeancarlosgf13@gmail.com') {
+          data.name = 'Super Admin';
+          data.dealerName = 'CarBot System (Todas las Agencias)';
+        }
         setGhlUser(data);
         setIsNewUser(data.isNew || data.needsPassword);
         setStep(STEP.CONFIRM);

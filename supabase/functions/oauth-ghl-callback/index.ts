@@ -70,6 +70,7 @@ serve(async (req) => {
         let locationLogo = null;
         let locationAddress = null;
         let locationWebsite = null;
+        let agencyId = null;
 
         const locRes = await fetch(`https://services.leadconnectorhq.com/locations/${locationId}`, {
             headers: { Authorization: `Bearer ${access_token}`, Version: "2021-07-28" }
@@ -83,6 +84,7 @@ serve(async (req) => {
                 locationPhone = loc.phone ?? null;
                 locationLogo = loc.logoUrl ?? null;
                 locationWebsite = loc.website ?? null;
+                agencyId = loc.companyId ?? null;
                 if (loc.address || loc.city || loc.state) {
                     locationAddress = `${loc.address || ''}, ${loc.city || ''}, ${loc.state || ''} ${loc.postalCode || ''}`.trim().replace(/^,|,$/g, '');
                 }
@@ -119,6 +121,30 @@ serve(async (req) => {
         }
 
         const validDealerId = dealerData.id;
+
+        // ── 3.1. Registrar Branding (CarBot System) ───────────────────
+        // Este bloque asegura que la subcuenta sea identificada como CarBot
+        console.log(`[Branding] Registering branding for location: ${locationId}, agency: ${agencyId}`);
+        try {
+            const { error: brandUpsertErr } = await admin.from('branding_subaccounts').upsert({
+                location_id: locationId,
+                agency_id: agencyId,
+                brand_id: 'carbot',
+                brand_name: 'carbot',
+                theme_name: 'carbot',
+                app_installed: true,
+                status: 'active',
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'location_id' });
+
+            if (brandUpsertErr) {
+                console.error("[Branding] Registration error:", brandUpsertErr);
+            } else {
+                console.log(`[Branding] Successfully registered branding for ${locationId}`);
+            }
+        } catch (brandErr) {
+            console.error("[Branding] Unexpected registration error (non-blocking):", brandErr);
+        }
 
         // ── 4. Sincronización Masiva de Usuarios ───────────────────────
         try {

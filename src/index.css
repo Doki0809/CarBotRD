@@ -22,8 +22,15 @@
   /* Glass System - Deep Presence */
   --glass-bg: rgba(30, 34, 40, 0.4);
   --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: blur(40px);
+  --glass-blur: 40px;
   --glass-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+
+  /* Apple Style Transitions */
+  --ease-apple: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --transition-fast: 200ms var(--ease-apple);
+  --transition-normal: 400ms var(--ease-apple);
+  --transition-slow: 600ms var(--ease-apple);
 }
 
 .bg-mesh {
@@ -64,14 +71,57 @@ h3,
     border: 1px solid var(--glass-border);
     border-radius: 32px;
     box-shadow: var(--glass-shadow);
-    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: all var(--transition-normal);
   }
 
   .glass-card:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.12);
-    transform: translateY(-4px);
-    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.4);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+
+  .shadow-apple-xl {
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.12), 0 18px 36px -18px rgba(0, 0, 0, 0.15);
+  }
+
+  .shadow-apple-hover:hover {
+    box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.15), 0 30px 60px -30px rgba(0, 0, 0, 0.2);
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Global Apple-like hover for buttons */
+  button,
+  a {
+    transition: all var(--transition-fast);
+  }
+
+  button:active,
+  a:active {
+    transform: scale(0.96);
+  }
+
+  .apple-hover {
+    transition: all var(--transition-normal);
+  }
+
+  .apple-hover:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
   }
 
   .glass-nav {
@@ -124,25 +174,41 @@ h3,
   .shadow-glow-blue {
     box-shadow: 0 0 20px rgba(0, 122, 255, 0.2), 0 0 40px rgba(0, 122, 255, 0.05);
   }
+
+  /* Liquid Glass System */
+  .shadow-glass-blue {
+    box-shadow: 0 8px 32px rgba(0, 122, 255, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  .shadow-glass-slate {
+    box-shadow: 0 8px 32px rgba(71, 85, 105, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  .shadow-glow-red-sm {
+    box-shadow: 0 4px 15px rgba(255, 59, 48, 0.3);
+  }
+
+  .btn-liquid {
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    transition: all 500ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .btn-liquid:hover {
+    transform: scale(1.03);
+    filter: brightness(1.1);
+  }
 }
 
-/* ── Scrollbar ────────────────────────────────── */
+/* ── Scrollbar (ocultas pero funcionales) ──────── */
+* {
+  scrollbar-width: none;
+  /* Firefox */
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  border: 2px solid var(--bg-deep);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  display: none;
+  /* Chrome, Safari, Edge */
 }
 
 /* Animations from Prompt */
@@ -165,4 +231,52 @@ h3,
 
 .animate-liquid {
   animation: liquid-pulse 2s infinite ease-in-out;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up var(--transition-normal) forwards;
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--transition-normal) forwards;
+}
+
+/* Base transitions for specific elements */
+.input-premium {
+  transition: all var(--transition-fast);
+}
+
+.card-premium {
+  transition: all var(--transition-normal);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.card-premium:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
 }

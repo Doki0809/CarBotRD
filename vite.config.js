@@ -12,5 +12,13 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  preview: {
+    proxy: {
+      '/api': {
+        target: 'https://carbot-5d709.web.app',
+        changeOrigin: true,
+      }
+    }
   }
 })

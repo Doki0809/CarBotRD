@@ -38,6 +38,10 @@
           "function": "inventarioIA"
         },
         {
+          "source": "/catalogo/**",
+          "function": "inventarioIA"
+        },
+        {
           "source": "/api/ghl/authorize",
           "function": "ghlAuthorize"
         },
