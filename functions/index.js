@@ -3054,7 +3054,7 @@ exports.ghlContacts = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
     return res.status(200).json({ received: true });
   }
 
-  const { dealerId, contactId, limit = '100', startAfterId, query: searchQuery } = req.query;
+  const { dealerId, contactId, limit = '100', startAfterId, query: searchQuery, assignedTo } = req.query;
   if (!dealerId) return res.status(400).json({ error: 'dealerId es requerido' });
 
   try {
@@ -3109,6 +3109,7 @@ exports.ghlContacts = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
       const params = new URLSearchParams({ locationId, limit });
       if (startAfterId) params.set('startAfterId', startAfterId);
       if (searchQuery) params.set('query', searchQuery);
+      if (assignedTo) params.set('assignedTo', assignedTo);
       const r = await fetch(`${GHL_BASE}/contacts/?${params}`, { headers });
       if (!r.ok) return res.status(r.status).json(await r.json());
       const data = await r.json();
@@ -3131,6 +3132,124 @@ exports.ghlContacts = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
     return res.status(405).json({ error: 'Método no permitido' });
   } catch (err) {
     console.error('[ghlContacts] Error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Conversations API ─────────────────────────────────────────────────────────
+exports.ghlConversations = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
+  const GHL_BASE = 'https://services.leadconnectorhq.com';
+  const { dealerId, conversationId, messages, lastMessageId, lastId, limit = '25', assignedUserId } = req.query;
+
+  if (!dealerId) return res.status(400).json({ error: 'dealerId es requerido' });
+
+  try {
+    const { access_token, locationId } = await getGHLConfig(dealerId, ghlClientId.value(), ghlClientSecret.value(), supabaseServiceKey.value());
+    const headers = {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+      Version: '2021-07-28',
+    };
+
+    if (req.method === 'GET') {
+      // Get messages for a conversation
+      if (conversationId && messages === '1') {
+        const params = new URLSearchParams({ limit: '50' });
+        if (lastMessageId) params.set('lastMessageId', lastMessageId);
+        const r = await fetch(`${GHL_BASE}/conversations/${conversationId}/messages?${params}`, { headers });
+        return res.status(r.status).json(await r.json());
+      }
+      // Get single conversation
+      if (conversationId) {
+        const r = await fetch(`${GHL_BASE}/conversations/${conversationId}`, { headers });
+        return res.status(r.status).json(await r.json());
+      }
+      // Get team members for @ mentions
+      if (req.query.teamMembers === '1') {
+        const r = await fetch(`${GHL_BASE}/users/?locationId=${locationId}`, { headers });
+        const data = r.ok ? await r.json() : { users: [] };
+        const members = (data.users || []).map(u => ({
+          id: u.id,
+          name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+          email: u.email || '',
+          avatar: u.profilePhoto || '',
+        }));
+        return res.json({ members });
+      }
+      // List conversations — filter by assignedUserId if onlyAssignedData
+      const params = new URLSearchParams({ locationId, limit, sortBy: 'last_message_date', sort: 'desc' });
+      if (lastId) params.set('startAfterId', lastId);
+      if (assignedUserId) params.set('assignedTo', assignedUserId);
+      const r = await fetch(`${GHL_BASE}/conversations/search?${params}`, { headers });
+      return res.status(r.status).json(await r.json());
+    }
+
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      if (!body.conversationId) return res.status(400).json({ error: 'conversationId es requerido' });
+
+      // Internal notes — GHL API accepts type:'Note' on /conversations/messages with 'message' field
+      if (body.type === 'Note') {
+        const notePayload = {
+          type: 'Note',
+          conversationId: body.conversationId,
+          message: body.message || '',
+        };
+        console.log('[ghlConversations] Sending Note payload:', JSON.stringify(notePayload));
+        const r = await fetch(`${GHL_BASE}/conversations/messages`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(notePayload),
+        });
+        const rData = await r.json();
+        console.log('[ghlConversations] Note response:', r.status, JSON.stringify(rData));
+        if (!r.ok) {
+          // Fallback: try with 'html' field instead of 'message'
+          const r2 = await fetch(`${GHL_BASE}/conversations/messages`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ type: 'Note', conversationId: body.conversationId, html: body.message || '' }),
+          });
+          const rData2 = await r2.json();
+          console.log('[ghlConversations] Note fallback response:', r2.status, JSON.stringify(rData2));
+          return res.status(r2.status).json(rData2);
+        }
+        return res.status(r.status).json(rData);
+      }
+
+      // GHL requires contactId for regular messages — fetch it from the conversation if not provided
+      let contactId = body.contactId;
+      if (!contactId) {
+        try {
+          const convR = await fetch(`${GHL_BASE}/conversations/${body.conversationId}`, { headers });
+          if (convR.ok) {
+            const convData = await convR.json();
+            contactId = convData.conversation?.contactId || convData.contactId;
+          }
+        } catch (_) {}
+      }
+      const payload = {
+        type: body.type || 'WhatsApp',
+        conversationId: body.conversationId,
+        contactId,
+        message: body.message || '',
+        ...(body.attachments ? { attachments: body.attachments } : {}),
+      };
+      const r = await fetch(`${GHL_BASE}/conversations/messages`, { method: 'POST', headers, body: JSON.stringify(payload) });
+      return res.status(r.status).json(await r.json());
+    }
+
+    if (req.method === 'PUT') {
+      if (!conversationId) return res.status(400).json({ error: 'conversationId es requerido para PUT' });
+      // GHL requires locationId in the body for conversation updates
+      const updateBody = { ...req.body, locationId };
+      const r = await fetch(`${GHL_BASE}/conversations/${conversationId}`, { method: 'PUT', headers, body: JSON.stringify(updateBody) });
+      return res.status(r.status).json(await r.json());
+    }
+
+    return res.status(405).json({ error: 'Método no permitido' });
+  } catch (err) {
+    console.error('[ghlConversations] Error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });

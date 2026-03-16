@@ -78,6 +78,10 @@
           "function": "ghlContacts"
         },
         {
+          "source": "/api/ghl-conversations",
+          "function": "ghlConversations"
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }

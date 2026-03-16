@@ -31,10 +31,11 @@ import {
   PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy, Link,
   AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
   ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode, AtSign, Building, LayoutGrid, ShieldCheck,
-  Phone, Mail, RefreshCw, Users
+  Phone, Mail, RefreshCw, Users, MessageCircle
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
 import ContactsView from './ContactsView';
+import ConversationsView from './ConversationsView';
 import { generarContratoEnGHL } from './ghl_integration/ghlService';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
@@ -3868,11 +3869,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
                   if (!!userProfile?.ghlLocationId) {
                     if (onDisconnectGhl) onDisconnectGhl();
                   } else {
-                    const dId = userProfile?.dealerId || userProfile?.id || 'default';
-                    const CLIENT_ID = '699b6f13fb99957c718a1e38-mma1agkx';
-                    const scope = 'contacts.readonly contacts.write documents_contracts/list.readonly documents_contracts/sendLink.write documents_contracts_template/list.readonly locations.readonly users.readonly documents_contracts_template/sendLink.write locations/customFields.readonly locations/customFields.write';
-                    const REDIRECT_URI = 'https://lpiwkennlavpzisdvnnh.supabase.co/functions/v1/oauth-callback';
-                    const authUrl = `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_id=${CLIENT_ID}&scope=${encodeURIComponent(scope)}&state=${dId}&version_id=69a64bce1125fb881ec65bda`;
+                    const authUrl = `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Flpiwkennlavpzisdvnnh.supabase.co%2Ffunctions%2Fv1%2Foauth-callback&client_id=699b6f13fb99957c718a1e38-mma1agkx&scope=contacts.readonly+contacts.write+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2Flist.readonly+locations.readonly+users.readonly+documents_contracts_template%2FsendLink.write+locations%2FcustomFields.readonly+locations%2FcustomFields.write+custom-menu-link.readonly+custom-menu-link.write+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+conversations%2Freports.readonly+conversations%2Flivechat.write+conversation-ai.readonly+conversation-ai.write&version_id=69ab5865c2202af8a273fd40`;
                     window.open(authUrl, '_blank');
                   }
                 }
@@ -5049,20 +5046,21 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
 };
 
 // --- LAYOUT ---
-const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange, isStoreRoute }) => {
+const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange, isStoreRoute, isChatOpen = false }) => {
   const menuItems = [
     { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
     { id: 'inventory', label: 'INVENTARIO', icon: Box },
     { id: 'contacts', label: 'CONTACTOS', icon: Users },
+    { id: 'conversations', label: 'MENSAJES', icon: MessageCircle },
     { id: 'settings', label: 'AJUSTES', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 pb-20 sm:pb-0">
+    <div className={`bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 ${activeTab === 'conversations' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       {/* Top Navigation Bar */}
       {/* Top Navigation Bar */}
       {!isStoreRoute ? (
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 sm:py-3 transition-colors duration-500">
+        <header className={`sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 sm:py-3 transition-all duration-300 ${isChatOpen ? 'hidden sm:block' : ''}`}>
           <div className="max-w-[1600px] mx-auto flex items-center justify-between">
             {/* Left: Logo & Brand */}
             <div className="flex-1 flex items-center">
@@ -5163,29 +5161,54 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500" >
+      <main className={`flex-1 w-full animate-in fade-in duration-500 flex flex-col min-h-0 ${activeTab === 'conversations' ? 'overflow-hidden h-full' : 'p-4 sm:p-6 md:p-8 max-w-[1600px] mx-auto overflow-y-auto'}`}>
         {children}
       </main>
 
-      {/* Bottom Navigation (Mobile Only) */}
-      {!isStoreRoute && (
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-4 py-3 flex items-center justify-around shadow-[0_-4px_10px_rgba(0,0,0,0.03)] backdrop-blur-lg bg-white/90" >
-          {
-            menuItems.map(item => {
+      {/* Bottom Navigation (Mobile Only) — Apple liquid glass pill */}
+      {!isStoreRoute && !isChatOpen && (
+        <div
+          className="sm:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))', paddingTop: '0.5rem' }}
+        >
+          <div
+            className="flex items-center px-2 py-1.5 rounded-full gap-1"
+            style={{
+              background: 'rgba(255,255,255,0.55)',
+              backdropFilter: 'blur(24px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+              border: '1px solid rgba(255,255,255,0.6)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.8) inset',
+            }}
+          >
+            {menuItems.map(item => {
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-red-600 scale-110' : 'text-slate-400'}`}
+                  className="relative flex items-center justify-center transition-all duration-300 active:scale-90"
+                  style={{
+                    borderRadius: '9999px',
+                    padding: isActive ? '10px 20px' : '10px 18px',
+                    background: isActive
+                      ? 'rgba(30,30,35,0.88)'
+                      : 'transparent',
+                    boxShadow: isActive
+                      ? '0 2px 12px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.12) inset'
+                      : 'none',
+                    transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+                  }}
                 >
-                  <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'opacity-100' : 'opacity-60'}`}>{item.label}</span>
-                  {isActive && <div className="w-1 h-1 bg-red-600 rounded-full mt-0.5"></div>}
+                  <item.icon
+                    size={20}
+                    strokeWidth={isActive ? 2.2 : 1.8}
+                    style={{ color: isActive ? '#ffffff' : 'rgba(100,116,139,0.9)' }}
+                  />
                 </button>
               );
-            })
-          }
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -5442,6 +5465,8 @@ export default function CarbotApp() {
     if (isStoreRoute) return 'inventory';
     return localStorage.getItem('activeTab') || 'dashboard';
   });
+  const [pendingContactId, setPendingContactId] = useState(null);
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0);
 
   // --- CONFIRMATION STATE ---
   const [confirmationModal, setConfirmationModal] = useState({
@@ -5476,6 +5501,11 @@ export default function CarbotApp() {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactsLastFetched, setContactsLastFetched] = useState(null);
   const [contactsMeta, setContactsMeta] = useState({ total: 0, startAfterId: null });
+
+  const [ghlConversations, setGhlConversations] = useState([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false); // mobile: chat panel open
+  const [conversationsLastFetched, setConversationsLastFetched] = useState(null);
 
   const [userProfile, setUserProfile] = useState(null);
   const [resolvedDealerId, setResolvedDealerId] = useState(params.get('dealer') || params.get('dealerID') || null);
@@ -6023,10 +6053,23 @@ export default function CarbotApp() {
                 .eq('correo', emailLower)
                 .maybeSingle();
 
+              // Fetch GHL permission fields separately (columns may not exist yet on all envs)
+              let supaUserPerms = null;
+              try {
+                const { data: permsData } = await supabase
+                  .from('usuarios')
+                  .select('ghl_user_id, only_assigned_data')
+                  .eq('correo', emailLower)
+                  .maybeSingle();
+                supaUserPerms = permsData;
+              } catch (_) {}
+
               if (supaUser) {
                 profileData.avatar_url = supaUser.avatar_url || profileData.avatar_url || '';
                 profileData.ghl_role = supaUser.role_en_ghl || profileData.role || 'Admin';
                 profileData.phone = supaUser.phone || '';
+                profileData.ghlUserId = supaUserPerms?.ghl_user_id || profileData.ghlUserId || '';
+                profileData.onlyAssignedData = supaUserPerms?.only_assigned_data === true;
 
                 // Load real name if currently using email prefix fallback
                 const emailPrefix = emailLower.split('@')[0];
@@ -6134,7 +6177,7 @@ export default function CarbotApp() {
     } else {
       setUserProfile(null);
     }
-  }, [isLoggedIn, currentUserEmail, isAutoLogin, params, isStoreRoute, urlLocationId, urlLocationName]);
+  }, [isLoggedIn, currentUserEmail, isAutoLogin, isStoreRoute, urlLocationId, urlLocationName, profileRefreshKey]);
 
   const handleUpdateProfile = async (updatedData) => {
     if (!currentUserEmail || !userProfile?.dealerId) return;
@@ -6404,6 +6447,26 @@ export default function CarbotApp() {
   }, [effectiveDealerId, userProfile, urlLocationId]);
 
   // GHL Contacts fetch (lazy — called when user opens Contactos tab)
+  const fetchGHLConversations = useCallback(async (force = false) => {
+    const dealerUuid = userProfile?.supabaseDealerId;
+    if (!dealerUuid) return;
+    if (!force && conversationsLastFetched && Date.now() - conversationsLastFetched < 30000) return;
+    setConversationsLoading(true);
+    try {
+      const params = new URLSearchParams({ dealerId: dealerUuid, limit: '100' });
+      if (userProfile?.onlyAssignedData && userProfile?.ghlUserId) params.set('assignedUserId', userProfile.ghlUserId);
+      const r = await fetch(`/api/ghl-conversations?${params}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setGhlConversations(data.conversations || []);
+      setConversationsLastFetched(Date.now());
+    } catch (err) {
+      console.error('❌ fetchGHLConversations error:', err);
+    } finally {
+      setConversationsLoading(false);
+    }
+  }, [userProfile, conversationsLastFetched]);
+
   const fetchGHLContacts = useCallback(async (force = false) => {
     const dealerUuid = userProfile?.supabaseDealerId || (() => {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -6416,7 +6479,11 @@ export default function CarbotApp() {
 
     setContactsLoading(true);
     try {
-      const r = await fetch(`/api/ghlContacts?dealerId=${dealerUuid}&limit=100`);
+      const contactParams = new URLSearchParams({ dealerId: dealerUuid, limit: '100' });
+      if (userProfile?.onlyAssignedData && userProfile?.ghlUserId) {
+        contactParams.set('assignedTo', userProfile.ghlUserId);
+      }
+      const r = await fetch(`/api/ghlContacts?${contactParams}`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       const contacts = data.contacts || [];
@@ -6485,6 +6552,14 @@ export default function CarbotApp() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, effectiveDealerId]);
+
+  // Auto-fetch GHL conversations when navigating to Mensajes tab (with TTL cache)
+  useEffect(() => {
+    if (activeTab === 'conversations' && userProfile?.supabaseDealerId) {
+      fetchGHLConversations();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, userProfile?.supabaseDealerId]);
 
   // 2. DATA LISTENERS (REACTIVE TO CONTEXT)
   useEffect(() => {
@@ -7355,6 +7430,7 @@ export default function CarbotApp() {
   const handleNavigate = (tab, filter = 'available') => {
     setSelectedVehicle(null);
     setActiveTab(tab);
+    if (tab !== 'conversations') setIsChatOpen(false);
     if (tab === 'inventory' && filter) setInventoryTab(filter);
   };
 
@@ -7362,17 +7438,11 @@ export default function CarbotApp() {
     const userId = currentUserEmail.toLowerCase().replace(/\./g, '_');
     localStorage.setItem(`selected_dealer_${userId}`, dealer.id);
     setShowDealerSwitcher(false);
-
-    // Al seleccionar, recargamos el perfil para que tome el nuevo dealerId
-    // Esto disparará fetchUserProfile de nuevo gracias a que shadowProfile se limpia
     setInitializing(true);
     setUserProfile(null);
     setResolvedDealerId(null);
-
-    // Forzamos un pequeño delay para asegurar que el estado se limpie
-    setTimeout(() => {
-      // fetchUserProfile se ejecutará automáticamente por el useEffect
-    }, 100);
+    // Incrementar profileRefreshKey fuerza el useEffect de fetchUserProfile a re-ejecutarse
+    setProfileRefreshKey(k => k + 1);
   };
 
   const renderContent = () => {
@@ -7386,7 +7456,7 @@ export default function CarbotApp() {
           duration: 0.5,
           ease: [0.23, 1, 0.32, 1]
         }}
-        className="w-full h-full origin-top"
+        className="w-full h-full origin-top flex flex-col"
       >
         {(() => {
           console.log("App: renderContent inner execution", { hasSelectedVehicle: !!selectedVehicle, activeTab });
@@ -7475,6 +7545,29 @@ export default function CarbotApp() {
                 requestConfirmation={requestConfirmation}
                 userProfile={shadowProfile}
                 searchTerm={globalSearch}
+                initialContactId={pendingContactId}
+                onInitialContactOpened={() => setPendingContactId(null)}
+                onlyAssignedData={userProfile?.onlyAssignedData === true}
+                ghlUserId={userProfile?.ghlUserId || ''}
+              />
+            );
+            case 'conversations': return (
+              <ConversationsView
+                dealerId={userProfile?.supabaseDealerId}
+                initialConversations={ghlConversations}
+                isLoadingConversations={conversationsLoading}
+                onRefreshConversations={() => fetchGHLConversations(true)}
+                showToast={showToast}
+                userProfile={shadowProfile}
+                onlyAssignedData={userProfile?.onlyAssignedData === true}
+                ghlUserId={userProfile?.ghlUserId || ''}
+                contracts={contracts}
+                onNavigateToContact={(contactId) => {
+                  if (contactId) setPendingContactId(contactId);
+                  handleNavigate('contacts');
+                }}
+                onChatOpen={() => setIsChatOpen(true)}
+                onChatClose={() => setIsChatOpen(false)}
               />
             );
             case 'trash': return <TrashView trash={trashInventory} contracts={contracts} quotes={quotes} onRestore={handleRestoreVehicle} onPermanentDelete={handlePermanentDelete} onRestoreDocument={handleRestoreDocument} onPermanentDeleteDocument={handlePermanentDeleteDocument} onEmptyTrash={handleEmptyTrash} showToast={showToast} userProfile={shadowProfile} />;
@@ -7607,6 +7700,7 @@ export default function CarbotApp() {
         searchTerm={globalSearch}
         onSearchChange={setGlobalSearch}
         isStoreRoute={isStoreRoute}
+        isChatOpen={isChatOpen}
       >
         <AnimatePresence mode="wait">
           {renderContent()}

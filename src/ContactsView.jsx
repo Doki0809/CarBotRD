@@ -422,7 +422,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
   }
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-24">
       {/* ── Top nav ── */}
       <div className="flex items-center justify-between mb-8">
         <motion.button
@@ -1115,12 +1115,32 @@ export default function ContactsView({
   onDeleteContact,
   onSellNewCar,
   onSellQuoted,
-  // showToast and userProfile reserved for future use
   requestConfirmation,
+  initialContactId = null,
+  onInitialContactOpened,
 }) {
   const [selectedContact, setSelectedContact] = useState(null);
   const [sortMode, setSortMode] = useState('recent');
   const [filterTag, setFilterTag] = useState(null);
+
+  // Auto-open contact when navigated from another module (e.g. ConversationsView)
+  useEffect(() => {
+    if (!initialContactId || !contacts.length) return;
+    const contact = contacts.find(c => c.id === initialContactId);
+    if (contact) {
+      setSelectedContact(contact);
+      onInitialContactOpened?.();
+    }
+  }, [initialContactId, contacts]);
+
+  // Expose global opener for cross-module navigation (fallback for already-loaded contacts)
+  useEffect(() => {
+    window.__openContact = (contactId) => {
+      const contact = contacts.find(c => c.id === contactId);
+      if (contact) setSelectedContact(contact);
+    };
+    return () => { delete window.__openContact; };
+  }, [contacts]);
 
   // Map: normalized phone/email → latest document createdAt timestamp
   const lastActivityMap = useMemo(() => {

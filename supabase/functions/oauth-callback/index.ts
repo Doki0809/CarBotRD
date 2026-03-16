@@ -119,15 +119,51 @@ serve(async (req) => {
             activo: true,
         };
 
-        const { data: dealerData, error: upsertErr } = await admin
+        // Check if a dealer with this ghl_location_id already exists
+        const { data: existingDealer } = await admin
             .from("dealers")
-            .upsert(dealerPayload, { onConflict: "id" })
-            .select()
-            .single();
+            .select("id")
+            .eq("ghl_location_id", locationId)
+            .maybeSingle();
+
+        let dealerData: any = null;
+        let upsertErr: any = null;
+
+        if (existingDealer) {
+            // Update existing dealer — preserve its id to avoid FK violations
+            const { data, error } = await admin
+                .from("dealers")
+                .update({
+                    nombre: dealerPayload.nombre,
+                    ghl_access_token: dealerPayload.ghl_access_token,
+                    ghl_refresh_token: dealerPayload.ghl_refresh_token,
+                    ghl_token_expires_at: dealerPayload.ghl_token_expires_at,
+                    phone: dealerPayload.phone,
+                    logo_url: dealerPayload.logo_url,
+                    address: dealerPayload.address,
+                    website: dealerPayload.website,
+                    activo: true,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", existingDealer.id)
+                .select()
+                .single();
+            dealerData = data;
+            upsertErr = error;
+        } else {
+            // Insert new dealer
+            const { data, error } = await admin
+                .from("dealers")
+                .insert(dealerPayload)
+                .select()
+                .single();
+            dealerData = data;
+            upsertErr = error;
+        }
 
         if (upsertErr || !dealerData) {
             console.error("Supabase upsert error:", upsertErr);
-            return errorResponse("DB_ERROR", `Error guardando datos del dealer: ${upsertErr?.message || 'Unknown error'} | Detalles: ${upsertErr?.details || ''}`, 500);
+            return errorResponse("DB_ERROR", `Error guardando datos del dealer [callback].`, 500, upsertErr);
         }
 
         const validDealerId = dealerData.id;
@@ -197,6 +233,8 @@ serve(async (req) => {
                             phone: u.phone || null,
                             avatar_url: u.profilePhoto || null,
                             role_en_ghl: ghlRole,
+                            ghl_user_id: u.id || null,
+                            only_assigned_data: u.permissions?.onlyAssignedData === true,
                             rol: mappedRol
                         };
 
@@ -265,9 +303,9 @@ serve(async (req) => {
     }
 });
 
-function errorResponse(code: string, message: string, status: number) {
+function errorResponse(code: string, message: string, status: number, details?: any) {
     return new Response(
-        JSON.stringify({ error: { code, message } }),
+        JSON.stringify({ error: { code, message, details } }),
         { status, headers: { ...CORS, "Content-Type": "application/json" } }
     );
 }
