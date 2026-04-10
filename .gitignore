@@ -25,3 +25,7 @@ dist-ssr
 .vercel
 .env*.local
 serviceAccountKey.json
+
+# Temp/backup files
+*.bak
+highlevel-api-docs/

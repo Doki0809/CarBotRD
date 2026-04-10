@@ -7,6 +7,7 @@ import {
   ExternalLink, SortAsc, Clock, X, User, Tag, Pencil, Check, Plus,
   Send, FilePlus,
 } from 'lucide-react';
+import { useI18n } from './i18n/I18nContext.jsx';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ function sortTags(tags) {
 }
 
 function visibleTags(tags) {
-  return sortTags((tags || []).filter(t => !HIDDEN_TAGS.has(t.toLowerCase())));
+  return sortTags((tags || []).filter(tag => !HIDDEN_TAGS.has(tag.toLowerCase())));
 }
 
 function tagStyle(tag) {
@@ -141,6 +142,7 @@ function InlineTag({ tag }) {
 // ─── Generar documento modal ─────────────────────────────────────────────────
 
 function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
+  const { t } = useI18n();
   return (
     <>
       <motion.button
@@ -153,7 +155,7 @@ function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
           <FilePlus size={20} />
         </div>
         <div className="text-left">
-          <p className="font-black text-sm tracking-tight">Generar documento</p>
+          <p className="font-black text-sm tracking-tight">{t('contacts_generate_doc')}</p>
           <p className="text-white/70 text-xs font-medium mt-0.5">Contrato o cotización para {toTitleCase(contactName || 'este contacto')}</p>
         </div>
         <div className="ml-auto w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -171,7 +173,7 @@ function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4 mt-2 px-4">
-              <h3 className="text-xl font-black tracking-tight text-slate-800 text-center w-full ml-6">Generar documento</h3>
+              <h3 className="text-xl font-black tracking-tight text-slate-800 text-center w-full ml-6">{t('contacts_generate_doc')}</h3>
               <button onClick={onClose} className="p-1 flex-shrink-0">
                 <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
               </button>
@@ -186,8 +188,8 @@ function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
                   <Send size={24} />
                 </div>
                 <div className="mt-4 text-center relative z-10">
-                  <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Cotización</h4>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enviar ficha técnica y precio</p>
+                  <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">{t('quotes')}</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('send_tech_sheet')}</p>
                 </div>
               </button>
               <button
@@ -199,8 +201,8 @@ function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
                   <FilePlus size={24} />
                 </div>
                 <div className="mt-4 text-center relative z-10">
-                  <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Contrato</h4>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Generar documento legal</p>
+                  <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">{t('contracts')}</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('generate_legal_doc')}</p>
                 </div>
               </button>
             </div>
@@ -215,6 +217,7 @@ function GenerateDocModal({ open, onOpen, onClose, onSelect, contactName }) {
 // ─── 3-dot Menu ──────────────────────────────────────────────────────────────
 
 function ContactMenu({ onGenerateDoc, onDelete }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -248,7 +251,7 @@ function ContactMenu({ onGenerateDoc, onDelete }) {
               className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors text-left"
             >
               <FilePlus size={15} className="text-red-500 flex-shrink-0" />
-              Generar documento
+              {t('contacts_generate_doc')}
             </button>
             <div className="h-px bg-slate-100" />
             <button
@@ -256,7 +259,7 @@ function ContactMenu({ onGenerateDoc, onDelete }) {
               className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors text-left"
             >
               <Trash2 size={15} className="flex-shrink-0" />
-              Borrar contacto
+              {t('contacts_delete_button')}
             </button>
           </motion.div>
         )}
@@ -313,7 +316,8 @@ function toTitleCase(str) {
 }
 
 function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], linkedQuotes = [], onBack, onSellNewCar, onSellQuoted, onDeleteContact, onUpdateContact }) {
-  const name = toTitleCase(`${contact.firstName || ''} ${contact.lastName || ''}`.trim()) || 'Sin nombre';
+  const { t } = useI18n();
+  const name = toTitleCase(`${contact.firstName || ''} ${contact.lastName || ''}`.trim()) || t('contacts_no_name');
   const tags = visibleTags(contact.tags);
   const gradient = avatarGradient(contact.firstName || contact.lastName || '?');
 
@@ -354,7 +358,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
   }, [contact.id]);
 
   const documents = linkedDocuments;
-  const actionTag = tags.find(t => ['compró', 'vendido', 'cotizó', 'cotizado'].includes(t.toLowerCase()));
+  const actionTag = tags.find(tag => ['compró', 'vendido', 'cotizó', 'cotizado'].includes(tag.toLowerCase()));
   const displayTags = visibleTags(localTags);
   const birthday = form.dateOfBirth ? formatDate(form.dateOfBirth) : null;
   const addressDisplay = [contact.address1, contact.city, contact.state, contact.country].filter(Boolean).join(', ');
@@ -397,14 +401,14 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
   }
 
   function addTag() {
-    const t = newTagInput.trim();
-    if (t && !localTags.includes(t)) setLocalTags(prev => [...prev, t]);
+    const newTag = newTagInput.trim();
+    if (newTag && !localTags.includes(newTag)) setLocalTags(prev => [...prev, newTag]);
     setNewTagInput('');
     tagInputRef.current?.focus();
   }
 
   function removeTag(tag) {
-    setLocalTags(prev => prev.filter(t => t !== tag));
+    setLocalTags(prev => prev.filter(existing => existing !== tag));
   }
 
   // Section header component
@@ -422,7 +426,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
   }
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="pb-24 px-6 pt-6">
       {/* ── Top nav ── */}
       <div className="flex items-center justify-between mb-8">
         <motion.button
@@ -431,7 +435,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
           className="flex items-center gap-1.5 text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors duration-200"
         >
           <ChevronLeft size={17} />
-          Contactos
+          {t('nav_contacts')}
         </motion.button>
         <ContactMenu onGenerateDoc={() => setDocModalOpen(true)} onDelete={onDeleteContact} />
       </div>
@@ -521,43 +525,43 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
             className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
           >
             <div className="px-6 pt-5 pb-4">
-              <SectionHeader icon={User} title="Datos personales" iconBg="bg-blue-50" iconColor="text-blue-500">
+              <SectionHeader icon={User} title={t('contacts_personal_data')} iconBg="bg-blue-50" iconColor="text-blue-500">
                 {editingData ? (
                   <div className="flex gap-2">
                     <button onClick={() => { setEditingData(false); setForm({ firstName: contact.firstName||'', lastName: contact.lastName||'', phone: contact.phone||'', email: contact.email||'', address1: contact.address1||'', city: contact.city||'', dateOfBirth: contact.dateOfBirth||'', cedula }); }}
-                      className="px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+                      className="px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-colors">{t('cancel')}</button>
                     <button onClick={saveData} disabled={saving}
                       className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black bg-slate-900 text-white hover:bg-slate-700 transition-colors disabled:opacity-50">
-                      <Check size={10} />{saving ? 'Guardando...' : 'Guardar'}
+                      <Check size={10} />{saving ? t('saving') : t('save')}
                     </button>
                   </div>
                 ) : (
                   <button onClick={() => setEditingData(true)}
                     className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                    <Pencil size={11} />Editar
+                    <Pencil size={11} />{t('edit')}
                   </button>
                 )}
               </SectionHeader>
 
               {editingData ? (
                 <div className="space-y-1">
-                  <EditField icon={User} label="Nombre" field="firstName" form={form} setForm={setForm} />
-                  <EditField icon={User} label="Apellido" field="lastName" form={form} setForm={setForm} />
-                  <EditField icon={FileText} label="Cédula / ID" field="cedula" form={form} setForm={setForm} />
-                  <EditField icon={Phone} label="Teléfono" field="phone" type="tel" form={form} setForm={setForm} />
-                  <EditField icon={Mail} label="Correo electrónico" field="email" type="email" form={form} setForm={setForm} />
-                  <EditField icon={MapPin} label="Dirección" field="address1" form={form} setForm={setForm} />
-                  <EditField icon={MapPin} label="Ciudad" field="city" form={form} setForm={setForm} />
-                  <EditField icon={Calendar} label="Cumpleaños" field="dateOfBirth" type="date" form={form} setForm={setForm} />
+                  <EditField icon={User} label={t('contacts_first_name')} field="firstName" form={form} setForm={setForm} />
+                  <EditField icon={User} label={t('contacts_last_name')} field="lastName" form={form} setForm={setForm} />
+                  <EditField icon={FileText} label={t('contacts_cedula')} field="cedula" form={form} setForm={setForm} />
+                  <EditField icon={Phone} label={t('phone')} field="phone" type="tel" form={form} setForm={setForm} />
+                  <EditField icon={Mail} label={t('email')} field="email" type="email" form={form} setForm={setForm} />
+                  <EditField icon={MapPin} label={t('contacts_address')} field="address1" form={form} setForm={setForm} />
+                  <EditField icon={MapPin} label={t('contacts_city')} field="city" form={form} setForm={setForm} />
+                  <EditField icon={Calendar} label={t('contacts_birthday')} field="dateOfBirth" type="date" form={form} setForm={setForm} />
                 </div>
               ) : (
                 <div className="space-y-0">
-                  <DataField icon={User} label="Nombre completo" value={name} />
-                  {cedula && <DataField icon={FileText} label="Cédula / ID" value={cedula} />}
-                  <DataField icon={Phone} label="Teléfono" value={contact.phone} />
-                  <DataField icon={Mail} label="Correo electrónico" value={contact.email} />
-                  {addressDisplay && <DataField icon={MapPin} label="Dirección" value={addressDisplay} />}
-                  {birthday && <DataField icon={Calendar} label="Cumpleaños" value={birthday} />}
+                  <DataField icon={User} label={t('contacts_full_name')} value={name} />
+                  {cedula && <DataField icon={FileText} label={t('contacts_cedula')} value={cedula} />}
+                  <DataField icon={Phone} label={t('phone')} value={contact.phone} />
+                  <DataField icon={Mail} label={t('email')} value={contact.email} />
+                  {addressDisplay && <DataField icon={MapPin} label={t('contacts_address')} value={addressDisplay} />}
+                  {birthday && <DataField icon={Calendar} label={t('contacts_birthday')} value={birthday} />}
                 </div>
               )}
             </div>
@@ -571,20 +575,20 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
             className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
           >
             <div className="px-6 pt-5 pb-5">
-              <SectionHeader icon={Tag} title="Etiquetas" iconBg="bg-violet-50" iconColor="text-violet-500">
+              <SectionHeader icon={Tag} title={t('tags')} iconBg="bg-violet-50" iconColor="text-violet-500">
                 {editingTags ? (
                   <div className="flex gap-2">
                     <button onClick={() => { setEditingTags(false); setLocalTags(contact.tags||[]); setNewTagInput(''); }}
-                      className="px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+                      className="px-3 py-1 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-colors">{t('cancel')}</button>
                     <button onClick={saveTags} disabled={saving}
                       className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black bg-slate-900 text-white hover:bg-slate-700 transition-colors disabled:opacity-50">
-                      <Check size={10} />{saving ? '...' : 'Guardar'}
+                      <Check size={10} />{saving ? '...' : t('save')}
                     </button>
                   </div>
                 ) : (
                   <button onClick={() => setEditingTags(true)}
                     className="flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                    <Pencil size={11} />Editar
+                    <Pencil size={11} />{t('edit')}
                   </button>
                 )}
               </SectionHeader>
@@ -600,18 +604,18 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
                         </button>
                       </span>
                     ))}
-                    {localTags.length === 0 && <p className="text-sm text-slate-400">Sin etiquetas</p>}
+                    {localTags.length === 0 && <p className="text-sm text-slate-400">{t('contacts_no_labels')}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <input ref={tagInputRef} value={newTagInput}
                       onChange={e => setNewTagInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                      placeholder="Nueva etiqueta..."
+                      placeholder={t('contacts_new_label')}
                       className="flex-1 text-sm font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 transition-all"
                     />
                     <button onClick={addTag} disabled={!newTagInput.trim()}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-black hover:bg-slate-700 transition-colors disabled:opacity-30">
-                      <Plus size={12} />Agregar
+                      <Plus size={12} />{t('contacts_add_label')}
                     </button>
                   </div>
                 </div>
@@ -624,7 +628,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-slate-400 font-medium">Sin etiquetas asignadas</p>
+                <p className="text-sm text-slate-400 font-medium">{t('contacts_no_assigned_labels')}</p>
               )}
             </div>
           </motion.div>
@@ -639,43 +643,42 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.07, ease: [0.23,1,0.32,1] }}
-              className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
+              className="bg-white/70 dark:bg-white/[0.06] backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
             >
               <div className="px-6 pt-5 pb-2">
-                <SectionHeader icon={Car} title={`Vehículos · ${linkedVehicles.length}`} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+                <SectionHeader icon={Car} title={`${t('vehicle')} · ${linkedVehicles.length}`} iconBg="bg-emerald-50 dark:bg-emerald-500/10" iconColor="text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="px-3 pb-4 space-y-2">
                 {linkedVehicles.map((v, i) => {
-                  const vName = `${v.year || ''} ${v.make || v.marca || ''} ${v.model || v.modelo || ''}`.trim() || 'Vehículo';
-                  const vStatus = v.status === 'sold' || v.estado === 'Vendido' ? 'Vendido'
-                    : v.status === 'quoted' || v.estado === 'Cotizado' ? 'Cotizado' : 'Disponible';
-                  const statusCls = vStatus === 'Vendido' ? 'bg-emerald-100 text-emerald-700'
-                    : vStatus === 'Cotizado' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-700';
+                  const vName = `${v.year || ''} ${v.make || v.marca || ''} ${v.model || v.modelo || ''}`.trim() || t('vehicle');
+                  const vStatusKey = v.status === 'sold' || v.estado === 'Vendido' ? 'status_sold'
+                    : v.status === 'quoted' || v.estado === 'Cotizado' ? 'status_quoted' : 'status_available';
+                  const vStatus = t(vStatusKey);
+                  const statusCls = vStatusKey === 'status_sold' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                    : vStatusKey === 'status_quoted' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300' : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300';
                   const img = v.image || (v.images && v.images[0]) || (v.fotos && v.fotos[0]);
-                  const isQuoted = vStatus === 'Cotizado';
-                  // Find associated quote for this vehicle to pre-fill client data
+                  const isQuoted = vStatusKey === 'status_quoted';
                   const assocQuote = isQuoted
                     ? linkedQuotes.find(q => String(q.vehicleId) === String(v.id) && q.status !== 'deleted') || null
                     : null;
 
                   return (
                     <motion.div key={v.id || i} whileHover={{ scale: 1.01, y: -1 }}
-                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isQuoted ? 'border-amber-200/60 bg-amber-50/40' : 'border-slate-100/80 bg-slate-50/80 hover:bg-white hover:shadow-md'}`}
+                      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isQuoted ? 'border-amber-200/60 dark:border-amber-500/20 bg-amber-50/40 dark:bg-amber-500/10' : 'border-slate-100/80 dark:border-white/10 bg-slate-50/80 dark:bg-white/[0.04] hover:bg-white dark:hover:bg-white/[0.08] hover:shadow-md'}`}
                     >
                       <div className="flex items-center gap-4 p-4">
-                        {/* Thumbnail */}
-                        <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-200">
+                        <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-200 dark:bg-white/10">
                           {img
                             ? <img src={img} alt={vName} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center"><Car size={22} className="text-slate-400" /></div>
+                            : <div className="w-full h-full flex items-center justify-center"><Car size={22} className="text-slate-400 dark:text-slate-500" /></div>
                           }
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-black text-slate-900 text-sm leading-tight truncate">{vName}</p>
+                          <p className="font-black text-slate-900 dark:text-white text-sm leading-tight truncate">{vName}</p>
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                            {v.color && <span className="text-[10px] text-slate-400 font-medium">{v.color}</span>}
+                            {v.color && <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{v.color.toUpperCase()}</span>}
                             {(v.vin || v.chasis_vin) && (
-                              <span className="text-[10px] font-mono text-slate-400">VIN: {v.vin || v.chasis_vin}</span>
+                              <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">VIN: {(v.vin || v.chasis_vin).slice(-4)}</span>
                             )}
                           </div>
                         </div>
@@ -691,7 +694,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
                             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-900 font-black text-xs uppercase tracking-wider transition-all shadow-[0_4px_12px_rgba(251,191,36,0.35)]"
                           >
                             <Car size={13} />
-                            Vender ahora
+                            {t('contacts_sell_now')}
                           </motion.button>
                         </div>
                       )}
@@ -708,14 +711,14 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.12, ease: [0.23,1,0.32,1] }}
-              className="bg-white/70 backdrop-blur-2xl border border-white/50 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
+              className="bg-white/70 dark:bg-white/[0.06] backdrop-blur-2xl border border-white/50 dark:border-white/10 rounded-[1.8rem] shadow-[0_4px_32px_rgba(0,0,0,0.06)] overflow-hidden"
             >
               <div className="px-6 pt-5 pb-2">
-                <SectionHeader icon={FileText} title={`Documentos · ${documents.length}`} iconBg="bg-red-50" iconColor="text-red-500" />
+                <SectionHeader icon={FileText} title={`${t('documents')} · ${documents.length}`} iconBg="bg-red-50 dark:bg-red-500/10" iconColor="text-red-500 dark:text-red-400" />
               </div>
               <div className="px-3 pb-4 space-y-2">
                 {documents.map((doc, i) => {
-                  const label = doc.label || doc.name || `Documento ${i + 1}`;
+                  const label = doc.label || doc.name || `${t('documents')} ${i + 1}`;
                   const url = typeof doc === 'string' ? doc : doc.url;
                   return (
                     <motion.a
@@ -724,16 +727,16 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
                       target="_blank"
                       rel="noopener noreferrer"
                       whileHover={{ scale: 1.01, y: -1 }}
-                      className="group flex items-center gap-4 p-4 rounded-2xl bg-slate-50/80 hover:bg-red-50/60 hover:shadow-md transition-all duration-200 border border-slate-100/80 hover:border-red-200/60 cursor-pointer"
+                      className="group flex items-center gap-4 p-4 rounded-2xl bg-slate-50/80 dark:bg-white/[0.04] hover:bg-red-50/60 dark:hover:bg-red-500/10 hover:shadow-md transition-all duration-200 border border-slate-100/80 dark:border-white/10 hover:border-red-200/60 dark:hover:border-red-500/20 cursor-pointer"
                     >
-                      <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0 group-hover:bg-red-200 transition-colors">
-                        <FileText size={20} className="text-red-500" />
+                      <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-500/15 flex items-center justify-center flex-shrink-0 group-hover:bg-red-200 dark:group-hover:bg-red-500/25 transition-colors">
+                        <FileText size={20} className="text-red-500 dark:text-red-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-800 text-sm truncate">{label}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Abrir PDF</p>
+                        <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{label}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{t('contacts_open_pdf')}</p>
                       </div>
-                      <div className="w-8 h-8 rounded-xl bg-white group-hover:bg-red-500 flex items-center justify-center transition-all duration-200 shadow-sm flex-shrink-0">
+                      <div className="w-8 h-8 rounded-xl bg-white dark:bg-white/10 group-hover:bg-red-500 flex items-center justify-center transition-all duration-200 shadow-sm flex-shrink-0">
                         <ExternalLink size={13} className="text-slate-400 group-hover:text-white transition-colors" />
                       </div>
                     </motion.a>
@@ -791,9 +794,11 @@ function ContactsListView({
   filterTag, setFilterTag,
   lastActivityMap = new Map(),
 }) {
+  const { t } = useI18n();
   const [localSearch, setLocalSearch] = useState('');
   const [serverResults, setServerResults] = useState(null); // null = not searching, [] = no results
   const [searching, setSearching] = useState(false);
+  const [tappedId, setTappedId] = useState(null); // brief red highlight on tap
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
 
@@ -830,15 +835,15 @@ function ContactsListView({
   // Filter pills: fixed curated list, only shown if at least one contact has that tag
   const allTags = useMemo(() => {
     const presentTags = new Set();
-    contacts.forEach(c => (c.tags || []).forEach(t => presentTags.add(t.toLowerCase())));
-    return FILTER_PILL_TAGS.filter(t => presentTags.has(t.toLowerCase()));
+    contacts.forEach(c => (c.tags || []).forEach(tag => presentTags.add(tag.toLowerCase())));
+    return FILTER_PILL_TAGS.filter(tag => presentTags.has(tag.toLowerCase()));
   }, [contacts]);
 
   // Filter + sort
   const filtered = useMemo(() => {
     let list = [...baseList];
     if (filterTag) {
-      list = list.filter(c => (c.tags || []).some(t => t.toLowerCase() === filterTag.toLowerCase()));
+      list = list.filter(c => (c.tags || []).some(tag => tag.toLowerCase() === filterTag.toLowerCase()));
     }
     // Local filter only applies when NOT using server results
     if (!isServerSearch && localSearch) {
@@ -873,14 +878,14 @@ function ContactsListView({
   const serverTotal = totalContacts || displayedCount;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-6 py-6 pb-24">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Contactos</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{t('nav_contacts')}</h1>
           <p className="text-xs text-slate-400 font-medium mt-0.5">
             {isLoading && displayedCount === 0
-              ? 'Cargando...'
+              ? t('loading')
               : `${displayedCount.toLocaleString()} de ${serverTotal.toLocaleString()} contacto${serverTotal !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -890,7 +895,7 @@ function ContactsListView({
             className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/40 text-xs font-black text-slate-600 hover:text-slate-900 hover:bg-white shadow-sm transition-all duration-200"
           >
             {sortMode === 'recent' ? <Clock size={13} /> : <SortAsc size={13} />}
-            {sortMode === 'recent' ? 'Reciente' : 'A–Z'}
+            {sortMode === 'recent' ? t('contacts_sort_recent') : t('contacts_sort_az')}
           </button>
           <button
             onClick={onRefresh}
@@ -912,7 +917,7 @@ function ContactsListView({
           ref={inputRef}
           value={localSearch}
           onChange={e => handleSearchChange(e.target.value)}
-          placeholder="Buscar en todos los contactos..."
+          placeholder={t('contacts_search_all')}
           className="w-full pl-11 pr-10 py-3 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl text-sm text-slate-800 placeholder-slate-400 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-300 transition-all"
         />
         {localSearch && (
@@ -934,7 +939,7 @@ function ContactsListView({
       {/* Tag filter pills */}
       {allTags.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          <TagPill tag="Todos" selected={!filterTag} onClick={() => setFilterTag(null)} />
+          <TagPill tag={t('all')} selected={!filterTag} onClick={() => setFilterTag(null)} />
           {allTags.map(tag => (
             <TagPill
               key={tag}
@@ -959,19 +964,19 @@ function ContactsListView({
               <Users size={28} className="text-slate-400" />
             </div>
             <p className="font-black text-slate-700 text-lg">
-              {localSearch || filterTag ? 'Sin resultados' : 'Sin contactos'}
+              {localSearch || filterTag ? t('contacts_no_results') : t('contacts_no_contacts')}
             </p>
             <p className="text-sm text-slate-400 mt-1">
               {localSearch || filterTag
-                ? 'Intenta con otros términos o limpia los filtros'
-                : 'Sincroniza tus contactos para verlos aquí'}
+                ? t('contacts_try_other_terms')
+                : t('contacts_sync_hint')}
             </p>
             {(localSearch || filterTag) && (
               <button
                 onClick={() => { setLocalSearch(''); setFilterTag(null); }}
                 className="mt-4 px-4 py-2 rounded-xl bg-slate-100 text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors"
               >
-                Limpiar filtros
+                {t('contacts_clear_filters')}
               </button>
             )}
           </motion.div>
@@ -980,11 +985,11 @@ function ContactsListView({
             <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/60">
-                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[28%]">Nombre</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[16%]">Teléfono</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[22%]">Correo</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[20%]">Etiquetas</th>
-                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[12%]">Fecha</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[28%]">{t('name')}</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[16%]">{t('phone')}</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[22%]">{t('email')}</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[20%]">{t('tags')}</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest w-[12%]">{t('date')}</th>
                   <th className="px-4 py-3 w-8" />
                 </tr>
               </thead>
@@ -992,7 +997,7 @@ function ContactsListView({
                 {isLoading && filtered.length === 0
                   ? Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} />)
                   : filtered.map((contact, i) => {
-                    const name = toTitleCase(`${contact.firstName || ''} ${contact.lastName || ''}`.trim()) || 'Sin nombre';
+                    const name = toTitleCase(`${contact.firstName || ''} ${contact.lastName || ''}`.trim()) || t('contacts_no_name');
                     const tags = visibleTags(contact.tags);
                     const gradient = avatarGradient(contact.firstName || contact.lastName || '?');
                     const date = formatDate(contact.dateAdded);
@@ -1003,8 +1008,15 @@ function ContactsListView({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.4) }}
-                        onClick={() => onSelectContact(contact)}
-                        className="border-b border-slate-100 hover:bg-slate-50/70 cursor-pointer transition-colors group"
+                        onClick={() => {
+                          setTappedId(contact.id);
+                          setTimeout(() => onSelectContact(contact), 180);
+                        }}
+                        className={`border-b border-slate-100 cursor-pointer transition-all duration-200 group ${
+                          tappedId === contact.id
+                            ? 'bg-red-500/10 border-red-200'
+                            : 'hover:bg-slate-50/70'
+                        }`}
                       >
                         {/* Name + avatar */}
                         <td className="px-4 py-3.5">
@@ -1082,7 +1094,7 @@ function ContactsListView({
               onClick={onLoadMore}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-700 transition-colors shadow-sm"
             >
-              Cargar más
+              {t('loadMore')}
               <ChevronDown size={13} />
             </button>
           </div>
@@ -1119,6 +1131,7 @@ export default function ContactsView({
   initialContactId = null,
   onInitialContactOpened,
 }) {
+  const { t } = useI18n();
   const [selectedContact, setSelectedContact] = useState(null);
   const [sortMode, setSortMode] = useState('recent');
   const [filterTag, setFilterTag] = useState(null);
@@ -1202,7 +1215,7 @@ export default function ContactsView({
           const vehicleName = vehicle
             ? `${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.year || ''}`.trim()
             : '';
-          const docLabel = c.documentType === 'cotizacion' ? 'Cotización' : 'Contrato';
+          const docLabel = c.documentType === 'cotizacion' ? t('quotes') : t('contracts');
           docMap.set(u, { url: u, label: vehicleName ? `${docLabel} — ${vehicleName}` : `${docLabel} ${i + 1}` });
         }
       });
@@ -1210,21 +1223,21 @@ export default function ContactsView({
     // Also include any URLs stored directly on the GHL contact (for backwards compat)
     (selectedContact.ghlDocumentUrls || []).forEach((u, i) => {
       if (u && !docMap.has(u)) {
-        docMap.set(u, { url: u, label: `Documento ${i + 1}` });
+        docMap.set(u, { url: u, label: `${t('documents')} ${i + 1}` });
       }
     });
 
     return { linkedVehicles: vehicles, linkedDocuments: [...docMap.values()], linkedQuotes: linkedQ };
-  }, [selectedContact, contracts, quotes, inventory]);
+  }, [selectedContact, contracts, quotes, inventory, t]);
 
   function handleDeleteContact() {
     if (!selectedContact) return;
     const name = toTitleCase(`${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim());
     requestConfirmation({
-      title: 'Borrar contacto',
+      title: t('contacts_delete_button'),
       message: `¿Seguro que deseas borrar a ${name || 'este contacto'}? Esta acción no se puede deshacer.`,
       isDestructive: true,
-      confirmText: 'Borrar',
+      confirmText: t('contacts_delete_button'),
       onConfirm: async () => {
         await onDeleteContact(selectedContact.id);
         setSelectedContact(null);
@@ -1244,7 +1257,7 @@ export default function ContactsView({
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
+    <div className="w-full h-full flex flex-col overflow-hidden p-2 sm:p-3">
       <AnimatePresence mode="wait">
         {selectedContact ? (
           <motion.div
@@ -1253,6 +1266,7 @@ export default function ContactsView({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+            className="h-full overflow-y-auto"
           >
             <ContactDetailView
               contact={selectedContact}
@@ -1277,6 +1291,7 @@ export default function ContactsView({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+            className="h-full overflow-y-auto"
           >
             <ContactsListView
               contacts={contacts}

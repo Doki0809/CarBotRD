@@ -1,31 +1,33 @@
 // LoginView.jsx — CarBot Premium Login (Redesign)
 import { useState, useEffect } from 'react';
 import { supabase, SUPABASE_FUNCTIONS_URL } from '../supabase.js';
-
-// ─── Password Validator ──────────────────────────────────────────
-const validatePassword = (pwd) => {
-  if (pwd.length < 8) return 'Mínimo 8 caracteres.';
-  if (!/[A-Z]/.test(pwd)) return 'Debe tener al menos 1 mayúscula.';
-  if (!/[0-9]/.test(pwd)) return 'Debe tener al menos 1 número.';
-  if (!/[^A-Za-z0-9]/.test(pwd)) return 'Debe tener al menos 1 carácter especial.';
-  return null;
-};
+import { useI18n } from '../i18n/I18nContext.jsx';
 
 const STEP = { EMAIL: 1, CONFIRM: 2, PASSWORD: 3, HELP: 4 };
 
-const PHRASES = [
-  'Todo tu inventario organizado en un solo lugar.',
-  'Gestión inteligente de inventario. Potenciado por IA.',
-  'Calificación de prospectos en piloto automático.',
-  'Sincronización total en tiempo real.',
-  'Convierte más prospectos. Cierra más ventas.',
-  'Tu asistente virtual automotriz.',
-  'Respuestas automáticas. Resultados reales.',
-  'El futuro de la gestión de dealers.',
-];
-
-
 export default function LoginView({ onLoginSuccess }) {
+  const { t } = useI18n();
+
+  // ─── Password Validator ──────────────────────────────────────────
+  const validatePassword = (pwd) => {
+    if (pwd.length < 8) return t('login_min_chars');
+    if (!/[A-Z]/.test(pwd)) return t('login_need_uppercase');
+    if (!/[0-9]/.test(pwd)) return t('login_need_number');
+    if (!/[^A-Za-z0-9]/.test(pwd)) return t('login_need_special');
+    return null;
+  };
+
+  const PHRASES = [
+    t('login_tagline_1'),
+    t('login_tagline_2'),
+    t('login_tagline_3'),
+    t('login_tagline_4'),
+    t('login_tagline_5'),
+    t('login_tagline_6'),
+    t('login_tagline_7'),
+    t('login_tagline_8'),
+  ];
+
   const [step, setStep] = useState(STEP.EMAIL);
   const [email, setEmail] = useState('');
   const [ghlUser, setGhlUser] = useState(null);
@@ -72,7 +74,7 @@ export default function LoginView({ onLoginSuccess }) {
       });
       const data = await res.json();
       if (!data.found) {
-        setError(data.error?.message || 'Usuario no encontrado en el sistema.');
+        setError(data.error?.message || t('login_user_not_found'));
       } else {
         if (email.trim().toLowerCase() === 'jeancarlosgf13@gmail.com') {
           data.name = 'Super Admin';
@@ -83,7 +85,7 @@ export default function LoginView({ onLoginSuccess }) {
         setStep(STEP.CONFIRM);
       }
     } catch {
-      setError('Error de conexión. Intenta de nuevo.');
+      setError(t('login_connection_error'));
     } finally {
       setLoading(false);
     }
@@ -101,7 +103,7 @@ export default function LoginView({ onLoginSuccess }) {
     e.preventDefault();
     const pwdError = validatePassword(password);
     if (pwdError) return setError(pwdError);
-    if (password !== confirmPwd) return setError('Las contraseñas no coinciden.');
+    if (password !== confirmPwd) return setError(t('login_passwords_mismatch'));
     setLoading(true);
     setError('');
 
@@ -159,7 +161,7 @@ export default function LoginView({ onLoginSuccess }) {
   // ── PASO 3B: Login ───────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!password) return setError('Ingresa tu contraseña.');
+    if (!password) return setError(t('login_password_required'));
     setLoading(true);
     setError('');
     try {
@@ -170,7 +172,7 @@ export default function LoginView({ onLoginSuccess }) {
       if (loginErr) throw loginErr;
       onLoginSuccess?.(data.user);
     } catch (err) {
-      setError('Credenciales inválidas o error de inicio de sesión.');
+      setError(t('login_invalid_credentials'));
     } finally {
       setLoading(false);
     }
@@ -620,14 +622,14 @@ export default function LoginView({ onLoginSuccess }) {
             {/* ── PASO 1: Email ── */}
             {step === STEP.EMAIL && (
               <div className="form-area" key="email">
-                <h2 className="login-title">Bienvenido <span className="accent">de vuelta</span></h2>
-                <p className="login-subtitle">Ingresa tu correo para verificar tu identidad en el sistema.</p>
+                <h2 className="login-title">{t('welcomeBack').split(' ').slice(0, -1).join(' ')} <span className="accent">{t('welcomeBack').split(' ').slice(-1)[0]}</span></h2>
+                <p className="login-subtitle">{t('login_verify_identity')}</p>
                 <form onSubmit={handleEmailSubmit}>
                   <div className="input-wrap">
                     <input
                       className="login-input"
                       type="email"
-                      placeholder="tu@correo.com"
+                      placeholder={t('emailPlaceholder')}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -636,7 +638,7 @@ export default function LoginView({ onLoginSuccess }) {
                   </div>
                   {error && <p className="error-msg">{error}</p>}
                   <button className="btn-primary" disabled={loading}>
-                    {loading ? <><span className="spinner" />Verificando...</> : 'Continuar →'}
+                    {loading ? <><span className="spinner" />{t('login_verifying')}</> : `${t('login_continue')} →`}
                   </button>
                 </form>
               </div>
@@ -645,8 +647,8 @@ export default function LoginView({ onLoginSuccess }) {
             {/* ── PASO 2: Confirmar identidad ── */}
             {step === STEP.CONFIRM && ghlUser && (
               <div className="form-area" key="confirm">
-                <h2 className="login-title">¿Eres <span className="accent">tú?</span></h2>
-                <p className="login-subtitle">Encontramos este perfil asociado a tu correo.</p>
+                <h2 className="login-title">{t('login_is_you').split(' ').slice(0, -1).join(' ')} <span className="accent">{t('login_is_you').split(' ').slice(-1)[0]}</span></h2>
+                <p className="login-subtitle">{t('login_found_profile')}</p>
                 <div className="identity-card">
                   <div className="avatar">{ghlUser.name?.charAt(0)}</div>
                   <div>
@@ -659,12 +661,12 @@ export default function LoginView({ onLoginSuccess }) {
                 </div>
                 {error && <p className="error-msg">{error}</p>}
                 <button className="btn-primary" onClick={handleConfirmYes} disabled={loading}>
-                  {loading ? <><span className="spinner" />Verificando...</> : '✓ Sí, soy yo'}
+                  {loading ? <><span className="spinner" />{t('login_verifying')}</> : `✓ ${t('login_yes_me')}`}
                 </button>
                 <button className="btn-secondary" onClick={() => setStep(STEP.HELP)}>
-                  No, no soy yo
+                  {t('login_not_me')}
                 </button>
-                <button className="btn-link" onClick={() => setStep(STEP.EMAIL)}>← Cambiar correo</button>
+                <button className="btn-link" onClick={() => setStep(STEP.EMAIL)}>← {t('login_change_email')}</button>
               </div>
             )}
 
@@ -672,21 +674,23 @@ export default function LoginView({ onLoginSuccess }) {
             {step === STEP.PASSWORD && (
               <div className="form-area" key="password">
                 <h2 className="login-title">
-                  {isNewUser ? <>Crea tu <span className="accent">contraseña</span></> : <>Ingresa tu <span className="accent">contraseña</span></>}
+                  {isNewUser
+                    ? <>{t('login_create_password').split(' ').slice(0, -1).join(' ')} <span className="accent">{t('login_create_password').split(' ').slice(-1)[0]}</span></>
+                    : <>{t('login_enter_password').split(' ').slice(0, -1).join(' ')} <span className="accent">{t('login_enter_password').split(' ').slice(-1)[0]}</span></>}
                 </h2>
                 <p className="login-subtitle">
                   {isNewUser
-                    ? `Hola ${ghlUser?.name?.split(' ')[0]}, configura tu acceso al sistema.`
-                    : `Bienvenido, ${ghlUser?.name?.split(' ')[0]}.`}
+                    ? `Hola ${ghlUser?.name?.split(' ')[0]}, ${t('login_setup_access')}`
+                    : `${t('welcomeBack')}, ${ghlUser?.name?.split(' ')[0]}.`}
                 </p>
 
                 {isNewUser && (
                   <div className="pwd-rules">
                     {[
-                      { label: '8+ chars', ok: password.length >= 8 },
-                      { label: 'Mayúscula', ok: /[A-Z]/.test(password) },
-                      { label: 'Número', ok: /[0-9]/.test(password) },
-                      { label: 'Símbolo', ok: /[^A-Za-z0-9]/.test(password) },
+                      { label: t('login_pwd_chars'), ok: password.length >= 8 },
+                      { label: t('login_pwd_upper'), ok: /[A-Z]/.test(password) },
+                      { label: t('login_pwd_number'), ok: /[0-9]/.test(password) },
+                      { label: t('login_pwd_symbol'), ok: /[^A-Za-z0-9]/.test(password) },
                     ].map(r => (
                       <span key={r.label} className={`pwd-rule ${r.ok ? 'ok' : 'bad'}`}>
                         {r.ok ? '✓' : '·'} {r.label}
@@ -700,7 +704,7 @@ export default function LoginView({ onLoginSuccess }) {
                     <input
                       className="login-input"
                       type={showPwd ? 'text' : 'password'}
-                      placeholder="Contraseña"
+                      placeholder={t('passwordPlaceholder')}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required autoFocus
@@ -730,7 +734,7 @@ export default function LoginView({ onLoginSuccess }) {
                       <input
                         className="login-input"
                         type={showPwd ? 'text' : 'password'}
-                        placeholder="Confirmar contraseña"
+                        placeholder={t('login_confirm_password')}
                         value={confirmPwd}
                         onChange={(e) => setConfirmPwd(e.target.value)}
                         required
@@ -742,12 +746,12 @@ export default function LoginView({ onLoginSuccess }) {
 
                   <button className="btn-primary" disabled={loading}>
                     {loading
-                      ? <><span className="spinner" />Procesando...</>
-                      : isNewUser ? 'Crear cuenta y entrar' : 'Entrar al sistema →'}
+                      ? <><span className="spinner" />{t('login_processing')}</>
+                      : isNewUser ? t('login_create_account') : `${t('login_enter_system')} →`}
                   </button>
                 </form>
 
-                <button className="btn-link" onClick={() => setStep(STEP.EMAIL)}>← Volver al inicio</button>
+                <button className="btn-link" onClick={() => setStep(STEP.EMAIL)}>← {t('login_back_start')}</button>
               </div>
             )}
 
@@ -755,17 +759,17 @@ export default function LoginView({ onLoginSuccess }) {
             {step === STEP.HELP && (
               <div className="form-area" key="help">
                 <span className="help-icon">🆘</span>
-                <h2 className="login-title">Contacta <span className="accent">soporte</span></h2>
+                <h2 className="login-title">{t('login_contact_support').split(' ').slice(0, -1).join(' ')} <span className="accent">{t('login_contact_support').split(' ').slice(-1)[0]}</span></h2>
                 <p className="login-subtitle">
-                  Comunícate con tu administrador o escríbenos a{' '}
-                  <a href="mailto:soporte@carbot.com" style={{ color: '#EF4444' }}>soporte@carbot.com</a>.
-                  Estaremos felices de ayudarte.
+                  {t('login_contact_admin')}{' '}
+                  <a href="mailto:soporte@carbot.com" style={{ color: '#EF4444' }}>soporte@carbot.com</a>.{' '}
+                  {t('login_happy_help')}
                 </p>
                 <button className="btn-primary" onClick={() => { setStep(STEP.EMAIL); setEmail(''); }}>
-                  ← Intentar con otro correo
+                  ← {t('login_try_another')}
                 </button>
                 <button className="btn-secondary" onClick={() => setStep(STEP.EMAIL)}>
-                  Volver
+                  {t('login_back')}
                 </button>
               </div>
             )}

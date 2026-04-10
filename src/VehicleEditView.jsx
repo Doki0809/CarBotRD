@@ -7,6 +7,8 @@ import {
   FileSignature, MoreVertical, Copy, RefreshCw, Edit, Plus, CloudUpload, Check,
   Briefcase, MapPin, Gauge, LifeBuoy, Key, Palette, Hash, Building2, Car
 } from 'lucide-react';
+import { useI18n } from './i18n/I18nContext.jsx';
+import { useCurrency } from './CurrencyContext.jsx';
 
 const formatWithCommas = (value) => {
   if (!value && value !== 0) return '';
@@ -20,11 +22,12 @@ const parseCommaNumber = (str) => {
 
 const Input = ({ label, type = "text", className = "", ...props }) => (
   <div className="group">
-    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">{label}</label>
+    <label className="block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600" style={{ color: 'var(--text-secondary)' }}>{label}</label>
     <div className="relative">
       <input
         type={type}
-        className={`w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm focus:outline-none focus:bg-white focus:border-red-500/20 focus:ring-4 focus:ring-red-500/5 transition-all outline-none ${className}`}
+        className={`w-full px-4 py-3 rounded-2xl font-bold text-sm focus:outline-none focus:border-red-500/20 focus:ring-4 focus:ring-red-500/5 transition-all outline-none ${className}`}
+        style={{ backgroundColor: 'var(--input-bg)', borderWidth: '2px', borderColor: 'var(--input-border)', color: 'var(--text-primary)' }}
         {...props}
       />
     </div>
@@ -59,22 +62,23 @@ const Select = ({ label, options = [], name, value, onChange, disabled, classNam
 
   return (
     <div className={`group relative ${className}`} ref={dropdownRef}>
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
+      <label className="block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600" style={{ color: 'var(--text-secondary)' }}>
         {label}
       </label>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-2xl text-slate-900 font-bold text-sm transition-all outline-none ${isOpen ? 'bg-white border-red-500/20 ring-4 ring-red-500/5' : 'hover:bg-slate-100'
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl font-bold text-sm transition-all outline-none ${isOpen ? 'border-red-500/20 ring-4 ring-red-500/5' : 'hover:opacity-90'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        style={{ backgroundColor: 'var(--input-bg)', borderWidth: '2px', borderColor: isOpen ? undefined : 'var(--input-border)', color: 'var(--text-primary)' }}
       >
         <span className="truncate">{displayLabel}</span>
-        <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-red-500' : ''}`} />
+        <ChevronDown size={16} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-red-500' : ''}`} style={!isOpen ? { color: 'var(--text-tertiary)' } : {}} />
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 mt-2 p-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[110] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute left-0 right-0 mt-2 p-2 rounded-2xl shadow-2xl z-[110] animate-in fade-in zoom-in-95 duration-200" style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }}>
           <div className="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1">
             {options.map((opt, i) => {
               const val = typeof opt === 'object' ? opt.value : opt;
@@ -87,9 +91,10 @@ const Select = ({ label, options = [], name, value, onChange, disabled, classNam
                   type="button"
                   onClick={() => handleSelect(val)}
                   className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${isActive
-                    ? 'bg-red-50 text-red-600'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-red-500'
+                    ? 'text-red-600'
+                    : 'hover:text-red-500'
                     }`}
+                  style={isActive ? { backgroundColor: 'rgba(227, 28, 37, 0.12)' } : { color: 'var(--text-secondary)' }}
                 >
                   {labelText}
                 </button>
@@ -127,19 +132,20 @@ const Badge = ({ status }) => {
 const FormInput = ({ label, icon: Icon, name, value, onChange, type = "text", disabled, isSold, className = "", readOnly }) => (
   <div className="flex flex-col gap-2 group">
     {label && (
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">
+      <label className="block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600" style={{ color: 'var(--text-secondary)' }}>
         {label}
       </label>
     )}
-    <div className={`relative flex items-center bg-slate-50 border-2 border-slate-50 rounded-2xl focus-within:bg-white focus-within:border-red-500/20 focus-within:ring-4 focus-within:ring-red-500/5 transition-all outline-none ${isSold ? 'opacity-60 grayscale-[0.5]' : ''} ${className}`}>
-      {Icon && <div className="pl-4 text-slate-400 group-focus-within:text-red-500 transition-colors"><Icon size={18} /></div>}
+    <div className={`relative flex items-center rounded-2xl focus-within:border-red-500/20 focus-within:ring-4 focus-within:ring-red-500/5 transition-all outline-none ${isSold ? 'opacity-60 grayscale-[0.5]' : ''} ${className}`} style={{ backgroundColor: 'var(--input-bg)', borderWidth: '2px', borderColor: 'var(--input-border)' }}>
+      {Icon && <div className="pl-4 group-focus-within:text-red-500 transition-colors" style={{ color: 'var(--text-tertiary)' }}><Icon size={18} /></div>}
       <input
         type={type}
         name={name}
         value={value}
         onChange={onChange}
         disabled={disabled || isSold}
-        className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none placeholder:text-slate-300"
+        className="w-full px-4 py-3 bg-transparent font-bold text-sm outline-none"
+        style={{ color: 'var(--text-primary)' }}
       />
     </div>
   </div>
@@ -159,7 +165,10 @@ export default function VehicleEditView({
   onSelectVehicle
 }) {
   console.log("VehicleEditView render start", { vehicleId: vehicle?.id, readOnly });
+  const { t } = useI18n();
+  const { selected: selectedCurrencies, getSymbol, CURRENCIES: CURR_MAP } = useCurrency();
   const [loading, setLoading] = useState(false);
+  const mileageRef = useRef(null);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [currency, setCurrency] = useState(vehicle?.currency || (vehicle?.price_dop > 0 ? 'DOP' : 'USD'));
   const [downPaymentCurrency, setDownPaymentCurrency] = useState(vehicle?.downPaymentCurrency || (vehicle?.initial_payment_dop > 0 ? 'DOP' : 'USD'));
@@ -269,7 +278,8 @@ export default function VehicleEditView({
       setDownPaymentCurrency(vehicle.downPaymentCurrency || (vehicle.initial_payment_dop > 0 ? 'DOP' : 'USD'));
       setMileageUnit(vehicle.mileage_unit || 'MI');
     }
-  }, [vehicle]);
+    if (mileageRef.current) mileageRef.current.value = vehicle.mileage || 0;
+  }, [vehicle?.id]);
 
   if (!vehicle) return null;
 
@@ -318,6 +328,8 @@ export default function VehicleEditView({
     setLoading(true);
     try {
       const finalData = { ...formData };
+      // Sync mileage from uncontrolled input ref in case onBlur wasn't fired
+      if (mileageRef.current) finalData.mileage = mileageRef.current.value || 0;
 
       // --- CLEANUP "-" VALUES ---
       Object.keys(finalData).forEach(key => {
@@ -331,12 +343,12 @@ export default function VehicleEditView({
         ...finalData,
         image: finalData.images?.[0] || finalData.image,
 
-        // Lógica de divisas rigurosa: Guardar en el campo correcto y limpiar el otro
-        price: currency === 'USD' ? priceVal : 0,
+        // Guardar precio en el campo principal + campo legacy si aplica
+        price: priceVal,
         price_dop: currency === 'DOP' ? priceVal : 0,
         currency: currency,
 
-        initial_payment: downPaymentCurrency === 'USD' ? initialVal : 0,
+        initial_payment: initialVal,
         initial_payment_dop: downPaymentCurrency === 'DOP' ? initialVal : 0,
         downPaymentCurrency: downPaymentCurrency,
 
@@ -438,7 +450,7 @@ export default function VehicleEditView({
   const removePhoto = (e, index) => {
     e.stopPropagation();
     if (readOnly) return;
-    if (confirm('¿Eliminar esta foto?')) {
+    if (confirm(t('field_delete_photo'))) {
       const newImages = formData.images.filter((_, i) => i !== index);
       setFormData(prev => ({ ...prev, images: newImages }));
       if (activePhotoIndex >= newImages.length) {
@@ -449,27 +461,28 @@ export default function VehicleEditView({
 
 
   if (readOnly) {
-    // ── Helpers de precio ──────────────────────────────────────────────────────
+    // ── Helpers de precio — show as-is with original currency ──────────────────
     const displayPrice = Number(formData.price_unified || 0);
     const displayInitial = Number(formData.initial_unified || 0);
-    const priceLabel = currency === 'USD' ? 'US$' : 'RD$';
-    const initialLabel = downPaymentCurrency === 'USD' ? 'US$' : 'RD$';
+    const priceLabel = getSymbol(currency);
+    const initialLabel = getSymbol(downPaymentCurrency);
 
     // ─── Sección de ficha técnica ───────────────────────────────────────────────
     // Estilo igual a carbotsystem.com: 3 columnas, cada campo es label pequeño + valor en caja gris
     const FichaCelda = ({ label, value }) => (
       <div className="flex flex-col gap-1">
         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">{label}</span>
-        <div className="bg-[#f4f6f8] border border-slate-100 rounded-xl px-4 py-3">
+        <div className="bg-[#f4f6f8] dark:bg-white/5 border border-slate-100 rounded-xl px-4 py-3">
           <span className="text-[13px] font-semibold text-slate-700 uppercase">{value || '—'}</span>
         </div>
       </div>
     );
 
     const CurrencyToggle = ({ activeCurrency }) => (
-      <div className="flex bg-[#f4f6f8] p-1 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 border border-slate-100">
-        <div className={`px-3 py-1 rounded-full transition-all ${activeCurrency === 'USD' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400'}`}>US$</div>
-        <div className={`px-3 py-1 rounded-full transition-all ${activeCurrency === 'DOP' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400'}`}>RD$</div>
+      <div className="flex p-1 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 border" style={{ background: 'var(--input-bg)', borderColor: 'var(--input-border)' }}>
+        {selectedCurrencies.map(c => (
+          <div key={c} className={`px-3 py-1 rounded-full transition-all ${activeCurrency === c ? 'bg-red-600 text-white shadow-sm' : ''}`} style={activeCurrency !== c ? { color: 'var(--text-tertiary)' } : {}}>{getSymbol(c)}</div>
+        ))}
       </div>
     );
 
@@ -522,7 +535,7 @@ export default function VehicleEditView({
             {/* ── LEFT: FOTO PRINCIPAL ───────────────────────────────────────── */}
             <div className="xl:col-span-8 space-y-4">
               {/* Imagen principal — mismo estilo que la vista interna */}
-              <div className="relative bg-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white h-[400px] md:h-[650px]">
+              <div className="relative bg-white dark:bg-[#1A1D24] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white dark:border-[#1A1D24] h-[400px] md:h-[650px]">
                 <div
                   className="w-full h-full relative group cursor-zoom-in flex items-center justify-center"
                   onClick={() => formData.images.length > 0 && setIsLightboxOpen(true)}
@@ -552,10 +565,10 @@ export default function VehicleEditView({
                   {/* Flechas de navegación */}
                   {formData.images.length > 1 && (
                     <div className="absolute inset-x-2 sm:inset-x-8 top-[65%] sm:top-[75%] -translate-y-1/2 flex justify-between pointer-events-none">
-                      <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white dark:bg-white/10 hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10">
                         <ChevronLeft size={16} className="sm:w-6 sm:h-6" />
                       </button>
-                      <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-2 sm:p-3 rounded-full bg-white dark:bg-white/10 hover:bg-red-600 text-red-600 hover:text-white backdrop-blur-sm transition-all pointer-events-auto shadow-xl border border-red-500/10">
                         <ChevronRight size={16} className="sm:w-6 sm:h-6" />
                       </button>
                     </div>
@@ -580,7 +593,7 @@ export default function VehicleEditView({
                         <img src={img} className="w-full h-full object-cover" alt={`Foto ${idx + 1}`} />
                         {idx === 0 && (
                           <div className="absolute top-1 left-1 bg-emerald-500 text-white text-[6px] font-black px-1 py-0.5 rounded uppercase tracking-wider shadow-sm">
-                            PORTADA
+                            {t('field_cover_label')}
                           </div>
                         )}
                       </button>
@@ -629,7 +642,7 @@ export default function VehicleEditView({
                       <div className="flex justify-between items-center mb-3">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1.5">
                           <DollarSign size={10} className="text-slate-400" />
-                          PRECIO DE VENTA
+                          {t('sale_price').toUpperCase()}
                         </p>
                         <CurrencyToggle activeCurrency={currency} />
                       </div>
@@ -690,15 +703,15 @@ export default function VehicleEditView({
                   INFORMACIÓN BÁSICA
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="AÑO" value={formData.year} />
-                  <FichaCelda label="COLOR" value={formData.color} />
+                  <FichaCelda label={t('year').toUpperCase()} value={formData.year} />
+                  <FichaCelda label={t('color').toUpperCase()} value={formData.color} />
                 </div>
-                <FichaCelda label="EDICIÓN / VERSIÓN" value={formData.edition} />
+                <FichaCelda label={t('field_edition').toUpperCase()} value={formData.edition} />
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="KILOMETRAJE" value={formData.mileage ? `${Number(formData.mileage).toLocaleString('en-US')} ${mileageUnit}` : null} />
-                  <FichaCelda label="PLACA" value={formData.plate} />
+                  <FichaCelda label={t('field_mileage')} value={formData.mileage ? `${Number(formData.mileage).toLocaleString('en-US')} ${mileageUnit}` : null} />
+                  <FichaCelda label={t('field_plate')} value={formData.plate} />
                 </div>
-                <FichaCelda label="CHASIS / VIN" value={formData.vin || formData.chassis} />
+                <FichaCelda label={t('field_vin_chassis')} value={formData.vin || formData.chassis} />
               </div>
 
               {/* ── COLUMNA 2: MECÁNICA ──────────────────────────────────────── */}
@@ -710,15 +723,15 @@ export default function VehicleEditView({
                   MECÁNICA
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="CLEAN CARFAX" value={formData.carfax || formData.condition} />
-                  <FichaCelda label="TIPO DE VEHÍCULO" value={formData.type || formData.tipo_vehiculo} />
+                  <FichaCelda label={t('field_clean_carfax')} value={formData.carfax || formData.condition} />
+                  <FichaCelda label={t('field_vehicle_type')} value={formData.type || formData.tipo_vehiculo} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="TRANSMISIÓN" value={formData.transmision || formData.transmission} />
-                  <FichaCelda label="TRACCIÓN" value={formData.traccion || formData.traction} />
+                  <FichaCelda label={t('transmission').toUpperCase()} value={formData.transmision || formData.transmission} />
+                  <FichaCelda label={t('field_traction')} value={formData.traccion || formData.traction} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="COMBUSTIBLE" value={formData.combustible || formData.fuel} />
+                  <FichaCelda label={t('fuel').toUpperCase()} value={formData.combustible || formData.fuel} />
                   <FichaCelda label="MOTOR" value={formData.motor || formData.engine_type} />
                 </div>
               </div>
@@ -732,22 +745,22 @@ export default function VehicleEditView({
                   CONFORT Y EXTRAS
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="INTERIOR" value={formData.seat_material} />
-                  <FichaCelda label="TECHO" value={formData.roof_type} />
+                  <FichaCelda label={t('field_interior')} value={formData.seat_material} />
+                  <FichaCelda label={t('field_roof')} value={formData.roof_type} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="CARPLAY" value={formData.carplay} />
-                  <FichaCelda label="CÁMARA" value={formData.camera || formData.camara} />
+                  <FichaCelda label={t('field_carplay')} value={formData.carplay} />
+                  <FichaCelda label={t('field_camera')} value={formData.camera || formData.camara} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="SENSORES" value={formData.sensors || formData.sensores} />
-                  <FichaCelda label="BAÚL ELÉCTRICO" value={formData.trunk || formData.baul_electrico} />
+                  <FichaCelda label={t('field_sensors')} value={formData.sensors || formData.sensores} />
+                  <FichaCelda label={t('field_electric_trunk')} value={formData.trunk || formData.baul_electrico} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <FichaCelda label="CRISTALES ELÉCT." value={formData.electric_windows || formData.vidrios_electricos} />
+                  <FichaCelda label={t('field_electric_windows')} value={formData.electric_windows || formData.vidrios_electricos} />
                   <FichaCelda label="LLAVE" value={formData.key_type} />
                 </div>
-                <FichaCelda label="FILAS DE ASIENTOS" value={formData.asientos || formData.seats} />
+                <FichaCelda label={t('field_seat_rows')} value={formData.asientos || formData.seats} />
               </div>
             </div>
           </div>
@@ -829,20 +842,20 @@ export default function VehicleEditView({
         {/* ── LIGHTBOX MODAL ─────────────────────────────────────────────────── */}
         {isLightboxOpen && (
           <div
-            className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden"
+            className="fixed inset-0 z-[100] bg-white/95 dark:bg-[#0D0F14]/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onSwipeEnd}
           >
             {/* HEADER - ABSOLUTE TO NOT PUSH CONTENT DOWN INCORRECTLY */}
             <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-4 sm:p-8 z-50 pointer-events-none">
-              <div className="text-slate-900 pointers-events-auto">
+              <div className="text-slate-900 dark:text-white pointers-events-auto">
                 <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-red-600 line-clamp-1 drop-shadow-sm">{formData.make} {formData.model}</h4>
-                <p className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
+                <p className="text-slate-500 dark:text-white/50 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
               </div>
               <button
                 onClick={() => setIsLightboxOpen(false)}
-                className="p-3 sm:p-4 rounded-full bg-slate-100/80 text-slate-500 hover:bg-slate-100 hover:text-red-600 transition-all shadow-sm pointer-events-auto"
+                className="p-3 sm:p-4 rounded-full bg-slate-100/80 dark:bg-white/10 text-slate-500 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/20 hover:text-red-600 transition-all shadow-sm pointer-events-auto"
               >
                 <X size={24} className="sm:w-[32px] sm:h-[32px]" />
               </button>
@@ -857,10 +870,10 @@ export default function VehicleEditView({
 
               {/* NAV CONTROLS FLOATING */}
               <div className="hidden sm:flex absolute inset-x-4 sm:inset-x-10 top-1/2 -translate-y-1/2 justify-between pointer-events-none">
-                <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
+                <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white dark:bg-white/10 text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 dark:border-white/10 flex items-center justify-center pointer-events-auto">
                   <ChevronLeft size={24} className="sm:w-8 sm:h-8" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
+                <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white dark:bg-white/10 text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 dark:border-white/10 flex items-center justify-center pointer-events-auto">
                   <ChevronRight size={24} className="sm:w-8 sm:h-8" />
                 </button>
               </div>
@@ -921,7 +934,7 @@ export default function VehicleEditView({
 
         {/* LEFT PANEL: GALLERY & VISUALS */}
         <div className="xl:col-span-8 space-y-4 md:space-y-8">
-          <div className="relative bg-white rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white h-[400px] md:h-[650px]">
+          <div className="relative bg-white dark:bg-[#1A1D24] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 border-4 md:border-8 border-white dark:border-[#1A1D24] h-[400px] md:h-[650px]">
             <div className="w-full h-full relative group cursor-zoom-in flex items-center justify-center" onClick={() => formData.images.length > 0 && setIsLightboxOpen(true)}>
               {formData.images.length > 0 && !formData.images[0]?.includes('unsplash') ? (
                 <img
@@ -961,25 +974,25 @@ export default function VehicleEditView({
             </div>
           </div>
 
-          {/* MOBILE THUMBNAILS GRID (Visible only on mobile) */}
-          <div className="block xl:hidden pt-4 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-4 px-1">
+          {/* THUMBNAILS GRID - Below main photo on all screens */}
+          <div className="pt-3 border-t border-slate-100 dark:border-white/6">
+            <div className="flex items-center justify-between mb-3 px-1">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
                 <Files size={14} className="text-red-500" />
                 Carrete ({formData.images.length})
               </h3>
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 sm:grid-cols-6 xl:grid-cols-8 gap-1.5 sm:gap-2">
               {formData.images.map((img, idx) => (
                 <div
                   key={idx}
                   onClick={() => setActivePhotoIndex(idx)}
-                  className={`aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 sm:border-[3px] relative group ${activePhotoIndex === idx ? 'border-red-600 scale-95 shadow-md' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}
+                  className={`aspect-square rounded-lg overflow-hidden cursor-pointer transition-all duration-300 border-2 relative group ${activePhotoIndex === idx ? 'border-red-600 scale-95 shadow-md' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}
                 >
                   <img src={img} className="w-full h-full object-cover" alt={`Thumb ${idx}`} />
 
-                  {/* COMPACT OVERLAY CONTROLS FOR SIDEBAR */}
+                  {/* COMPACT OVERLAY CONTROLS */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-0.5">
                     <div className="flex justify-between">
                       <button type="button" onClick={(e) => movePhotoLeft(e, idx)} className="p-0.5 bg-white/20 hover:bg-white text-white hover:text-red-600 rounded backdrop-blur-sm"><ChevronLeft size={10} /></button>
@@ -988,10 +1001,10 @@ export default function VehicleEditView({
                     <button type="button" onClick={(e) => removePhoto(e, idx)} className="absolute top-0.5 right-0.5 p-1 bg-red-600/80 hover:bg-red-600 text-white rounded-full backdrop-blur-sm"><Trash2 size={10} /></button>
 
                     {idx !== 0 && (
-                      <button type="button" onClick={(e) => setAsCover(e, idx)} className="w-full py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[6px] font-black uppercase rounded shadow-sm">Portada</button>
+                      <button type="button" onClick={(e) => setAsCover(e, idx)} className="w-full py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[6px] font-black uppercase rounded shadow-sm">{t('field_cover')}</button>
                     )}
                   </div>
-                  {idx === 0 && <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-emerald-500 text-white text-[6px] font-black rounded shadow-sm leading-none">PORTADA</div>}
+                  {idx === 0 && <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-emerald-500 text-white text-[6px] font-black rounded shadow-sm leading-none">{t('field_cover_label')}</div>}
                 </div>
               ))}
             </div>
@@ -1002,7 +1015,7 @@ export default function VehicleEditView({
 
         {/* RIGHT PANEL: INFO & CONTROLS */}
         <div className="xl:col-span-4 space-y-4 md:space-y-8">
-          <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-slate-200/60 border border-slate-100 flex flex-col gap-6 md:gap-8">
+          <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-2xl flex flex-col gap-6 md:gap-8" style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }}>
 
             {/* 1. TITLE / HEADER SECTION (Desktop Only) */}
             <div className="hidden xl:block space-y-1">
@@ -1025,27 +1038,29 @@ export default function VehicleEditView({
                 <div className="relative group">
                   <div className="flex items-center justify-between mb-3 px-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 group-focus-within:text-red-600 transition-colors">
-                      <DollarSign size={14} className="text-red-500" /> Precio de Venta
+                      <DollarSign size={14} className="text-red-500" /> {t('sale_price')}
                     </label>
-                    <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner scale-90 origin-right">
-                      {['USD', 'DOP'].map((c) => (
+                    <div className="flex p-1 rounded-xl shadow-inner scale-90 origin-right" style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)' }}>
+                      {selectedCurrencies.map((c) => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setCurrency(c)}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${currency === c ? 'bg-white text-red-600 shadow-md transform scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-                        >{c === 'USD' ? 'US$' : 'RD$'}</button>
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${currency === c ? 'bg-red-600 text-white shadow-md transform scale-105' : 'hover:opacity-80'}`}
+                          style={currency !== c ? { color: 'var(--text-tertiary)' } : {}}
+                        >{getSymbol(c)}</button>
                       ))}
                     </div>
                   </div>
 
                   <div className="flex items-baseline gap-3 group-focus-within:translate-x-1 transition-transform">
-                    <span className="text-4xl md:text-5xl font-black text-red-600 tracking-tighter shrink-0">{currency === 'USD' ? 'US$' : 'RD$'}</span>
+                    <span className="text-4xl md:text-5xl font-black text-red-600 tracking-tighter shrink-0">{getSymbol(currency)}</span>
                     <input
                       type="text"
                       value={formatWithCommas(formData.price_unified)}
                       onChange={handlePriceChange}
-                      className="w-full bg-transparent text-4xl md:text-5xl font-black text-slate-900 outline-none border-b-4 border-transparent focus:border-red-600/20 pb-1 transition-all placeholder:text-slate-100"
+                      className="w-full bg-transparent text-4xl md:text-5xl font-black outline-none border-b-4 border-transparent focus:border-red-600/20 pb-1 transition-all"
+                      style={{ color: 'var(--text-primary)' }}
                       placeholder="0"
                     />
                   </div>
@@ -1054,25 +1069,27 @@ export default function VehicleEditView({
                   <div className="mt-8 pt-6 border-t border-slate-100/80">
                     <div className="flex items-center justify-between mb-3 px-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] group-focus-within:text-red-600 transition-colors">Pago Inicial Sugerido</label>
-                      <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner scale-90 origin-right">
-                        {['USD', 'DOP'].map((c) => (
+                      <div className="flex p-1 rounded-xl shadow-inner scale-90 origin-right" style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)' }}>
+                        {selectedCurrencies.map((c) => (
                           <button
                             key={c}
                             type="button"
                             onClick={() => setDownPaymentCurrency(c)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${downPaymentCurrency === c ? 'bg-white text-red-600 shadow-md transform scale-105' : 'text-slate-400 hover:text-slate-600'}`}
-                          >{c === 'USD' ? 'US$' : 'RD$'}</button>
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${downPaymentCurrency === c ? 'bg-red-600 text-white shadow-md transform scale-105' : 'hover:opacity-80'}`}
+                            style={downPaymentCurrency !== c ? { color: 'var(--text-tertiary)' } : {}}
+                          >{getSymbol(c)}</button>
                         ))}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 transition-all">
-                      <span className="text-xl font-bold text-slate-400">{downPaymentCurrency === 'USD' ? 'US$' : 'RD$'}</span>
+                      <span className="text-xl font-bold" style={{ color: 'var(--text-tertiary)' }}>{getSymbol(downPaymentCurrency)}</span>
                       <input
                         type="text"
                         value={formatWithCommas(formData.initial_unified) || ''}
                         onChange={handleInitialChange}
-                        className="bg-transparent text-2xl font-black text-slate-600 outline-none w-full border-b-2 border-transparent focus:border-slate-200 transition-all placeholder:text-slate-200"
+                        className="bg-transparent text-2xl font-black outline-none w-full border-b-2 border-transparent transition-all"
+                        style={{ color: 'var(--text-secondary)', borderColor: 'transparent' }}
                         placeholder="0.00"
                       />
                     </div>
@@ -1173,13 +1190,13 @@ export default function VehicleEditView({
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div className="p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/5 text-center">
-                        <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">PRECIO LISTA</p>
+                        <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">{t('field_list_price')}</p>
                         <p className="text-xs sm:text-sm font-black whitespace-nowrap">
                           {formData.price_dop > 0 ? `RD$ ${Number(formData.price_dop).toLocaleString()}` : `US$ ${Number(formData.price).toLocaleString()}`}
                         </p>
                       </div>
                       <div className="p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/5 text-center">
-                        <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">PRECIO VENTA</p>
+                        <p className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase mb-1 tracking-widest">{t('field_sale_price')}</p>
                         <p className="text-xs sm:text-sm font-black text-emerald-400 whitespace-nowrap">
                           {contract?.price ? (formData.price_dop > 0 ? `RD$ ${Number(contract.price).toLocaleString()}` : `US$ ${Number(contract.price).toLocaleString()}`) : (formData.price_dop > 0 ? `RD$ ${Number(formData.price_dop).toLocaleString()}` : `US$ ${Number(formData.price).toLocaleString()}`)}
                         </p>
@@ -1190,50 +1207,14 @@ export default function VehicleEditView({
               </div>
             )}
 
-            {/* THUMBNAILS GRID - NOW IN RIGHT PANEL (Desktop Only) */}
-            <div className="hidden xl:block pt-6 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-4 px-1">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Files size={14} className="text-red-500" />
-                  Carrete ({formData.images.length})
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                {formData.images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setActivePhotoIndex(idx)}
-                    className={`aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 border-2 sm:border-[3px] relative group ${activePhotoIndex === idx ? 'border-red-600 scale-95 shadow-md' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`}
-                  >
-                    <img src={img} className="w-full h-full object-cover" alt={`Thumb ${idx}`} />
-
-                    {/* COMPACT OVERLAY CONTROLS FOR SIDEBAR */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-0.5">
-                      <div className="flex justify-between">
-                        <button type="button" onClick={(e) => movePhotoLeft(e, idx)} className="p-0.5 bg-white/20 hover:bg-white text-white hover:text-red-600 rounded backdrop-blur-sm"><ChevronLeft size={10} /></button>
-                        <button type="button" onClick={(e) => movePhotoRight(e, idx)} className="p-0.5 bg-white/20 hover:bg-white text-white hover:text-red-600 rounded backdrop-blur-sm"><ChevronRight size={10} /></button>
-                      </div>
-                      <button type="button" onClick={(e) => removePhoto(e, idx)} className="absolute top-0.5 right-0.5 p-1 bg-red-600/80 hover:bg-red-600 text-white rounded-full backdrop-blur-sm"><Trash2 size={10} /></button>
-
-                      {idx !== 0 && (
-                        <button type="button" onClick={(e) => setAsCover(e, idx)} className="w-full py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[6px] font-black uppercase rounded shadow-sm">Portada</button>
-                      )}
-                    </div>
-                    {idx === 0 && <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-emerald-500 text-white text-[10px] font-black rounded shadow-sm leading-none">PORTADA</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* 4. SAVE BUTTON AT BOTTOM */}
           </div>
         </div>
 
         {/* FULL WIDTH BOTTOM: FICHA TÉCNICA */}
         <div className="xl:col-span-12 -mt-2">
-          <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-xl shadow-slate-200/40 border border-slate-100">
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2 mb-8">
+          <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-xl" style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }}>
+            <h2 className="text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-8" style={{ color: 'var(--text-primary)' }}>
               <Info size={18} className="text-red-600" /> Ficha Técnica Completa
             </h2>
 
@@ -1241,61 +1222,121 @@ export default function VehicleEditView({
 
               {/* COL 1: INFO BÁSICA */}
               <div className="space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-widest border-b pb-2 flex items-center gap-2" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-glass)' }}>
                   <IdCard size={14} /> Información Básica
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <FormInput label="Año" name="year" type="number" onWheel={(e) => e.target.blur()} value={formData.year} onChange={handleChange} />
-                  <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} />
+                  <FormInput label={t('year')} name="year" type="number" onWheel={(e) => e.target.blur()} value={formData.year} onChange={handleChange} />
+                  <FormInput label={t('color')} name="color" value={formData.color} onChange={handleChange} />
                 </div>
-                <FormInput label="Edición / Versión" name="edition" value={formData.edition} onChange={handleChange} />
+                <FormInput label={t('field_edition')} name="edition" value={formData.edition} onChange={handleChange} />
 
                 {/* MILAJE MOVED HERE */}
                 <div className="group">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600">Kilometraje</label>
-                  <div className="flex bg-slate-50 border-2 border-slate-50 rounded-2xl overflow-hidden focus-within:bg-white focus-within:border-red-500/20 focus-within:ring-4 focus-within:ring-red-500/5 transition-all outline-none">
+                  <label className="block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-600" style={{ color: 'var(--text-secondary)' }}>{t('field_mileage')}</label>
+                  <div className="flex rounded-2xl overflow-hidden focus-within:border-red-500/20 focus-within:ring-4 focus-within:ring-red-500/5 transition-all outline-none" style={{ backgroundColor: 'var(--input-bg)', borderWidth: '2px', borderColor: 'var(--input-border)' }}>
                     <input
                       name="mileage"
-                      value={formatWithCommas(formData.mileage) || ''}
+                      type="text"
+                      autoComplete="off"
+                      value={String(formData.mileage ?? '')}
                       onChange={(e) => {
-                        const rawValue = e.target.value.replace(/,/g, '');
-                        if (!isNaN(rawValue) || rawValue === '') {
-                          handleChange({ target: { name: 'mileage', value: rawValue } });
-                        }
+                        const v = e.target.value.replace(/[^0-9]/g, '');
+                        setFormData(prev => ({ ...prev, mileage: v }));
                       }}
-                      className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none"
+                      className="w-full min-w-0 px-4 py-3 bg-transparent font-bold text-sm outline-none"
+                      style={{ color: 'var(--text-primary)' }}
                     />
-                    <div className="bg-slate-100 flex px-4 items-center border-l border-slate-200 shrink-0">
-                      <span className="text-[10px] font-black text-red-600">KM</span>
+                    <div className="flex items-center shrink-0" style={{ borderLeft: '1px solid var(--border-glass)' }}>
+                      {['KM', 'MI'].map(u => (
+                        <button
+                          key={u}
+                          type="button"
+                          onClick={() => setMileageUnit(u)}
+                          className={`px-3 py-3 text-[10px] font-black transition-all ${mileageUnit === u ? 'text-red-600' : ''}`}
+                          style={mileageUnit !== u ? { color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-tertiary)' } : { backgroundColor: 'var(--bg-tertiary)' }}
+                        >{u}</button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
-                    <FormInput label="Chasis / VIN" name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                    <FormInput label={t('field_vin_chassis')} name="vin" value={formData.vin || formData.chassis} onChange={handleChange} className="font-mono text-xs tracking-wider" />
                   </div>
                   <div className="col-span-1 text-[10px]">
-                    <FormInput label="Placa" name="plate" value={formData.plate || formData.placa} onChange={handleChange} className="font-mono text-xs tracking-wider" />
+                    <FormInput label={t('field_plate')} name="plate" value={formData.plate || formData.placa} onChange={handleChange} className="font-mono text-xs tracking-wider" />
                   </div>
                 </div>
               </div>
 
               {/* COL 2: MECÁNICA GENERAL */}
               <div className="space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-widest border-b pb-2 flex items-center gap-2" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-glass)' }}>
                   <Settings size={14} /> Mecánica
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Clean Carfax" name="clean_carfax" value={formData.clean_carfax} onChange={handleChange} options={['-', 'Sí', 'No']} />
-                  <Select label="Tipo de Vehículo" name="type" value={formData.type || formData.tipo_vehiculo} onChange={handleChange} options={['-', 'Automóvil', 'Jeepeta', 'Camioneta', 'Moto', 'Camión', 'Bus', 'Vehículos Pesados']} />
+                  <Select
+                    label={t('field_clean_carfax')}
+                    name="clean_carfax"
+                    value={formData.clean_carfax}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Sí', label: t('yes') },
+                      { value: 'No', label: t('no') }
+                    ]}
+                  />
+                  <Select
+                    label={t('field_vehicle_type')}
+                    name="type"
+                    value={formData.type || formData.tipo_vehiculo}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Automóvil', label: t('option_sedan') },
+                      { value: 'Jeepeta', label: t('option_jeepeta') },
+                      { value: 'Camioneta', label: t('option_truck') },
+                      { value: 'Moto', label: t('option_motorcycle') },
+                      { value: 'Camión', label: t('option_cargo') },
+                      { value: 'Bus', label: t('option_bus') },
+                      { value: 'Vehículos Pesados', label: t('option_heavy') }
+                    ]}
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Transmisión" name="transmission" value={formData.transmission} onChange={handleChange} options={['-', 'Automática', 'Manual', 'CVT', 'Tiptronic', 'DSG']} />
-                  <Select label="Tracción" name="traction" value={formData.traction} onChange={handleChange} options={['-', 'FWD', 'RWD', 'AWD', '4x4']} />
+                  <Select
+                    label={t('transmission').toUpperCase()}
+                    name="transmission"
+                    value={formData.transmission}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Automática', label: t('option_automatic') },
+                      { value: 'Manual', label: t('option_manual') },
+                      { value: 'CVT', label: t('option_cvt') },
+                      { value: 'Tiptronic', label: t('option_tiptronic') },
+                      { value: 'DSG', label: t('option_dsg') }
+                    ]}
+                  />
+                  <Select label={t('field_traction')} name="traction" value={formData.traction} onChange={handleChange} options={['-', 'FWD', 'RWD', 'AWD', '4x4']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select label="Combustible" name="fuel" value={formData.fuel} onChange={handleChange} options={['-', 'Gasolina', 'Diesel', 'Híbrido', 'Eléctrico', 'GLP']} />
+                  <Select
+                    label={t('fuel').toUpperCase()}
+                    name="fuel"
+                    value={formData.fuel}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Gasolina', label: t('option_gasoline') },
+                      { value: 'Diesel', label: t('option_diesel') },
+                      { value: 'Híbrido', label: t('option_hybrid') },
+                      { value: 'Eléctrico', label: t('option_electric') },
+                      { value: 'GLP', label: t('option_lpg') }
+                    ]}
+                  />
                   <Select label="Motor" name="engine_type" value={formData.engine_type} onChange={handleChange} options={['-', 'Normal', 'Turbo', 'Supercharged', 'Híbrido', 'Eléctrico']} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1307,26 +1348,99 @@ export default function VehicleEditView({
 
               {/* COL 4: CONFORT & EXTRAS */}
               <div className="space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase tracking-widest border-b pb-2 flex items-center gap-2" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-glass)' }}>
                   <CheckCircle size={14} /> Confort y Extras
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Interior" name="seat_material" value={formData.seat_material} onChange={handleChange} options={['-', 'Piel', 'Tela', 'Alcántara']} />
-                  <Select label="Techo" name="roof_type" value={formData.roof_type} onChange={handleChange} options={['-', 'Normal', 'Sunroof', 'Panorámico']} />
+                  <Select
+                    label={t('field_interior')}
+                    name="seat_material"
+                    value={formData.seat_material}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Piel', label: t('option_leather') },
+                      { value: 'Tela', label: t('option_fabric') },
+                      { value: 'Alcántara', label: t('option_suede') }
+                    ]}
+                  />
+                  <Select
+                    label={t('field_roof')}
+                    name="roof_type"
+                    value={formData.roof_type}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Normal', label: t('option_normal') },
+                      { value: 'Sunroof', label: t('option_sunroof') },
+                      { value: 'Panorámico', label: t('option_panoramic') }
+                    ]}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="CarPlay" name="carplay" value={formData.carplay} onChange={handleChange} options={['-', 'Sí', 'No']} />
-                  <Select label="Cámara" name="camera" value={formData.camera} onChange={handleChange} options={['-', 'No', 'Reversa', '360°']} />
+                  <Select
+                    label={t('field_carplay')}
+                    name="carplay"
+                    value={formData.carplay}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Sí', label: t('yes') },
+                      { value: 'No', label: t('no') }
+                    ]}
+                  />
+                  <Select
+                    label={t('field_camera')}
+                    name="camera"
+                    value={formData.camera}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'No', label: t('no') },
+                      { value: 'Reversa', label: t('option_reverse') },
+                      { value: '360°', label: t('option_360') }
+                    ]}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Sensores" name="sensors" value={formData.sensors} onChange={handleChange} options={['-', 'Sí', 'No']} />
-                  <Select label="Baúl Eléctrico" name="trunk" value={formData.trunk} onChange={handleChange} options={['-', 'No', 'Sí']} />
+                  <Select
+                    label={t('field_sensors')}
+                    name="sensors"
+                    value={formData.sensors}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Sí', label: t('yes') },
+                      { value: 'No', label: t('no') }
+                    ]}
+                  />
+                  <Select
+                    label={t('field_electric_trunk')}
+                    name="trunk"
+                    value={formData.trunk}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'No', label: t('no') },
+                      { value: 'Sí', label: t('yes') }
+                    ]}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Select label="Cristales Eléct." name="electric_windows" value={formData.electric_windows} onChange={handleChange} options={['-', 'Sí', 'No']} />
+                  <Select
+                    label={t('field_electric_windows')}
+                    name="electric_windows"
+                    value={formData.electric_windows}
+                    onChange={handleChange}
+                    options={[
+                      '-',
+                      { value: 'Sí', label: t('yes') },
+                      { value: 'No', label: t('no') }
+                    ]}
+                  />
                   <Select label="Llave" name="key_type" value={formData.key_type} onChange={handleChange} options={['-', 'Llave Normal', 'Push Button']} />
                 </div>
-                <Select label="Filas de Asientos" name="seats" value={formData.seats} onChange={handleChange} options={['-', '2', '3', '4', '5']} />
+                <Select label={t('field_seat_rows')} name="seats" value={formData.seats} onChange={handleChange} options={['-', '2', '3', '4', '5']} />
               </div>
 
             </div>
@@ -1350,20 +1464,20 @@ export default function VehicleEditView({
 
       {isLightboxOpen && (
         <div
-          className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden"
+          className="fixed inset-0 z-[100] bg-white/95 dark:bg-[#0D0F14]/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300 overflow-hidden"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onSwipeEnd}
         >
           {/* HEADER - ABSOLUTE TO NOT PUSH CONTENT DOWN INCORRECTLY */}
           <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-4 sm:p-8 z-50 pointer-events-none">
-            <div className="text-slate-900 pointers-events-auto">
+            <div className="text-slate-900 dark:text-white pointers-events-auto">
               <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter text-red-600 line-clamp-1 drop-shadow-sm">{formData.make} {formData.model}</h4>
-              <p className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
+              <p className="text-slate-500 dark:text-white/50 text-[10px] sm:text-xs font-bold uppercase tracking-widest mt-0.5 sm:mt-1">Foto {activePhotoIndex + 1} de {formData.images.length}</p>
             </div>
             <button
               onClick={() => setIsLightboxOpen(false)}
-              className="p-3 sm:p-4 rounded-full bg-slate-100/80 text-slate-500 hover:bg-slate-100 hover:text-red-600 transition-all shadow-sm pointer-events-auto"
+              className="p-3 sm:p-4 rounded-full bg-slate-100/80 dark:bg-white/10 text-slate-500 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/20 hover:text-red-600 transition-all shadow-sm pointer-events-auto"
             >
               <X size={24} className="sm:w-[32px] sm:h-[32px]" />
             </button>
@@ -1378,10 +1492,10 @@ export default function VehicleEditView({
 
             {/* NAV CONTROLS FLOATING */}
             <div className="hidden sm:flex absolute inset-x-4 sm:inset-x-10 top-1/2 -translate-y-1/2 justify-between pointer-events-none">
-              <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
+              <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white dark:bg-white/10 text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 dark:border-white/10 flex items-center justify-center pointer-events-auto">
                 <ChevronLeft size={24} className="sm:w-8 sm:h-8" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 flex items-center justify-center pointer-events-auto">
+              <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="p-3 sm:p-4 rounded-full bg-white dark:bg-white/10 text-red-600 hover:scale-110 transition-all shadow-2xl border border-red-100 dark:border-white/10 flex items-center justify-center pointer-events-auto">
                 <ChevronRight size={24} className="sm:w-8 sm:h-8" />
               </button>
             </div>

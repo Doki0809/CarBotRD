@@ -22,6 +22,7 @@ import {
 } from 'firebase/firestore';
 
 import confetti from 'canvas-confetti';
+import { sileo, Toaster } from 'sileo';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import {
@@ -37,6 +38,10 @@ import VehicleEditView from './VehicleEditView';
 import ContactsView from './ContactsView';
 import ConversationsView from './ConversationsView';
 import { generarContratoEnGHL } from './ghl_integration/ghlService';
+import { requestNotificationPermission, onForegroundMessage, sendDealerNotification } from './notifications';
+import { useI18n } from './i18n/I18nContext.jsx';
+import { useTheme } from './ThemeContext.jsx';
+import { useCurrency, CURRENCIES, CURRENCY_CODES } from './CurrencyContext.jsx';
 
 // Importar html2pdf.js de forma dinámica para evitar problemas de SSR si fuera necesario, 
 // o directamente ya que es una SPA de Vite.
@@ -119,23 +124,23 @@ export const SHARED_QUILL_STYLES = `
 
 // --- UI KIT ---
 const Button = ({ children, variant = 'primary', className = '', icon: Icon, onClick, ...props }) => {
-  const variants = {
-    primary: 'bg-red-600 text-white hover:bg-red-500 shadow-glow-red-sm hover:shadow-glow-red',
-    secondary: 'bg-glass text-white/80 border border-glass-border hover:border-glass-border-hover hover:bg-glass-light backdrop-blur-xl',
-    ghost: 'bg-transparent text-white/50 hover:bg-white/5 hover:text-white/80',
-    danger: 'bg-red-600/10 text-red-400 hover:bg-red-600/20 border border-red-600/20',
-  };
-
   const hasManualBg = className.includes('bg-');
   const hasManualText = className.includes('text-');
 
-  const baseClasses = `px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-500 ease-[0.23,1,0.32,1] flex items-center justify-center gap-2 active:scale-95 active:brightness-90 hover:scale-[1.02] hover:shadow-apple-xl hover:brightness-105`;
-  const variantClasses = variants[variant] || variants.primary;
+  const baseClasses = `px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-500 ease-[0.23,1,0.32,1] flex items-center justify-center gap-2 active:scale-95 active:brightness-90 hover:scale-[1.02] hover:brightness-105`;
+
+  const variantStyles = {
+    primary: { background: 'var(--accent)', color: '#fff', boxShadow: 'var(--accent-glow)' },
+    secondary: { background: 'var(--bg-glass)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)', backdropFilter: 'blur(24px)' },
+    ghost: { background: 'transparent', color: 'var(--text-secondary)' },
+    danger: { background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--border-glass)' },
+  };
 
   return (
     <button
       onClick={onClick}
-      className={`${baseClasses} ${!hasManualBg && !hasManualText ? variantClasses : ''} ${className}`}
+      className={`${baseClasses} ${className}`}
+      style={!hasManualBg && !hasManualText ? (variantStyles[variant] || variantStyles.primary) : undefined}
       {...props}
     >
       {Icon && <Icon size={18} className="transition-transform group-hover:rotate-12" />}
@@ -145,19 +150,16 @@ const Button = ({ children, variant = 'primary', className = '', icon: Icon, onC
 };
 
 const Card = ({ children, className = '', noPadding = false }) => {
-  const hasBg = className.includes('bg-');
+  const hasCustomBg = className.includes('glass-card') || className.includes('theme-card') || className.includes('banner-gradient') || className.includes('bg-');
   return (
     <div className={`
-      ${!hasBg ? 'bg-white' : ''} 
-      rounded-[2.5rem] 
-      border border-slate-100/50 
-      shadow-apple-xl 
-      hover:shadow-apple-hover 
-      hover:-translate-y-1 
-      transition-all 
-      duration-700 
-      ease-[0.23,1,0.32,1] 
-      ${noPadding ? '' : 'p-6'} 
+      rounded-[2.5rem]
+      hover:-translate-y-1
+      transition-all
+      duration-700
+      ease-[0.23,1,0.32,1]
+      ${noPadding ? '' : 'p-6'}
+      ${!hasCustomBg ? 'glass-card' : ''}
       ${className}
     `}>
       {children}
@@ -166,6 +168,7 @@ const Card = ({ children, className = '', noPadding = false }) => {
 };
 
 const Badge = ({ status }) => {
+  const { t } = useI18n();
   const styles = {
     available: "bg-gradient-to-br from-red-500 to-rose-700 text-white px-3 py-1 font-black shadow-[0_0_12px_rgba(225,29,72,0.35)] border-red-400/30 uppercase tracking-tighter ring-1 ring-white/10",
     quoted: "bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1 font-black shadow-[0_0_15px_rgba(245,158,11,0.25)] border-amber-400/50 uppercase tracking-tighter ring-1 ring-white/20",
@@ -175,12 +178,12 @@ const Badge = ({ status }) => {
     signed: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white px-3 py-1 font-black shadow-[0_0_12px_rgba(59,130,246,0.3)] border-blue-400/30 uppercase tracking-tighter ring-1 ring-white/10",
   };
   const labels = {
-    available: "Disponible",
-    quoted: "Cotizado",
-    sold: "Vendido",
-    upcoming: "Próximamente",
-    pending: "Pendiente Firma",
-    signed: "Firmado"
+    available: t('status_available'),
+    quoted: t('status_quoted'),
+    sold: t('status_sold'),
+    upcoming: t('status_upcoming'),
+    pending: t('status_pendingSignature'),
+    signed: t('status_signed')
   };
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || styles.sold}`}>
@@ -192,19 +195,16 @@ const Badge = ({ status }) => {
 const Input = ({ label, className = "", type = "text", error, ...props }) => (
   <div className="mb-4 group text-left transition-all duration-300">
     {label && (
-      <label className={`block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-all duration-300 ${error ? 'text-red-500' : 'text-slate-400 group-focus-within:text-red-500 group-focus-within:translate-x-1'}`}>
+      <label className="block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-all duration-300" style={{ color: error ? 'var(--accent)' : 'var(--text-secondary)' }}>
         {label}
       </label>
     )}
     <input
       type={type}
-      className={`w-full relative items-stretch shadow-sm rounded-xl px-4 py-3 border outline-none focus:ring-4 focus:ring-red-500/10 bg-white font-bold text-slate-800 text-sm placeholder:text-slate-300 transition-all duration-300 hover:border-slate-300 hover:shadow-md ${error
-        ? 'border-red-500 focus:border-red-600 bg-red-50'
-        : 'border-slate-200 focus:border-red-500'
-        } ${className}`}
+      className={`glass-input w-full shadow-sm px-4 py-3 font-bold text-sm transition-all duration-300 hover:shadow-md ${error ? 'ring-2 ring-red-500/20' : ''} ${className}`}
       {...props}
     />
-    {error && <span className="text-[10px] font-bold text-red-500 ml-1 mt-1 block animate-slide-in-right">{error}</span>}
+    {error && <span className="text-[10px] font-bold ml-1 mt-1 block animate-slide-in-right" style={{ color: 'var(--accent)' }}>{error}</span>}
   </div>
 );
 
@@ -241,22 +241,21 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
 
   return (
     <div className="mb-4 group relative text-left" ref={dropdownRef}>
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors group-focus-within:text-red-500">
+      <label className="block text-[10px] font-black uppercase tracking-[0.2em] mb-1.5 ml-1 transition-colors" style={{ color: 'var(--text-secondary)' }}>
         {label}
       </label>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 shadow-sm rounded-xl font-bold text-sm text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 ${isOpen ? 'ring-2 ring-red-500/20 border-red-500' : 'hover:border-slate-300'
-          } ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
+        className={`glass-input w-full flex items-center justify-between px-4 py-3 font-bold text-sm transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span className="truncate">{displayLabel}</span>
-        <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-red-500' : ''}`} />
+        <ChevronDown size={16} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} style={{ color: isOpen ? 'var(--accent)' : 'var(--text-tertiary)' }} />
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 mt-2 p-2 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 z-[110] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute left-0 right-0 mt-2 p-2 rounded-2xl z-[110] animate-in fade-in zoom-in-95 duration-200" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)', boxShadow: 'var(--shadow-modal)', backdropFilter: 'blur(40px)' }}>
           <div className="max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-1">
             {options.map((opt, i) => {
               const isObj = typeof opt === 'object' && opt !== null;
@@ -268,14 +267,11 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
                   key={i}
                   type="button"
                   onClick={() => handleSelect(optionValue)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-between
-                    ${isSelected
-                      ? 'bg-red-50 text-red-600'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                  className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-between"
+                  style={isSelected ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : { color: 'var(--text-primary)' }}
                 >
                   {optionLabel}
-                  {isSelected && <Check size={16} className="text-red-600" />}
+                  {isSelected && <Check size={16} style={{ color: 'var(--accent)' }} />}
                 </button>
               );
             })}
@@ -288,15 +284,6 @@ const Select = ({ label, options = [], name, defaultValue, value, onChange, disa
   );
 };
 
-const Toast = ({ message, type = 'success', onClose }) => {
-  useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
-  return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 rounded-2xl shadow-glass-lg backdrop-blur-2xl border border-glass-border transform transition-all duration-500 animate-fade-in ${type === 'success' ? 'bg-red-600/90 text-white' : 'bg-surface/90 text-white border-red-600/30'}`}>
-      <CheckCircle size={20} className="mr-3" />
-      <span className="font-medium tracking-wide">{message}</span>
-    </div>
-  );
-};
 
 const AppLogo = ({ className, size = 32, invert = false }) => {
   const [hasError, setHasError] = useState(false);
@@ -307,30 +294,31 @@ const AppLogo = ({ className, size = 32, invert = false }) => {
 // --- MODALES ---
 
 const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
+  const { t } = useI18n();
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/20 transition-opacity duration-300">
+    <div className="theme-overlay fixed inset-0 z-[110] flex items-center justify-center p-4 transition-opacity duration-300">
       <div className="w-[95%] max-w-sm animate-in zoom-in-95 duration-200">
-        <Card className="rounded-[32px] bg-white border-0 shadow-2xl overflow-hidden p-2">
+        <Card className="glass-card rounded-[32px] border-0 overflow-hidden p-2" style={{ boxShadow: 'var(--shadow-modal)' }}>
           <div className="flex justify-between items-center mb-4 mt-2 px-4">
-            <h3 className="text-xl font-black tracking-tight text-slate-800 text-center w-full ml-6">Herramientas & Enlaces</h3>
-            <button onClick={onClose} className="p-1"><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
+            <h3 className="text-xl font-black tracking-tight text-center w-full ml-6 font-display" style={{ color: 'var(--text-primary)' }}>{t('tools_links')}</h3>
+            <button onClick={onClose} className="p-1"><X size={20} style={{ color: 'var(--text-tertiary)' }} className="hover:text-red-500 transition-colors" /></button>
           </div>
           <div className="grid gap-4 px-2 pb-4">
             <button onClick={() => onSelect('quote')} className="flex flex-col items-center justify-center p-6 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
               <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-100 transition-colors"></div>
               <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10"><Send size={24} /></div>
               <div className="mt-4 text-center relative z-10">
-                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Cotización</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Enviar ficha técnica y precio</p>
+                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">{t('quotes')}</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('send_tech_sheet')}</p>
               </div>
             </button>
             <button onClick={() => onSelect('contract')} className="flex flex-col items-center justify-center p-6 rounded-2xl border border-slate-100 bg-white hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 transition-all group overflow-hidden relative">
               <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-100 transition-colors"></div>
               <div className="p-4 bg-red-600 rounded-xl text-white shadow-lg shadow-red-600/30 group-hover:scale-110 transition-transform relative z-10"><FilePlus size={24} /></div>
               <div className="mt-4 text-center relative z-10">
-                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">Contrato</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Generar documento legal</p>
+                <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-red-700">{t('contracts')}</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('generate_legal_doc')}</p>
               </div>
             </button>
           </div>
@@ -341,12 +329,15 @@ const ActionSelectionModal = ({ isOpen, onClose, onSelect }) => {
 };
 
 const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile }) => {
+  const { t } = useI18n();
+  const { selected: selectedCurrencies, getSymbol } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [photos, setPhotos] = useState([]);
   const [currency, setCurrency] = useState('USD');
   const [downPaymentCurrency, setDownPaymentCurrency] = useState('USD');
   const [mileageUnit, setMileageUnit] = useState(initialData?.mileage_unit || 'KM');
+  const [mileageValue, setMileageValue] = useState(String(initialData?.mileage ?? ''));
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [status, setStatus] = useState(initialData?.status || 'available');
 
@@ -370,6 +361,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
       setCurrency(initialData.currency || (initialData.price_dop && !initialData.price ? 'DOP' : 'USD'));
       setDownPaymentCurrency(initialData.downPaymentCurrency || (initialData.initial_payment_dop && !initialData.initial_payment ? 'DOP' : 'USD'));
       setMileageUnit(initialData.mileage_unit || 'MI');
+      setMileageValue(String(initialData.mileage ?? ''));
       setPrices({
         price: initialData.price_dop > 0 ? initialData.price_dop.toString() : (initialData.price?.toString() || ''),
         initial: initialData.initial_payment_dop > 0 ? initialData.initial_payment_dop.toString() : (initialData.initial_payment?.toString() || '')
@@ -525,7 +517,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     delete data.initial_unified;
 
     // --- MILLAJE ---
-    data.mileage = Number(data.mileage);
+    data.mileage = Number(mileageValue);
     data.mileage_unit = mileageUnit;
 
     // --- DATA CLEANUP ---
@@ -656,31 +648,26 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                     <input
                       name="mileage"
                       id="mileage"
-                      value={formatWithCommas(initialData?.mileage) || ''}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatWithCommas(mileageValue)}
                       onChange={(e) => {
-                        const rawValue = e.target.value.replace(/,/g, '');
-                        if (!isNaN(rawValue) || rawValue === '') {
-                          // Manually update the DOM input value to trigger standard form collection properly
-                          // Alternatively, relies on standard FormData extraction in handleSave wrapper
-                          // But to keep it controlled, let's just format the display without overriding
-                        }
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        setMileageValue(raw);
                       }}
-                      onInput={(e) => {
-                        // Apply formatting while typing, but keep the raw value in data attribute if needed
-                        // For simplicity, just format the visible value.
-                        const rawValue = e.target.value.replace(/,/g, '');
-                        if (!isNaN(rawValue) || rawValue === '') {
-                          e.target.value = formatWithCommas(rawValue);
-                          e.target.setAttribute('data-raw-value', rawValue);
-                        } else {
-                          e.target.value = e.target.value.replace(/[^0-9,]/g, '');
-                        }
-                      }}
-                      className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none placeholder:text-slate-300 text-slate-800 font-bold text-sm"
+                      className="w-full px-4 py-3 bg-transparent text-slate-900 font-bold text-sm outline-none placeholder:text-slate-300"
                       disabled={isLocked}
                     />
-                    <div className="bg-slate-50 flex px-4 items-center border-l border-slate-200 shrink-0">
-                      <span className="text-[10px] font-black text-red-600">KM</span>
+                    <div className="bg-slate-50 flex items-center border-l border-slate-200 shrink-0">
+                      {['KM', 'MI'].map(u => (
+                        <button
+                          key={u}
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => setMileageUnit(u)}
+                          className={`px-3 py-3 text-[10px] font-black transition-all ${mileageUnit === u ? 'text-red-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >{u}</button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -791,7 +778,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                     />
                     <div className="bg-slate-50 flex p-1 items-center border-l border-slate-200 shrink-0">
                       <div className="flex p-0.5 rounded-lg bg-slate-200/50">
-                        {['USD', 'DOP'].map((c) => (
+                        {selectedCurrencies.map((c) => (
                           <button
                             key={c}
                             type="button"
@@ -799,7 +786,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                             onClick={() => setCurrency(c)}
                             className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${currency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
                           >
-                            {c === 'USD' ? 'US$' : 'RD$'}
+                            {getSymbol(c)}
                           </button>
                         ))}
                       </div>
@@ -821,7 +808,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                     />
                     <div className="bg-slate-50 flex p-1 items-center border-l border-slate-200 shrink-0">
                       <div className="flex p-0.5 rounded-lg bg-slate-200/50">
-                        {['USD', 'DOP'].map((c) => (
+                        {selectedCurrencies.map((c) => (
                           <button
                             key={c}
                             type="button"
@@ -829,7 +816,7 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
                             onClick={() => setDownPaymentCurrency(c)}
                             className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${downPaymentCurrency === c ? 'bg-white text-red-600 shadow-sm' : 'text-slate-400 hover:text-slate-600 border border-transparent'}`}
                           >
-                            {c === 'USD' ? 'US$' : 'RD$'}
+                            {getSymbol(c)}
                           </button>
                         ))}
                       </div>
@@ -1085,6 +1072,8 @@ const QuoteModal = ({ isOpen, onClose, vehicle, onConfirm, userProfile, template
 };
 
 const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = [], showToast, initialData }) => {
+  const { t } = useI18n();
+  const { selected: selectedCurrencies, getSymbol } = useCurrency();
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [name, setName] = useState('');
   const [lastname, setLastname] = useState('');
@@ -1149,26 +1138,26 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
 
     // VALIDACIÓN MANUAL EXPLICITA
     if (!selectedVehicleId) {
-      if (showToast) showToast("Por favor selecciona un vehículo", "error");
+      if (showToast) showToast(t('toast_error_select_vehicle'), "error");
       return;
     }
     if (!name || !lastname) {
-      if (showToast) showToast("Nombre y Apellido son obligatorios", "error");
+      if (showToast) showToast(t('toast_error_required_name'), "error");
       return;
     }
     if (!phone) {
-      if (showToast) showToast("El teléfono es obligatorio", "error");
+      if (showToast) showToast(t('toast_error_required_phone'), "error");
       return;
     }
     if (!price || price <= 0) {
-      if (showToast) showToast("El precio es obligatorio", "error");
+      if (showToast) showToast(t('toast_error_required_price'), "error");
       return;
     }
 
     setLoading(true);
     const vehicle = inventory.find(v => String(v.id) === String(selectedVehicleId));
     if (!vehicle) {
-      if (showToast) showToast("Vehículo no encontrado en inventario", "error");
+      if (showToast) showToast(t('toast_error_vehicle_not_found'), "error");
       setLoading(false);
       return;
     }
@@ -1273,7 +1262,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
             </div>
 
             <Button onClick={onClose} className="w-full max-w-sm bg-slate-900 hover:bg-black text-white font-black py-5 px-8 text-sm rounded-[20px] shadow-xl uppercase tracking-widest border-none">
-              Cerrar Ventana
+              {t('close_window')}
             </Button>
           </div>
         )}
@@ -1282,7 +1271,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-slate-800 flex items-center">
               <div className="p-2 bg-red-50 rounded-lg mr-3"><Send size={20} className="text-red-600" /></div>
-              Nueva Cotización Manual
+              {t('manual_quote')}
             </h3>
             <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-red-500 transition-colors" /></button>
           </div>
@@ -1371,14 +1360,22 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1 ml-1">Precio Final de Venta</label>
                     <div className="flex items-stretch rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 bg-white shadow-sm">
                       <input type="text" value={price ? Number(price).toLocaleString() : ''} onChange={(e) => setPrice(e.target.value.replace(/,/g, ''))} className="flex-1 min-w-0 px-3 py-2.5 bg-transparent focus:outline-none font-bold text-slate-800 text-sm" placeholder="850,000" />
-                      <button type="button" onClick={() => setPriceCurrency(p => p === 'USD' ? 'DOP' : 'USD')} className="bg-slate-50 hover:bg-slate-100 flex items-center px-3 border-l border-slate-200 text-[10px] font-black text-slate-500 cursor-pointer transition-colors">{priceCurrency === 'USD' ? 'US$' : 'RD$'}</button>
+                      <div className="bg-slate-50 flex items-center border-l border-slate-200 shrink-0">
+                        {CURRENCY_CODES.map(c => (
+                          <button key={c} type="button" onClick={() => setPriceCurrency(c)} className={`px-3 py-2.5 text-[10px] font-black transition-colors ${priceCurrency === c ? 'text-red-600' : 'text-slate-400 hover:text-slate-600'}`}>{getSymbol(c)}</button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-col">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1 ml-1">Inicial / Avance</label>
                     <div className="flex items-stretch rounded-xl overflow-hidden border border-gray-200 focus-within:ring-2 focus-within:ring-red-500/20 focus-within:border-red-500 bg-white shadow-sm">
                       <input type="text" value={inicial ? Number(inicial).toLocaleString() : ''} onChange={(e) => setInicial(e.target.value.replace(/,/g, ''))} className="flex-1 min-w-0 px-3 py-2.5 bg-transparent focus:outline-none font-bold text-slate-800 text-sm" placeholder="100,000" />
-                      <button type="button" onClick={() => setInicialCurrency(p => p === 'USD' ? 'DOP' : 'USD')} className="bg-slate-50 hover:bg-slate-100 flex items-center px-3 border-l border-slate-200 text-[10px] font-black text-slate-500 cursor-pointer transition-colors">{inicialCurrency === 'USD' ? 'US$' : 'RD$'}</button>
+                      <div className="bg-slate-50 flex items-center border-l border-slate-200 shrink-0">
+                        {CURRENCY_CODES.map(c => (
+                          <button key={c} type="button" onClick={() => setInicialCurrency(c)} className={`px-3 py-2.5 text-[10px] font-black transition-colors ${inicialCurrency === c ? 'text-red-600' : 'text-slate-400 hover:text-slate-600'}`}>{getSymbol(c)}</button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1388,7 +1385,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               <Button variant="ghost" onClick={onClose} type="button">Cancelar</Button>
               <Button type="button" onClick={handleSubmit} disabled={loading} className="bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200">
-                {loading ? 'Guardando...' : 'Guardar Cotización'}
+                {loading ? t('saving') : t('save_quote')}
               </Button>
             </div>
           </div>
@@ -1399,6 +1396,8 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
 };
 
 const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templates = [], initialVehicle, showToast, userProfile, initialDocumentType = 'contrato', resolvedDealerId, ghlContacts = [] }) => {
+  const { t } = useI18n();
+  const { selected: selectedCurrencies, getSymbol } = useCurrency();
   const [selectedTemplates, setSelectedTemplates] = useState([]); // Ahora es array
   const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle ? initialVehicle.vehicleId || initialVehicle.id : '');
   const [clientName, setClientName] = useState('');
@@ -1660,15 +1659,15 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
     setSubmitted(true);
     // VALIDACIÓN MANUAL EXPLICITA
     if (!selectedVehicleId) {
-      showToast("Por favor selecciona un vehículo", "error");
+      showToast(t('toast_error_select_vehicle'), "error");
       return;
     }
     if (selectedTemplates.length === 0) {
-      showToast("Selecciona al menos un documento para generar", "error");
+      showToast(t('toast_error_select_documents'), "error");
       return;
     }
     if (!clientName || !clientLastName || !clientCedula || !clientPhone || !clientEmail || !finalPrice || finalPrice <= 0) {
-      showToast("Por favor completa los campos marcados en rojo", "error");
+      showToast(t('toast_error_complete_fields'), "error");
       return;
     }
 
@@ -1775,7 +1774,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/20 transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200 relative">
         {/* LOADING OVERLAY — Estilo Premium */}
         {loading && (
@@ -1884,13 +1883,13 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                 }}
                 className="bg-slate-900 hover:bg-black text-white font-black py-5 px-8 text-sm rounded-[20px] shadow-xl shadow-slate-900/10 transition-all hover:scale-105 active:scale-95 flex-1 uppercase tracking-widest border-none"
               >
-                Cerrar Ventana
+                {t('close_window')}
               </Button>
             </div>
           </div>
         )}
 
-        <Card className="h-full sm:h-auto sm:max-h-[95vh] overflow-y-auto rounded-none sm:rounded-[32px] bg-white border-none shadow-2xl p-0">
+        <Card className="h-full sm:h-auto sm:max-h-[95vh] overflow-y-auto rounded-none sm:rounded-[32px] border-none shadow-2xl p-0" style={{ backgroundColor: 'var(--bg-elevated)' }}>
           <div className="p-8 sm:p-10">
             {/* Elegant Header */}
             <div className="flex justify-between items-start mb-10">
@@ -1900,7 +1899,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                     <AppLogo size={initialVehicle ? 48 : 32} invert={!initialVehicle} className="relative z-10" />
                   </div>
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none uppercase">
-                    Generar Documentos
+                    {t('generate_docs')}
                   </h3>
                 </div>
                 <p className="text-slate-400 font-bold text-sm ml-1 uppercase">
@@ -2078,7 +2077,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                     <input
                       type="text"
                       placeholder="Buscar contacto existente..."
-                      className="w-full pl-9 pr-9 py-2.5 text-sm font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 transition-all placeholder:text-slate-400"
+                      className="glass-input w-full pl-9 pr-9 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-400/30 focus:border-red-300 transition-all"
                       onChange={e => searchContacts(e.target.value)}
                       onFocus={e => { if (e.target.value.trim().length >= 2) searchContacts(e.target.value); }}
                     />
@@ -2087,7 +2086,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                     )}
                   </div>
                   {showSuggestions && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="absolute z-50 w-full mt-1 rounded-2xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }}>
                       {contactSuggestions.map((c, i) => {
                         const fn = (s) => (s || '').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
                         const fullName = `${fn(c.firstName)} ${fn(c.lastName)}`.trim();
@@ -2097,14 +2096,15 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                             key={c.id || i}
                             type="button"
                             onClick={() => applyContact(c)}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0"
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:opacity-80 transition-colors text-left last:border-0"
+                            style={{ borderBottom: '1px solid var(--divider)' }}
                           >
                             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
                               {(c.firstName || '?').charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-900 truncate">{fullName || 'Sin nombre'}</p>
-                              <p className="text-xs text-slate-400 font-medium truncate">{c.phone || c.email || ''}</p>
+                              <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{fullName || 'Sin nombre'}</p>
+                              <p className="text-xs font-medium truncate" style={{ color: 'var(--text-tertiary)' }}>{c.phone || c.email || ''}</p>
                             </div>
                             {tags.length > 0 && (
                               <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 flex-shrink-0">
@@ -2204,7 +2204,11 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                           />
                           <button
                             type="button"
-                            onClick={() => setPriceCurrency(p => p === 'USD' ? 'DOP' : 'USD')}
+                            onClick={() => {
+                              const idx = CURRENCY_CODES.indexOf(priceCurrency);
+                              const next = CURRENCY_CODES[(idx + 1) % CURRENCY_CODES.length];
+                              setPriceCurrency(next);
+                            }}
                             className="px-5 text-[10px] font-black bg-red-600 text-white border-l border-red-700 transition-colors uppercase hover:bg-red-700 shadow-inner"
                           >
                             {priceCurrency}
@@ -2225,7 +2229,11 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                           />
                           <button
                             type="button"
-                            onClick={() => setInicialCurrency(p => p === 'USD' ? 'DOP' : 'USD')}
+                            onClick={() => {
+                              const idx = CURRENCY_CODES.indexOf(inicialCurrency);
+                              const next = CURRENCY_CODES[(idx + 1) % CURRENCY_CODES.length];
+                              setInicialCurrency(next);
+                            }}
                             className="px-5 text-[10px] font-black bg-red-600 text-white border-l border-red-700 transition-colors uppercase hover:bg-red-700 shadow-inner"
                           >
                             {inicialCurrency}
@@ -2261,17 +2269,21 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                         key={template.id}
                         onClick={() => toggleTemplate(template.id)}
                         className={`group cursor-pointer p-5 rounded-3xl border-2 transition-all duration-300 relative flex flex-col gap-3 ${isSelected
-                          ? 'border-red-600 bg-red-50/50 shadow-xl shadow-red-600/5'
-                          : 'border-slate-100 bg-white hover:border-slate-200 hover:shadow-lg'
+                          ? 'border-red-600 shadow-xl shadow-red-600/5'
+                          : 'border-slate-100 hover:border-slate-200 hover:shadow-lg'
                           }`}
+                        style={isSelected
+                          ? { backgroundColor: 'rgba(227, 28, 37, 0.12)' }
+                          : { backgroundColor: 'var(--bg-elevated)' }
+                        }
                       >
                         <div className="flex justify-between items-start">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 scale-110' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${isSelected ? 'bg-red-600 text-white shadow-lg shadow-red-600/20 scale-110' : 'group-hover:opacity-80'}`} style={!isSelected ? { backgroundColor: 'var(--input-bg)', color: 'var(--text-tertiary)' } : {}}>
                             {isSelected ? <Check size={20} strokeWidth={3} /> : <FileText size={20} />}
                           </div>
                         </div>
                         <div className="flex-1">
-                          <h4 className={`font-black text-xs leading-tight uppercase tracking-tight ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
+                          <h4 className="font-black text-xs leading-tight uppercase tracking-tight" style={{ color: isSelected ? 'var(--accent)' : 'var(--text-secondary)' }}>
                             {template.name}
                           </h4>
                         </div>
@@ -2281,7 +2293,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                   {ghlTemplates.length === 0 && (
                     <div className="col-span-full py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-slate-400">
                       <Loader2 className="animate-spin mb-4" size={32} />
-                      <p className="text-xs font-black uppercase tracking-widest">OBTENIENDO PLANTILLAS DE CARBOTSYSTEM...</p>
+                      <p className="text-xs font-black uppercase tracking-widest">{t('getting_templates')}</p>
                     </div>
                   )}
                 </div>
@@ -2328,6 +2340,16 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 };
 
 // --- HELPER: RENDER CONTRACT WITH DATA ---
+// Helper for formatting currency in documents — supports DOP, USD, EUR, COP
+const fmtCurr = (amount, currency) => {
+  if (!amount) return '';
+  const val = Number(amount);
+  if (isNaN(val) || val === 0) return '';
+  const f = val.toLocaleString();
+  const map = { DOP: `RD$ ${f} Pesos`, USD: `US$ ${f} Dólares`, EUR: `€ ${f} Euros`, COP: `COP$ ${f} Pesos Colombianos` };
+  return map[currency] || `RD$ ${f}`;
+};
+
 const renderContract = (html, data) => {
   if (!html) return '';
   let content = html;
@@ -2362,8 +2384,8 @@ const renderContract = (html, data) => {
     'placa': data.placa || data.plate || '',
 
     // Finanzas
-    'precio': data.precio || `RD$ ${Number(data.price || 0).toLocaleString()}`,
-    'inicial': data.inicial || `RD$ ${Number(data.downPayment || 0).toLocaleString()}`,
+    'precio': data.precio || fmtCurr(data.price, data.priceCurrency || data.currency || 'DOP'),
+    'inicial': data.inicial || fmtCurr(data.downPayment, data.inicialCurrency || data.priceCurrency || data.currency || 'DOP'),
     'banco': data.banco || data.bank || '',
 
     // Detalles Extra
@@ -2634,9 +2656,9 @@ const generateContractHtml = (contract, userProfile, isPreview = false) => {
           </div>
 
           <h2 style="font-size: 16px; margin-top: 30px; border-bottom: 1px solid #000; padding-bottom: 5px; text-transform: uppercase;">SEGUNDO: PRECIO Y FORMA DE PAGO</h2>
-          <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.price || 0).toLocaleString()}</strong>, el cual se compromete a pagar de la siguiente manera:
+          <p style="margin-bottom: 15px; text-align: justify;">El precio total convenido para la presente venta es de <strong>${fmtCurr(contract.price, contract.priceCurrency || contract.currency || 'DOP')}</strong>, el cual se compromete a pagar de la siguiente manera:
             ${contract.downPayment && Number(contract.downPayment) > 0
-      ? `un pago inicial de <strong>${userProfile.currency === 'USD' ? 'US$' : 'RD$'} ${Number(contract.downPayment).toLocaleString()}</strong> y el balance restante mediante las condiciones acordadas.`
+      ? `un pago inicial de <strong>${fmtCurr(contract.downPayment, contract.inicialCurrency || contract.priceCurrency || contract.currency || 'DOP')}</strong> y el balance restante mediante las condiciones acordadas.`
       : `en un único pago al momento de la firma.`}
             El VENDEDOR declara haber recibido conforme a lo pactado, sirviendo el presente documento como carta de pago y descargo legal por los montos recibidos.
           </p>
@@ -2662,6 +2684,7 @@ const generateContractHtml = (contract, userProfile, isPreview = false) => {
       `;
 };
 
+// Helper for formatting currency in documents
 const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
   // If quote has templateContent, use it with variable replacements
   if (quote.templateContent) {
@@ -2690,8 +2713,8 @@ const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
       '{{ VEHICULO_PASAJEROS }}': quote.passengers || '',
 
       // Negocio
-      '{{ PRECIO_VENTA }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
-      '{{ MONTO_INICIAL }}': quote.initial ? `RD$ ${Number(quote.initial).toLocaleString()}` : '',
+      '{{ PRECIO_VENTA }}': quote.price ? fmtCurr(quote.price, quote.priceCurrency) : '',
+      '{{ MONTO_INICIAL }}': quote.initial ? fmtCurr(quote.initial, quote.inicialCurrency) : '',
       '{{ BANCO }}': quote.bank || '',
       '{{ FECHA_VENTA }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
       '{{ FECHA_COTIZACION }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -2701,7 +2724,7 @@ const generateQuoteHtml = (quote, userProfile, isPreview = false) => {
       // Legacy
       '{{ client }}': `${quote.name || ''} ${quote.lastname || ''}`.trim(),
       '{{ vehicle }}': quote.vehicle || '',
-      '{{ price }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
+      '{{ price }}': quote.price ? fmtCurr(quote.price, quote.priceCurrency) : '',
     };
 
     let content = quote.templateContent;
@@ -2992,8 +3015,8 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
         '{{ VEHICULO_PASAJEROS }}': quote.passengers || '',
 
         // Negocio
-        '{{ PRECIO_VENTA }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
-        '{{ MONTO_INICIAL }}': quote.initial ? `RD$ ${Number(quote.initial).toLocaleString()}` : '',
+        '{{ PRECIO_VENTA }}': quote.price ? fmtCurr(quote.price, quote.priceCurrency) : '',
+        '{{ MONTO_INICIAL }}': quote.initial ? fmtCurr(quote.initial, quote.inicialCurrency) : '',
         '{{ BANCO }}': quote.bank || '',
         '{{ FECHA_VENTA }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
         '{{ FECHA_COTIZACION }}': quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -3003,7 +3026,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
         // Legacy
         '{{ client }}': `${quote.name || ''} ${quote.lastname || ''}`.trim(),
         '{{ vehicle }}': quote.vehicle || '',
-        '{{ price }}': quote.price ? `RD$ ${Number(quote.price).toLocaleString()}` : '',
+        '{{ price }}': quote.price ? fmtCurr(quote.price, quote.priceCurrency) : '',
       };
 
       let content = quote.templateContent;
@@ -3267,6 +3290,7 @@ const QuotePreviewModal = ({ isOpen, onClose, quote, userProfile }) => {
 // --- VISTAS PRINCIPALES ---
 
 const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onRestoreDocument, onPermanentDeleteDocument, onEmptyTrash, userProfile }) => {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState('vehicles'); // 'vehicles' or 'documents'
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -3324,24 +3348,26 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Papelera de Reciclaje</h1>
-          <p className="text-slate-500 text-sm mt-1">Los ítems se eliminan permanentemente después de 15 días.</p>
+          <h1 className="text-3xl font-bold font-display" style={{ color: 'var(--text-primary)' }}>{t('trash_title')}</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Los ítems se eliminan permanentemente después de 15 días.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
           {/* Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex p-1 rounded-xl" style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
             <button
               onClick={() => setActiveTab('vehicles')}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${activeTab === 'vehicles' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} `}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all"
+              style={activeTab === 'vehicles' ? { background: 'var(--bg-elevated)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-xs)' } : { color: 'var(--text-secondary)' }}
             >
-              Vehículos ({trash.length})
+{t('nav_inventory')} ({trash.length})
             </button>
             <button
               onClick={() => setActiveTab('documents')}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${activeTab === 'documents' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'} `}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wide transition-all"
+              style={activeTab === 'documents' ? { background: 'var(--bg-elevated)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-xs)' } : { color: 'var(--text-secondary)' }}
             >
-              Documentos ({deletedDocuments.length})
+{t('documents')} ({deletedDocuments.length})
             </button>
           </div>
 
@@ -3353,20 +3379,21 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
                   setIsSelectionMode(!isSelectionMode);
                   setSelectedItems([]);
                 }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all ${isSelectionMode ? 'bg-slate-200 text-slate-800 border-slate-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all"
+                style={isSelectionMode ? { background: 'var(--bg-glass-heavy)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)' } : { background: 'var(--bg-glass)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
               >
-                {isSelectionMode ? 'Cancelar Selección' : 'Seleccionar Varios'}
+{isSelectionMode ? t('cancel_selection') : t('select_multiple')}
               </button>
             )}
 
             {activeList.length > 0 && activeTab === 'vehicles' && (
               <Button variant="danger" icon={Trash2} onClick={onEmptyTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none whitespace-nowrap">
-                Vaciar Vehículos
+                {t('empty_vehicles')}
               </Button>
             )}
             {activeList.length > 0 && activeTab === 'documents' && (
               <Button variant="danger" icon={Trash2} onClick={handleEmptyDocumentsTrash} className="bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 border-transparent shadow-none whitespace-nowrap">
-                Vaciar Documentos
+                {t('empty_documents')}
               </Button>
             )}
           </div>
@@ -3376,7 +3403,7 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
       {activeList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white rounded-xl border border-dashed border-gray-200">
           <Trash2 size={48} className="mb-4 text-slate-300" />
-          <p className="text-lg font-medium">No hay {activeTab === 'vehicles' ? 'vehículos' : 'documentos'} en la papelera.</p>
+          <p className="text-lg font-medium">{activeTab === 'vehicles' ? t('trash_no_vehicles') : t('trash_no_documents')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
@@ -3417,7 +3444,7 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
                     </div>
                     <div className="p-5 flex flex-col flex-1">
                       <h3 className="font-bold text-slate-800 text-lg line-through decoration-red-500/50">{item.make} {item.model}</h3>
-                      <p className="text-xs font-semibold text-red-400 mb-4">Eliminado: {item.deletedAt || item.detalles?._deleted_at ? new Date(item.deletedAt || item.detalles?._deleted_at).toLocaleDateString() : 'Hoy'}</p>
+                      <p className="text-xs font-semibold text-red-400 mb-4">{t('trash_deleted_on')} {item.deletedAt || item.detalles?._deleted_at ? new Date(item.deletedAt || item.detalles?._deleted_at).toLocaleDateString() : t('trash_unknown')}</p>
 
                       {!isSelectionMode && (
                         <div className="mt-auto grid grid-cols-2 gap-3">
@@ -3431,13 +3458,13 @@ const TrashView = ({ trash, contracts, quotes, onRestore, onPermanentDelete, onR
                   <div className="p-5 flex flex-col flex-1 h-full min-h-[200px]">
                     <div className="mb-4">
                       <span className={`inline-block px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider mb-2 ${item.docType === 'contract' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'} `}>
-                        {item.docType === 'contract' ? 'Contrato' : 'Cotización'}
+{item.docType === 'contract' ? t('contracts') : t('quotes')}
                       </span>
                       <h3 className="font-bold text-slate-800 text-lg w-full truncate" title={item.client || item.name}>{item.client || `${item.name || ''} ${item.lastname || ''} `}</h3>
                       <p className="text-xs text-slate-500 font-medium truncate">{item.vehicle || 'Vehículo desconocido'}</p>
                     </div>
 
-                    <p className="text-xs font-semibold text-red-400 mb-6 mt-auto">Eliminado: {item.deletedAt || item.detalles?._deleted_at ? new Date(item.deletedAt || item.detalles?._deleted_at).toLocaleDateString() : 'Desconocido'}</p>
+                    <p className="text-xs font-semibold text-red-400 mb-6 mt-auto">{t('trash_deleted_on')} {item.deletedAt || item.detalles?._deleted_at ? new Date(item.deletedAt || item.detalles?._deleted_at).toLocaleDateString() : t('trash_unknown')}</p>
 
                     {!isSelectionMode && (
                       <div className="grid grid-cols-2 gap-3">
@@ -3509,6 +3536,9 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
 
 // --- SETTINGS VIEW ---
 const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDisconnectGhl, onShowDealerSwitcher, isSuperAdmin }) => {
+  const { t, locale, changeLocale, SUPPORTED_LOCALES, LOCALE_LABELS } = useI18n();
+  const { theme, isDark, toggleTheme } = useTheme();
+  const { selected: selectedCurrencies, toggleCurrency, CURRENCIES: CURR_MAP, CURRENCY_CODES: CURR_CODES } = useCurrency();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: userProfile?.name || '',
@@ -3536,7 +3566,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
     await onUpdateProfile(formData);
     setIsEditing(false);
     setIsLoading(false);
-    showToast("Perfil actualizado correctamente");
+    showToast(t('toast_profile_updated'));
   };
 
   const handlePhotoUpload = async (e) => {
@@ -3546,7 +3576,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
 
     // Validar tipo de imagen
     if (!file.type.startsWith('image/')) {
-      showToast("Por favor selecciona una imagen válida.");
+      showToast(t('toast_error_select_image'));
       return;
     }
 
@@ -3559,10 +3589,10 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
       const photoURL = await getDownloadURL(storageRef);
 
       await onUpdateProfile({ ...formData, photoURL });
-      showToast("Foto de perfil actualizada");
+      showToast(t('toast_photo_updated'));
     } catch (error) {
       console.error("Error al subir foto:", error);
-      showToast("Error al subir la foto");
+      showToast(t('toast_error_upload_photo'));
     } finally {
       setIsUploading(false);
     }
@@ -3573,7 +3603,7 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
     if (!file || !userProfile?.dealerId) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast("Por favor selecciona una imagen válida.");
+      showToast(t('toast_error_select_image'));
       return;
     }
 
@@ -3600,10 +3630,10 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
       // Update Local userProfile to reflect it immediately
       await onUpdateProfile({ ...formData, dealer_logo: logoURL });
 
-      showToast("Logo del dealer actualizado");
+      showToast(t('toast_logo_updated'));
     } catch (error) {
       console.error("Error al subir logo:", error);
-      showToast("Error al subir el logo");
+      showToast(t('toast_error_upload_logo'));
     } finally {
       setIsUploadingLogo(false);
     }
@@ -3616,318 +3646,389 @@ const SettingsView = ({ userProfile, onLogout, onUpdateProfile, showToast, onDis
     window.open(link, '_blank');
   };
 
-  return (
-    <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4 sm:p-8 font-inter">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.12)] overflow-hidden relative border border-gray-100 flex flex-col min-h-[85vh] transition-all duration-500 hover:shadow-[0_40px_80px_-12px_rgba(0,0,0,0.16)]">
+  const toolItems = [
+    {
+      title: t('bot_carbot'),
+      icon: Sparkles,
+      iconColor: '#A855F7',
+      iconBg: 'rgba(168, 85, 247, 0.12)',
+      action: () => {
+        const dealerName = userProfile?.dealerName || 'default';
+        let s = dealerName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        const normalized = dealerName.toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
+        const linkJson = `https://carbotsystem.com/inventario/${s}/bot`;
+        navigator.clipboard.writeText(linkJson);
+        showToast(t('toast_link_copied_bot'));
+      }
+    },
+    {
+      title: t('platform_status'),
+      icon: Link,
+      isDisconnectable: true,
+      iconColor: !!userProfile?.ghlLocationId ? '#3B82F6' : 'var(--text-tertiary)',
+      iconBg: !!userProfile?.ghlLocationId ? 'rgba(59, 130, 246, 0.12)' : 'var(--input-bg)',
+      isConnected: !!userProfile?.ghlLocationId,
+      action: () => {
+        if (!!userProfile?.ghlLocationId) {
+          if (onDisconnectGhl) onDisconnectGhl();
+        } else {
+          const authUrl = `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Flpiwkennlavpzisdvnnh.supabase.co%2Ffunctions%2Fv1%2Foauth-callback&client_id=699b6f13fb99957c718a1e38-mma1agkx&scope=contacts.readonly+contacts.write+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2Flist.readonly+locations.readonly+users.readonly+documents_contracts_template%2FsendLink.write+locations%2FcustomFields.readonly+locations%2FcustomFields.write+custom-menu-link.readonly+custom-menu-link.write+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+conversations%2Freports.readonly+conversations%2Flivechat.write+conversation-ai.readonly+conversation-ai.write&version_id=69ab5865c2202af8a273fd40`;
+          window.open(authUrl, '_blank');
+        }
+      }
+    },
+    {
+      title: t('public_catalog'),
+      icon: LayoutGrid,
+      iconColor: '#F97316',
+      iconBg: 'rgba(249, 115, 22, 0.12)',
+      action: () => {
+        const link = userProfile?.catalogo_url || (() => {
+          const dn = userProfile?.dealerName || 'default';
+          const s = dn.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          return `https://carbotsystem.com/inventario/${s}/catalogo`;
+        })();
+        navigator.clipboard.writeText(link);
+        showToast(t('toast_link_copied_catalog'));
+      }
+    },
+  ];
 
-        {/* Absolute Logout Button */}
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="w-full h-full flex flex-col lg:flex-row gap-0 lg:gap-6 overflow-y-auto lg:overflow-hidden"
+    >
+      {/* ─── LEFT COLUMN: Profile Hero ─── */}
+      <div className="w-full lg:w-[380px] xl:w-[420px] lg:h-full lg:overflow-y-auto shrink-0 flex flex-col items-center relative lg:sticky lg:top-0 glass-card rounded-none lg:rounded-3xl p-6 sm:p-8 lg:p-10" style={{ boxShadow: 'none', border: 'none', borderRight: '1px solid var(--divider)' }}>
+
+        {/* Logout button */}
         {!isEditing && (
           <button
             onClick={onLogout}
-            className="absolute top-6 right-8 z-30 flex items-center justify-center w-11 h-11 bg-white/80 hover:bg-red-50 text-slate-300 hover:text-red-600 rounded-xl transition-all border border-slate-100/50 hover:border-red-100 shadow-sm hover:shadow-md active:scale-95 backdrop-blur-sm"
-            title="Cerrar Sesión"
+            className="absolute top-5 right-5 z-30 flex items-center justify-center w-10 h-10 rounded-xl transition-all active:scale-95"
+            style={{ background: 'var(--input-bg)', color: 'var(--text-secondary)' }}
+            title={t('logout')}
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
           </button>
         )}
 
-        {/* Upper section with Watermark */}
-        <div className="relative pt-12 pb-8 px-8 flex flex-col items-center border-b border-gray-100 overflow-hidden flex-shrink-0">
-
-          {/* Top red border accent */}
-          <div className="absolute top-0 left-0 right-0 h-2 bg-[#DC2626]"></div>
-
-          {/* Watermark Background - Increased visibility */}
-          {userProfile?.dealer_logo && (
-            <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.09]"
-              style={{
-                backgroundImage: `url(${userProfile.dealer_logo})`,
-                backgroundSize: '180px',
-                backgroundRepeat: 'repeat',
-                backgroundPosition: 'center',
-              }}
-            />
-          )}
-
-          {/* Top Left Dealer Info */}
-          <div className="absolute top-6 left-8 z-10 flex items-center gap-4 group/dealer cursor-pointer">
-            <div className="w-14 h-14 rounded-[16px] bg-white shadow-md shadow-slate-900/5 border border-slate-100 p-1.5 flex items-center justify-center transition-all duration-300 group-hover/dealer:shadow-lg group-hover/dealer:-translate-y-1 relative" onClick={() => userProfile?.role === 'Admin' && !isUploadingLogo && logoInputRef.current?.click()}>
-              <img src={userProfile?.dealer_logo || '/default-logo.png'} alt="Dealer" className="w-full h-full object-contain transition-transform duration-300 group-hover/dealer:scale-105" />
-              {userProfile?.role === 'Admin' && (
-                <div className={`absolute inset-0 bg-slate-900/40 rounded-[14px] backdrop-blur-[2px] flex items-center justify-center transition-all duration-300 ${isUploadingLogo ? 'opacity-100 z-10' : 'opacity-0 z-[-1] group-hover/dealer:z-10 group-hover/dealer:opacity-100'}`}>
-                  {isUploadingLogo ? <Loader2 size={18} className="animate-spin text-white" /> : <Camera size={18} className="text-white" />}
-                </div>
-              )}
-            </div>
-            <div className="hidden sm:block transition-transform duration-300 group-hover/dealer:translate-x-1">
-              <p className="text-[10px] font-bold text-slate-400 tracking-[0.15em] mb-0.5">CONCESIONARIO</p>
-              <p className="text-[15px] font-black text-slate-800 tracking-tight">{userProfile?.dealerName || userProfile?.dealer_name || 'Dealer'}</p>
-            </div>
-            <input type="file" ref={logoInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
-          </div>
-
-          {/* Center Profile Area */}
-          <div className="relative z-10 mt-12 flex flex-col items-center">
-
-            <div className="relative w-[180px] h-[180px] sm:w-[200px] sm:h-[200px] flex items-center justify-center group/profile">
-              {/* Red Background Shape (Single wrapper) */}
-              <div className="absolute w-[136px] h-[136px] sm:w-[160px] sm:h-[160px] bg-[#DC2626] rounded-[36px] sm:rounded-[40px] shadow-xl shadow-red-600/30 transition-transform duration-500 group-hover/profile:scale-105"></div>
-
-              {/* Avatar */}
-              <div
-                className="relative w-[120px] h-[120px] sm:w-[140px] sm:h-[140px] rounded-[32px] sm:rounded-[36px] bg-slate-100 overflow-hidden shadow-2xl shadow-slate-900/10 cursor-pointer transition-all duration-500 group-hover/profile:scale-[1.02] z-10"
-                onClick={() => !isUploading && fileInputRef.current?.click()}
-              >
-                {(userProfile?.photoURL || userProfile?.avatar_url || userProfile?.foto_url) ? (
-                  <img src={userProfile.photoURL || userProfile.avatar_url || userProfile.foto_url} alt="Profile" className="w-full h-full object-cover transition-transform duration-500 group-hover/profile:scale-110" />
-                ) : (
-                  <span className="flex items-center justify-center w-full h-full text-slate-300 text-5xl font-black bg-white transition-transform duration-500 group-hover/profile:scale-110">{userProfile?.name?.charAt(0) || 'U'}</span>
-                )}
-                <div className={`absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center transition-all duration-300 ${isUploading ? 'opacity-100 z-20' : 'opacity-0 z-[-1] group-hover/profile:z-20 group-hover/profile:opacity-100'}`}>
-                  {isUploading ? <Loader2 size={24} className="animate-spin text-white" /> : null}
-                </div>
+        {/* Dealer logo + name */}
+        <div className="flex items-center gap-3 self-start mb-8 group/dealer cursor-pointer">
+          <div className="w-11 h-11 rounded-xl p-1 flex items-center justify-center relative transition-all duration-300 group-hover/dealer:shadow-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }} onClick={() => userProfile?.role === 'Admin' && !isUploadingLogo && logoInputRef.current?.click()}>
+            <img src={userProfile?.dealer_logo || '/default-logo.png'} alt="Dealer" className="w-full h-full object-contain" />
+            {userProfile?.role === 'Admin' && (
+              <div className={`absolute inset-0 rounded-[10px] backdrop-blur-[2px] flex items-center justify-center transition-all duration-300 ${isUploadingLogo ? 'opacity-100 z-10' : 'opacity-0 z-[-1] group-hover/dealer:z-10 group-hover/dealer:opacity-100'}`} style={{ background: 'rgba(0,0,0,0.4)' }}>
+                {isUploadingLogo ? <Loader2 size={16} className="animate-spin text-white" /> : <Camera size={14} className="text-white" />}
               </div>
-
-              {/* Blue Shield Icon */}
-              <div className="absolute top-[10px] left-[10px] sm:top-[12px] sm:left-[12px] w-12 h-12 sm:w-14 sm:h-14 bg-[#2563EB] rounded-[16px] sm:rounded-[20px] flex items-center justify-center text-white shadow-[0_8px_20px_rgba(37,99,235,0.4)] border-[4px] sm:border-[6px] border-white z-20 transition-transform duration-500 group-hover/profile:-translate-x-2 group-hover/profile:-translate-y-2 group-hover/profile:rotate-[-8deg]">
-                <ShieldCheck size={22} strokeWidth={2.5} className="sm:w-6 sm:h-6" />
-              </div>
-
-              {/* Camera Icon */}
-              <div
-                className="absolute bottom-[10px] right-[10px] sm:bottom-[12px] sm:right-[12px] w-14 h-14 sm:w-[60px] sm:h-[60px] bg-[#EF4444] rounded-[18px] sm:rounded-[22px] flex items-center justify-center text-white shadow-[0_8px_20px_rgba(239,68,68,0.4)] border-[4px] sm:border-[6px] border-white z-30 cursor-pointer hover:bg-red-600 transition-all duration-500 group-hover/profile:translate-x-2 group-hover/profile:translate-y-2 group-hover/profile:scale-110 active:scale-95"
-                onClick={() => !isUploading && fileInputRef.current?.click()}
-              >
-                <Camera size={24} strokeWidth={2.5} className="sm:w-7 sm:h-7" />
-              </div>
-            </div>
-            <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" accept="image/*" />
-
-            {/* User Name & Role */}
-            {isEditing ? (
-              <div className="mt-8 flex flex-col items-center gap-2">
-                <input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="text-2xl font-black text-slate-900 bg-transparent text-center border-b-2 border-red-500 outline-none px-2 py-1 focus:ring-4 ring-red-500/10 rounded-md transition-all"
-                  autoFocus
-                />
-                <input
-                  value={formData.jobTitle}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  className="text-sm font-bold text-slate-500 bg-transparent text-center border-b-2 border-slate-300 outline-none px-2 py-1 rounded-md transition-all"
-                />
-              </div>
-            ) : (
-              <>
-                <h2 className="mt-8 text-3xl font-black text-slate-900 tracking-tight">{userProfile?.name || 'Admin'}</h2>
-                <div className="mt-2 flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1 border border-slate-200">
-                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                  <span className="text-xs font-bold text-slate-600 tracking-wider uppercase">{userProfile?.role || 'ADMIN'}</span>
-                </div>
-              </>
             )}
+          </div>
+          <div>
+            <p className="text-[9px] font-bold tracking-[0.15em] uppercase" style={{ color: 'var(--text-tertiary)' }}>{t('dealer_label')}</p>
+            <p className="text-sm font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>{userProfile?.dealerName || userProfile?.dealer_name || 'Dealer'}</p>
+          </div>
+          <input type="file" ref={logoInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
+        </div>
 
-            {/* Action Buttons */}
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md shadow-red-600/20 transition-all"
-                >
-                  <User size={16} /> CONFIGURAR PERFIL
-                </button>
-              ) : (
-                <>
+        {/* Avatar */}
+        <div className="relative w-[140px] h-[140px] sm:w-[160px] sm:h-[160px] flex items-center justify-center group/profile mb-6">
+          <div className="absolute w-[116px] h-[116px] sm:w-[136px] sm:h-[136px] rounded-[32px] sm:rounded-[36px] transition-transform duration-500 group-hover/profile:scale-105" style={{ background: 'var(--accent)', boxShadow: 'var(--accent-glow)' }}></div>
+          <div
+            className="relative w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] rounded-[28px] sm:rounded-[32px] overflow-hidden cursor-pointer transition-all duration-500 group-hover/profile:scale-[1.02] z-10"
+            style={{ background: 'var(--bg-tertiary)', boxShadow: 'var(--shadow-card)' }}
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+          >
+            {(userProfile?.photoURL || userProfile?.avatar_url || userProfile?.foto_url) ? (
+              <img src={userProfile.photoURL || userProfile.avatar_url || userProfile.foto_url} alt="Profile" className="w-full h-full object-cover transition-transform duration-500 group-hover/profile:scale-110" />
+            ) : (
+              <span className="flex items-center justify-center w-full h-full text-4xl font-black" style={{ color: 'var(--text-tertiary)', background: 'var(--bg-elevated)' }}>{userProfile?.name?.charAt(0) || 'U'}</span>
+            )}
+            <div className={`absolute inset-0 backdrop-blur-[2px] flex items-center justify-center transition-all duration-300 ${isUploading ? 'opacity-100 z-20' : 'opacity-0 z-[-1] group-hover/profile:z-20 group-hover/profile:opacity-100'}`} style={{ background: 'rgba(0,0,0,0.4)' }}>
+              {isUploading ? <Loader2 size={20} className="animate-spin text-white" /> : <Camera size={18} className="text-white" />}
+            </div>
+          </div>
+          <div className="absolute top-[4px] left-[4px] sm:top-[6px] sm:left-[6px] w-10 h-10 sm:w-11 sm:h-11 rounded-[14px] flex items-center justify-center text-white z-20 transition-transform duration-500 group-hover/profile:-translate-x-1 group-hover/profile:-translate-y-1" style={{ background: '#2563EB', boxShadow: '0 6px 16px rgba(37,99,235,0.35)', border: '3px solid var(--bg-primary)' }}>
+            <ShieldCheck size={18} strokeWidth={2.5} />
+          </div>
+          <div
+            className="absolute bottom-[4px] right-[4px] sm:bottom-[6px] sm:right-[6px] w-11 h-11 sm:w-12 sm:h-12 rounded-[16px] flex items-center justify-center text-white z-30 cursor-pointer transition-all duration-500 group-hover/profile:translate-x-1 group-hover/profile:translate-y-1 group-hover/profile:scale-110 active:scale-95"
+            style={{ background: 'var(--accent)', boxShadow: '0 6px 16px rgba(239,68,68,0.35)', border: '3px solid var(--bg-primary)' }}
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+          >
+            <Camera size={18} strokeWidth={2.5} />
+          </div>
+        </div>
+        <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" accept="image/*" />
+
+        {/* Name & Role */}
+        {isEditing ? (
+          <div className="flex flex-col items-center gap-2 mb-4 w-full max-w-[260px]">
+            <input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="text-xl font-black bg-transparent text-center border-b-2 outline-none px-2 py-1 w-full transition-all"
+              style={{ color: 'var(--text-primary)', borderColor: 'var(--accent)' }}
+              autoFocus
+            />
+            <input
+              value={formData.jobTitle}
+              onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+              className="text-sm font-bold bg-transparent text-center border-b-2 outline-none px-2 py-1 w-full transition-all"
+              style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-glass)' }}
+            />
+          </div>
+        ) : (
+          <>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight font-display" style={{ color: 'var(--text-primary)' }}>{userProfile?.name || 'Admin'}</h2>
+            <div className="mt-2 mb-4 flex items-center gap-2 rounded-full px-3 py-1" style={{ background: 'var(--input-bg)', border: '1px solid var(--border-glass)' }}>
+              <div className="w-2 h-2 rounded-full" style={{ background: 'var(--accent)' }}></div>
+              <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-secondary)' }}>{userProfile?.role || 'ADMIN'}</span>
+            </div>
+          </>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-2 px-5 py-2.5 text-white rounded-2xl text-sm font-bold transition-all active:scale-95"
+              style={{ background: 'var(--accent)', boxShadow: 'var(--accent-glow)' }}
+            >
+              <User size={16} /> {t('configure_profile')}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => { setIsEditing(false); setFormData({ name: userProfile?.name || '', jobTitle: userProfile?.jobTitle || 'Vendedor', newPassword: '' }); }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all active:scale-95"
+                style={{ background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)' }}
+              >
+                {t('cancel').toUpperCase()}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-5 py-2.5 text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-50 active:scale-95"
+                style={{ background: 'var(--accent)', boxShadow: 'var(--accent-glow)' }}
+              >
+                {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> {t('save').toUpperCase()}</>}
+              </button>
+            </>
+          )}
+          {isSuperAdmin && !isEditing && (
+            <button
+              onClick={onShowDealerSwitcher}
+              className="flex items-center gap-2 px-5 py-2.5 text-white rounded-2xl text-sm font-bold transition-all active:scale-95"
+              style={{ background: 'var(--bg-tertiary)', boxShadow: 'var(--shadow-card)' }}
+            >
+              <LayoutGrid size={16} /> PANEL MASTER
+            </button>
+          )}
+        </div>
+
+        {/* Quick info rows (mobile visible, desktop below avatar) */}
+        <div className="w-full mt-8 space-y-2">
+          {[
+            { icon: AtSign, label: t('email'), value: userProfile?.email || 'usuario@dealer.com', color: 'var(--accent-secondary)' },
+            { icon: Building2, label: t('dealer_label'), value: userProfile?.dealerName || userProfile?.dealer_name || 'Dealer', color: 'var(--accent)' },
+            { icon: Lock, label: t('password_label'), value: '••••••••', color: 'var(--accent)' },
+          ].map((row, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 hover:scale-[1.01]" style={{ background: 'var(--input-bg)' }}>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: row.color }}>
+                <row.icon size={16} strokeWidth={2.5} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>{row.label}</p>
+                <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{row.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── RIGHT COLUMN: Settings Sections ─── */}
+      <div className="flex-1 lg:h-full lg:overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-4 space-y-6">
+
+        {/* Appearance: Language + Theme */}
+        <div>
+          <h3 className="text-[10px] font-bold tracking-[0.2em] mb-4 uppercase px-1" style={{ color: 'var(--text-tertiary)' }}>{t('appearance')}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Language */}
+            <div className="glass-card rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5" style={{ borderRadius: '20px' }}>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(10, 132, 255, 0.12)', color: 'var(--accent-secondary)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>{t('language')}</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{LOCALE_LABELS[locale]}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {SUPPORTED_LOCALES.map(loc => (
                   <button
-                    onClick={() => { setIsEditing(false); setFormData({ name: userProfile?.name || '', jobTitle: userProfile?.jobTitle || 'Vendedor', newPassword: '' }); }}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-sm font-bold shadow-sm transition-all"
+                    key={loc}
+                    onClick={() => changeLocale(loc)}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95"
+                    style={locale === loc ? { background: 'var(--accent)', color: '#fff', boxShadow: 'var(--accent-glow)' } : { background: 'var(--input-bg)', color: 'var(--text-secondary)' }}
                   >
-                    CANCELAR
+                    {LOCALE_LABELS[loc]}
                   </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={isLoading}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md shadow-red-600/20 transition-all disabled:opacity-50"
-                  >
-                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> GUARDAR</>}
-                  </button>
-                </>
-              )}
-
-              {/* Panel Master button only for SuperAdmin */}
-              {isSuperAdmin && !isEditing && (
-                <button
-                  onClick={onShowDealerSwitcher}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-xl text-sm font-bold shadow-md shadow-slate-900/20 transition-all"
-                >
-                  <LayoutGrid size={16} /> PANEL MASTER
-                </button>
-              )}
-
-
+                ))}
+              </div>
             </div>
 
+            {/* Theme */}
+            <div className="glass-card rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5" style={{ borderRadius: '20px' }}>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-soft)', color: isDark ? '#FBBF24' : 'var(--text-secondary)' }}>
+                  {isDark ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>{t('theme')}</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{isDark ? t('darkMode') : t('lightMode')}</p>
+                </div>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className="w-full py-2 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95"
+                style={{ background: 'var(--input-bg)', color: 'var(--text-secondary)' }}
+              >
+                {isDark ? `☀️ ${t('lightMode')}` : `🌙 ${t('darkMode')}`}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Lower Section (Security & Account & Tools) */}
-        <div className="p-8 sm:p-10 bg-[#fafafa] flex-1 overflow-y-auto w-full">
-          <h3 className="text-xs font-bold text-slate-400 tracking-[0.2em] mb-6 uppercase">Seguridad de cuenta</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 w-full">
-            {/* Email / Dealer Card */}
-            <div className="bg-white border border-slate-200/60 rounded-[28px] p-6 flex flex-col gap-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/40 hover:-translate-y-1 group">
-
-              <div className="flex items-center gap-5">
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
-                  <AtSign size={20} strokeWidth={2.5} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-0.5">Email</p>
-                  <p className="text-[15px] font-bold text-slate-800 truncate">{userProfile?.email || 'usuario@dealer.com'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-5">
-                <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
-                  <Building2 size={20} strokeWidth={2.5} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-0.5">Dealer</p>
-                  <p className="text-[15px] font-bold text-slate-800 truncate">{userProfile?.dealerName || userProfile?.dealer_name || 'Dealer Name'}</p>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Password Card */}
-            <div className="bg-white border border-slate-200/60 rounded-[28px] p-6 flex flex-col justify-center shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/40 hover:-translate-y-1 group">
-              {isEditing ? (
-                <div className="w-full">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Cambiar Contraseña</p>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">Opcional</span>
+        {/* Currencies: Select up to 2 */}
+        <div>
+          <h3 className="text-[10px] font-bold tracking-[0.2em] mb-2 uppercase px-1" style={{ color: 'var(--text-tertiary)' }}>{t('currencies_label')}</h3>
+          <p className="text-[10px] font-medium mb-4 px-1" style={{ color: 'var(--text-tertiary)' }}>{t('currencies_hint') || 'Selecciona hasta 2 monedas'}</p>
+          <div className="flex flex-col gap-2">
+            {CURR_CODES.map(code => {
+              const c = CURR_MAP[code];
+              const isActive = selectedCurrencies.includes(code);
+              return (
+                <button
+                  key={code}
+                  onClick={() => toggleCurrency(code)}
+                  className="glass-card flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 active:scale-[0.98]"
+                  style={{
+                    borderRadius: '16px',
+                    border: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                    background: isActive ? 'var(--accent-soft)' : undefined,
+                  }}
+                >
+                  <span className="text-2xl">{c?.flag}</span>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{c?.symbol} — {t(`currency_${code}`)}</p>
+                    <p className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>{c?.name}</p>
                   </div>
-                  <input
-                    type="password"
-                    placeholder="Nueva contraseña (Mínimo 6 chars)"
-                    value={formData.newPassword || ''}
-                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-red-500/50 focus:ring-4 focus:ring-red-500/10 transition-all"
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-                      <Lock size={20} strokeWidth={2.5} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-0.5">Contraseña</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {[...Array(8)].map((_, i) => (
-                          <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
-                        ))}
-                      </div>
-                    </div>
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all"
+                    style={isActive
+                      ? { background: 'var(--accent)', color: '#fff' }
+                      : { background: 'var(--input-bg)', border: '2px solid var(--input-border)' }
+                    }
+                  >
+                    {isActive && <Check size={14} strokeWidth={3} />}
                   </div>
-                  <div className="w-10 h-10 rounded-full border-2 border-slate-100 flex items-center justify-center text-slate-400 transition-colors duration-300 group-hover:border-green-100 group-hover:text-green-500 group-hover:bg-green-50">
-                    <ShieldCheck size={18} strokeWidth={2} />
-                  </div>
-                </div>
-              )}
-            </div>
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          <h3 className="text-xs font-bold text-slate-400 tracking-[0.2em] mb-6 uppercase">Herramientas</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-            {([
-              {
-                title: 'Bot Carbot',
-                icon: Sparkles,
-                color: 'text-purple-500',
-                bg: 'bg-purple-50',
-                action: () => {
-                  const dealerName = userProfile?.dealerName || 'default';
-                  let s = dealerName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-                  const normalized = dealerName.toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
-                  const linkJson = `https://carbotsystem.com/inventario/${s}/bot`;
-                  navigator.clipboard.writeText(linkJson);
-                  showToast("Enlace del Bot JSON copiado al portapapeles");
-                }
-              },
-              {
-                title: 'Estado de Plataforma',
-                icon: Link,
-                isDisconnectable: true,
-                color: !!userProfile?.ghlLocationId ? 'text-blue-500' : 'text-slate-500',
-                bg: !!userProfile?.ghlLocationId ? 'bg-blue-50' : 'bg-slate-50',
-                isConnected: !!userProfile?.ghlLocationId,
-                action: () => {
-                  if (!!userProfile?.ghlLocationId) {
-                    if (onDisconnectGhl) onDisconnectGhl();
-                  } else {
-                    const authUrl = `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Flpiwkennlavpzisdvnnh.supabase.co%2Ffunctions%2Fv1%2Foauth-callback&client_id=699b6f13fb99957c718a1e38-mma1agkx&scope=contacts.readonly+contacts.write+documents_contracts%2Flist.readonly+documents_contracts%2FsendLink.write+documents_contracts_template%2Flist.readonly+locations.readonly+users.readonly+documents_contracts_template%2FsendLink.write+locations%2FcustomFields.readonly+locations%2FcustomFields.write+custom-menu-link.readonly+custom-menu-link.write+conversations.readonly+conversations.write+conversations%2Fmessage.readonly+conversations%2Fmessage.write+conversations%2Freports.readonly+conversations%2Flivechat.write+conversation-ai.readonly+conversation-ai.write&version_id=69ab5865c2202af8a273fd40`;
-                    window.open(authUrl, '_blank');
-                  }
-                }
-              },
-              {
-                title: 'Catálogo Público',
-                icon: LayoutGrid,
-                color: 'text-orange-500',
-                bg: 'bg-orange-50',
-                action: () => {
-                  const dealerName = userProfile?.dealerName || 'default';
-                  let s = dealerName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-                  const normalized = dealerName.toUpperCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  if (normalized.includes('DURAN') && normalized.includes('FERNANDEZ')) s = 'dura-n-ferna-ndez-auto-srl';
-                  const link = `https://carbotsystem.com/inventario/${s}/catalogo`;
-                  navigator.clipboard.writeText(link);
-                  showToast("Enlace del Catálogo copiado al portapapeles");
-                }
-              },
-            ].map((tool, idx) => (
+        {/* Security: Password */}
+        <div>
+          <h3 className="text-[10px] font-bold tracking-[0.2em] mb-4 uppercase px-1" style={{ color: 'var(--text-tertiary)' }}>{t('account_security')}</h3>
+          {isEditing ? (
+            <div className="glass-card rounded-2xl p-5" style={{ borderRadius: '20px' }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-secondary)' }}>{t('changePassword')}</p>
+                <span className="text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full" style={{ background: 'var(--input-bg)', color: 'var(--text-tertiary)' }}>{t('optional')}</span>
+              </div>
+              <input
+                type="password"
+                placeholder="Nueva contraseña (Mínimo 6 chars)"
+                value={formData.newPassword || ''}
+                onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                className="glass-input w-full px-4 py-3 text-sm font-bold"
+              />
+            </div>
+          ) : (
+            <div className="glass-card rounded-2xl p-5 flex items-center justify-between" style={{ borderRadius: '20px' }}>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10B981' }}>
+                  <ShieldCheck size={18} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>{t('password_label')}</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>••••••••</p>
+                </div>
+              </div>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10B981' }}>
+                <Check size={14} strokeWidth={3} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tools */}
+        <div>
+          <h3 className="text-[10px] font-bold tracking-[0.2em] mb-4 uppercase px-1" style={{ color: 'var(--text-tertiary)' }}>{t('tools')}</h3>
+          <div className="space-y-2">
+            {toolItems.map((tool, idx) => (
               <div
                 key={idx}
                 onClick={tool.action}
-                className="bg-white border border-slate-200/60 rounded-[28px] p-5 flex items-center justify-between cursor-pointer shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/40 hover:-translate-y-1 group"
+                className="glass-card rounded-2xl px-5 py-4 flex items-center justify-between cursor-pointer transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.005] group active:scale-[0.99]"
+                style={{ borderRadius: '20px' }}
               >
-                <div className="flex items-center gap-5">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${tool.isDisconnectable && !tool.isConnected ? 'bg-red-50 text-red-500' : tool.bg + ' ' + tool.color}`}>
-                    <tool.icon size={20} strokeWidth={2.5} />
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style={{ background: tool.isDisconnectable && !tool.isConnected ? 'rgba(255,59,48,0.12)' : tool.iconBg, color: tool.isDisconnectable && !tool.isConnected ? 'var(--accent)' : tool.iconColor }}>
+                    <tool.icon size={18} strokeWidth={2.5} />
                   </div>
                   <div>
-                    <span className="block text-[15px] font-bold text-slate-800">{tool.title}</span>
+                    <span className="block text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{tool.title}</span>
                     {tool.isConnected !== undefined && (
-                      <span className={`text-[10px] font-bold uppercase tracking-[0.15em] mt-0.5 block ${tool.isConnected ? 'text-green-500' : 'text-red-500'}`}>
-                        {tool.isConnected ? 'Conectado' : 'Desconectado'}
+                      <span className="text-[10px] font-bold uppercase tracking-[0.12em] mt-0.5 block" style={{ color: tool.isConnected ? '#10B981' : 'var(--accent)' }}>
+                        {tool.isConnected ? t('connected') : t('disconnected')}
                       </span>
                     )}
                   </div>
                 </div>
-                <ChevronRight size={18} className="text-slate-300 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-slate-500" />
+                <ChevronRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" style={{ color: 'var(--text-tertiary)' }} />
               </div>
-            )))}
+            ))}
           </div>
-
         </div>
 
+        {/* Bottom spacer for mobile nav */}
+        <div className="h-24 sm:h-6 shrink-0" />
       </div>
-    </div>
+    </motion.div>
   );
 };
 
 const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
+  const { t } = useI18n();
+  const { getTotals, formatPrice } = useCurrency();
   // Stats Calculations
   const availableInventory = inventory.filter(i => i.status === 'available' || i.status === 'quoted');
   const soldInventory = inventory.filter(i => i.status === 'sold');
 
   const activeInventory = (inventory || []).filter(i => i && i.status !== 'trash');
-  const totalValueRD = availableInventory.reduce((acc, item) => acc + (item.price_dop || 0), 0);
-  const totalValueUSD = availableInventory.reduce((acc, item) => acc + (item.price || 0), 0);
+  const totals = getTotals(inventory);
 
   const recentContracts = contracts.slice(0, 5);
 
@@ -3945,36 +4046,38 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       className="space-y-4 sm:space-y-6"
     >
 
-      {/* Welcome Banner (Red Gradient) - Mobile Optimized */}
-      <Card className="relative overflow-hidden border-none bg-gradient-to-br from-red-600 to-red-800 text-white shadow-xl shadow-red-600/20">
+      {/* Welcome Banner — premium glass with accent gradient */}
+      <Card className="relative overflow-hidden border-none text-white shadow-xl banner-gradient" style={{ borderRadius: '28px' }}>
         <div className="relative z-10 p-5 sm:p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-5 sm:gap-6">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black mb-1 tracking-tight">
-              Bienvenido a CarBot System para
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black mb-1 tracking-tight font-display">
+              {t('welcome_banner')}
             </h1>
-            <h2 className="text-lg sm:text-2xl md:text-3xl font-black italic text-red-100 tracking-wide mb-3 sm:mb-4">
+            <h2 className="text-lg sm:text-2xl md:text-3xl font-black italic text-white/70 tracking-wide mb-3 sm:mb-4">
               {displayDealerName}
             </h2>
-            <p className="text-red-50 text-sm sm:text-base md:text-lg font-medium">
-              Hola, <span className="font-bold text-white">{displayUserName.split(' ')[0]}</span>.
-              Listos para vender y gestionar tu inventario hoy.
+            <p className="text-white/70 text-sm sm:text-base md:text-lg font-medium">
+              {t('hello_user')} <span className="font-bold text-white">{displayUserName.split(' ')[0]}</span>.
+              {' '}{t('ready_to_sell')}
             </p>
           </div>
 
           <div className="flex flex-row gap-3 w-full md:w-auto">
             <button
               onClick={() => onNavigate('contacts')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl backdrop-blur-sm border border-white/20 transition-all shadow-lg active:scale-95 text-xs sm:text-base"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-white font-bold rounded-2xl backdrop-blur-sm border border-white/20 transition-all shadow-lg active:scale-95 text-xs sm:text-base"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
             >
               <Users size={18} className="sm:w-[20px] sm:h-[20px]" />
-              <span>Ver Contactos</span>
+              <span>{t('view_contacts')}</span>
             </button>
             <button
               onClick={() => onNavigate('inventory')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white text-red-600 font-bold rounded-xl shadow-lg hover:bg-gray-50 transition-all active:scale-95 text-xs sm:text-base"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 font-bold rounded-2xl shadow-lg transition-all active:scale-95 text-xs sm:text-base"
+              style={{ background: 'rgba(255,255,255,0.95)', color: 'var(--accent)' }}
             >
               <PlusCircle size={18} className="sm:w-[20px] sm:h-[20px]" />
-              <span>Nuevo Vehículo</span>
+              <span>{t('new_vehicle')}</span>
             </button>
 
           </div>
@@ -3987,62 +4090,60 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       {/* Row 1: Key Stats-Side by Side on Mobile */}
       <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-6">
         {/* Inventario Card */}
-        <Card className="p-4 sm:p-8 border-none shadow-sm bg-white relative overflow-hidden group cursor-pointer hover:shadow-md transition-all" onClick={() => onNavigate('inventory', 'available')}>
+        <Card className="glass-card p-4 sm:p-8 border-none relative overflow-hidden group cursor-pointer transition-all" onClick={() => onNavigate('inventory', 'available')}>
           <div className="flex justify-between items-start">
             <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-12 transition-transform">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-12 transition-transform" style={{ background: 'var(--accent-soft)', color: 'var(--accent-secondary)' }}>
                 <Box size={16} className="sm:w-[24px] sm:h-[24px]" />
               </div>
-              <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">INVENTARIO</p>
-              <h2 className="text-2xl sm:text-4xl font-black text-slate-900">{availableInventory.length}</h2>
+              <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest mb-0.5 sm:mb-1" style={{ color: 'var(--text-secondary)' }}>{t('inventory_label')}</p>
+              <h2 className="text-2xl sm:text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{availableInventory.length}</h2>
             </div>
           </div>
-          <Box className="absolute -bottom-4 -right-4 sm:-bottom-6 sm:-right-6 text-slate-50 group-hover:text-blue-50/50 group-hover:scale-125 group-hover:-rotate-12 transition-all duration-500 w-[60px] h-[60px] sm:w-[120px] sm:h-[120px]" />
+          <Box className="absolute -bottom-4 -right-4 sm:-bottom-6 sm:-right-6 opacity-[0.06] group-hover:opacity-[0.12] group-hover:scale-125 group-hover:-rotate-12 transition-all duration-500 w-[60px] h-[60px] sm:w-[120px] sm:h-[120px]" style={{ color: 'var(--text-primary)' }} />
         </Card>
 
         {/* Vendidos Card */}
-        <Card className="p-4 sm:p-8 border-none shadow-sm bg-white relative overflow-hidden group cursor-pointer hover:shadow-md transition-all" onClick={() => onNavigate('inventory', 'sold')}>
+        <Card className="glass-card p-4 sm:p-8 border-none relative overflow-hidden group cursor-pointer transition-all" onClick={() => onNavigate('inventory', 'sold')}>
           <div className="flex justify-between items-start">
             <div>
-              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-12 transition-transform">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-12 transition-transform" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
                 <DollarSign size={16} className="sm:w-[24px] sm:h-[24px]" />
               </div>
-              <p className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">VENDIDOS</p>
-              <h2 className="text-2xl sm:text-4xl font-black text-slate-900">{soldInventory.length}</h2>
+              <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest mb-0.5 sm:mb-1" style={{ color: 'var(--text-secondary)' }}>{t('sold_label')}</p>
+              <h2 className="text-2xl sm:text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{soldInventory.length}</h2>
 
             </div>
-            <span className="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider">OK</span>
+            <span className="text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>OK</span>
           </div>
-          <DollarSign className="absolute -bottom-6 -right-6 text-red-50/50 group-hover:text-red-100/50 group-hover:scale-125 group-hover:-rotate-12 transition-all duration-500" size={120} />
+          <DollarSign className="absolute -bottom-6 -right-6 opacity-[0.06] group-hover:opacity-[0.12] group-hover:scale-125 group-hover:-rotate-12 transition-all duration-500" style={{ color: 'var(--accent)' }} size={120} />
         </Card>
       </div>
 
       {/* Row 2: Global Figures */}
-      <Card className="p-8 border-none shadow-sm bg-white">
+      <Card className="glass-card p-8 border-none">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/20">
+            <div className="w-14 h-14 rounded-2xl text-white flex items-center justify-center" style={{ background: 'var(--accent)', boxShadow: 'var(--accent-glow)' }}>
               <DollarSign size={32} />
             </div>
             <div>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">VALOR TOTAL</p>
-              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">Cifras Globales</h2>
+              <p className="text-xs font-black uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>{t('total_value')}</p>
+              <h2 className="text-2xl sm:text-3xl font-black leading-none font-display" style={{ color: 'var(--text-primary)' }}>{t('global_figures')}</h2>
             </div>
           </div>
-          <span className="bg-orange-50 text-orange-600 border border-orange-100 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm">
-            +5.4% ESTE MES
+          <span className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--border-glass)' }}>
+            +5.4% {t('this_month')}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:divide-x divide-slate-100">
-          <div className="md:pr-8">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">EN PESOS DOMINICANOS</p>
-            <p className="text-3xl sm:text-4xl font-black text-slate-900">RD$ {totalValueRD.toLocaleString()}</p>
-          </div>
-          <div className="md:pl-8">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">EN DÓLARES USD</p>
-            <p className="text-3xl sm:text-4xl font-black text-red-600">US$ {totalValueUSD.toLocaleString()}</p>
-          </div>
+        <div className={`grid grid-cols-1 ${totals.length > 1 ? 'md:grid-cols-2' : ''} gap-8`} style={{ borderColor: 'var(--divider)' }}>
+          {totals.map((t_item, idx) => (
+            <div key={t_item.code} className={idx === 0 && totals.length > 1 ? 'md:pr-8' : idx === 1 ? 'md:pl-8' : ''} style={idx === 0 && totals.length > 1 ? { borderRight: '1px solid var(--divider)' } : {}}>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--text-secondary)' }}>{t(`currency_${t_item.code}`)}</p>
+              <p className="text-3xl sm:text-4xl font-black" style={{ color: idx === 0 ? 'var(--text-primary)' : 'var(--accent)' }}>{t_item.symbol} {t_item.total.toLocaleString()}</p>
+            </div>
+          ))}
         </div>
       </Card>
 
@@ -4050,46 +4151,46 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Contratos Recientes */}
-        <Card className="lg:col-span-2 p-8 border-none shadow-sm bg-white h-full">
+        <Card className="lg:col-span-2 glass-card p-8 border-none h-full">
           <div className="flex justify-between items-start mb-1">
-            <h3 className="text-lg font-black text-slate-900">Contratos Recientes</h3>
-            <button onClick={() => onNavigate('contacts')} className="text-[10px] font-black text-red-600 hover:text-red-700 uppercase tracking-widest flex items-center gap-1 transition-colors">
+            <h3 className="text-lg font-black font-display" style={{ color: 'var(--text-primary)' }}>{t('recent_contracts')}</h3>
+            <button onClick={() => onNavigate('contacts')} className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-colors" style={{ color: 'var(--accent)' }}>
               VER CONTACTOS <ArrowUpRight size={14} />
             </button>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">ÚLTIMAS TRANSACCIONES GENERADAS EN EL SISTEMA</p>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-8" style={{ color: 'var(--text-secondary)' }}>{t('last_transactions')}</p>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead className="text-[10px] font-black text-slate-300 uppercase tracking-widest border-b border-slate-50">
+              <thead className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-tertiary)', borderBottom: '1px solid var(--divider)' }}>
                 <tr>
-                  <th className="pb-4 pl-2">PRODUCTO / VEHÍCULO</th>
-                  <th className="pb-4">CLIENTE</th>
-                  <th className="pb-4">FECHA</th>
-                  <th className="pb-4 text-right pr-2">MONTO</th>
+                  <th className="pb-4 pl-2">{t('vehicle_product')}</th>
+                  <th className="pb-4">{t('client_label')}</th>
+                  <th className="pb-4">{t('date_label')}</th>
+                  <th className="pb-4 text-right pr-2">{t('amount_label')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody>
                 {recentContracts.length > 0 ? recentContracts.map(contract => (
-                  <tr key={contract.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <tr key={contract.id} className="group transition-colors" style={{ borderBottom: '1px solid var(--divider)' }}>
                     <td className="py-4 pl-2">
-                      <p className="font-bold text-slate-900 text-sm">
-                        {contract.vehicle || `${contract.make || ''} ${contract.model || ''} ${contract.year || ''}`.trim() || 'Vehículo Indeterminado'}
+                      <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
+                        {contract.vehicle || `${contract.make || ''} ${contract.model || ''} ${contract.year || ''}`.trim() || t('vehicle_undetermined')}
                       </p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">{contract.template}</p>
+                      <p className="text-[10px] font-bold uppercase" style={{ color: 'var(--text-secondary)' }}>{contract.template}</p>
                     </td>
-                    <td className="py-4 text-xs font-bold text-slate-500 uppercase">{contract.client}</td>
-                    <td className="py-4 text-xs font-bold text-slate-400 uppercase">{new Date(contract.createdAt).toLocaleDateString()}</td>
-                    <td className="py-4 text-right pr-2 font-black text-slate-900 text-sm">
-                      {contract.price > 0 ? `RD$ ${contract.price.toLocaleString()}` : 'N/A'}
+                    <td className="py-4 text-xs font-bold uppercase" style={{ color: 'var(--text-secondary)' }}>{contract.client}</td>
+                    <td className="py-4 text-xs font-bold uppercase" style={{ color: 'var(--text-tertiary)' }}>{new Date(contract.createdAt).toLocaleDateString()}</td>
+                    <td className="py-4 text-right pr-2 font-black text-sm" style={{ color: 'var(--text-primary)' }}>
+                      {contract.price > 0 ? formatPrice(contract.price, contract.currency || 'DOP') : 'N/A'}
                     </td>
                   </tr>
                 )) : (
                   <tr>
                     <td colSpan="4" className="py-12 text-center">
                       <div className="flex flex-col items-center justify-center opacity-40">
-                        <Box size={48} className="text-slate-300 mb-3" />
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">NO HAY CONTRATOS RECIENTES</p>
+                        <Box size={48} className="mb-3" style={{ color: 'var(--text-tertiary)' }} />
+                        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{t('no_recent_contracts')}</p>
                       </div>
                     </td>
                   </tr>
@@ -4100,13 +4201,13 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
         </Card>
 
         {/* Actividad Reciente */}
-        <Card className="p-8 border-none shadow-sm bg-white h-full">
-          <h3 className="text-lg font-black text-slate-900 mb-1 border-b-2 border-slate-900 pb-2 inline-block">Actividad Reciente</h3>
+        <Card className="glass-card p-8 border-none h-full">
+          <h3 className="text-lg font-black font-display mb-1 pb-2 inline-block" style={{ color: 'var(--text-primary)', borderBottom: '2px solid var(--accent)' }}>{t('recentActivity')}</h3>
 
           <div className="mt-8 space-y-6">
             <div className="flex items-center gap-3 opacity-50">
-              <div className="w-2 h-2 rounded-full bg-slate-200"></div>
-              <p className="text-xs font-bold text-slate-300">Sin actividad reciente</p>
+              <div className="w-2 h-2 rounded-full" style={{ background: 'var(--text-tertiary)' }}></div>
+              <p className="text-xs font-bold" style={{ color: 'var(--text-tertiary)' }}>{t('no_recent_activity')}</p>
             </div>
           </div>
         </Card>
@@ -4116,6 +4217,8 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
   );
 };
 const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSellQuoted, onSave, onDelete, onDeleteQuote, onRedoSale, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [], resolvedDealerId, isLoading, readOnly, ghlContacts = [] }) => {
+  const { t } = useI18n();
+  const { formatVehiclePrice, formatPrice, selected: selectedCurrencies } = useCurrency();
   const [localSearch, setLocalSearch] = useState(''); // Search inside the view
   const [sortConfig, setSortConfig] = useState('brand_asc'); // Default alphabetical by Make
   // const [activeTab, setActiveTab] = useState('available'); // Levantado al padre
@@ -4309,14 +4412,14 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4 sm:pb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 sm:pb-6" style={{ borderBottom: '1px solid var(--divider)' }}>
         {!readOnly ? (
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2">
-              Inventario: <span className="text-red-700">{(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}</span>
-              {isLoading && <Loader2 className="animate-spin text-slate-300" size={20} />}
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 font-display" style={{ color: 'var(--text-primary)' }}>
+              Inventario: <span style={{ color: 'var(--accent)' }}>{(new URLSearchParams(window.location.search).get('location_name') || userProfile?.dealerName || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}</span>
+              {isLoading && <Loader2 className="animate-spin" size={20} style={{ color: 'var(--text-tertiary)' }} />}
             </h1>
-            <p className="text-slate-500 text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight">
+            <p className="text-[10px] sm:text-sm mt-0.5 sm:mt-1 font-medium tracking-tight" style={{ color: 'var(--text-secondary)' }}>
               {isLoading ? 'Sincronizando con el servidor...' : `Organizado por marcas • ${filteredInventory.length} vehículos`}
             </p>
           </div>
@@ -4325,43 +4428,43 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
         )}
 
         {!readOnly && (
-          <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">Agregar Vehículo</Button>
+          <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">{t('addNewVehicle')}</Button>
         )}
       </div>
 
-      <div className="flex space-x-1 bg-slate-100/80 p-1.5 rounded-2xl w-full sm:w-fit backdrop-blur-sm overflow-x-auto no-scrollbar border border-slate-200/50 shadow-inner">
-        <button onClick={() => setActiveTab('available')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-500 ${activeTab === 'available' ? 'bg-white text-red-600 shadow-apple-xl scale-[1.02]' : 'text-slate-500 hover:text-slate-900 hover:bg-white/30'}`}>Disponibles</button>
-        <button onClick={() => setActiveTab('quoted')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-500 ${activeTab === 'quoted' ? 'bg-white text-red-600 shadow-apple-xl scale-[1.02]' : 'text-slate-500 hover:text-slate-900 hover:bg-white/30'}`}>Cotizados</button>
-        <button onClick={() => setActiveTab('sold')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-500 ${activeTab === 'sold' ? 'bg-white text-red-600 shadow-apple-xl scale-[1.02]' : 'text-slate-500 hover:text-slate-900 hover:bg-white/30'}`}>Vendidos</button>
+      <div className="flex space-x-1 p-1.5 rounded-2xl w-full sm:w-fit backdrop-blur-sm overflow-x-auto no-scrollbar" style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+        <button onClick={() => setActiveTab('available')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-500 ${activeTab === 'available' ? 'shadow-apple-xl scale-[1.02]' : ''}`} style={activeTab === 'available' ? { background: 'var(--bg-elevated)', color: 'var(--accent)', boxShadow: 'var(--shadow-card)' } : { color: 'var(--text-secondary)' }}>{t('tab_available')}</button>
+        <button onClick={() => setActiveTab('quoted')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-500 ${activeTab === 'quoted' ? 'shadow-apple-xl scale-[1.02]' : ''}`} style={activeTab === 'quoted' ? { background: 'var(--bg-elevated)', color: 'var(--accent)', boxShadow: 'var(--shadow-card)' } : { color: 'var(--text-secondary)' }}>{t('tab_quoted')}</button>
+        <button onClick={() => setActiveTab('sold')} className={`flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-xs sm:text-sm font-black whitespace-nowrap transition-all duration-500 ${activeTab === 'sold' ? 'shadow-apple-xl scale-[1.02]' : ''}`} style={activeTab === 'sold' ? { background: 'var(--bg-elevated)', color: 'var(--accent)', boxShadow: 'var(--shadow-card)' } : { color: 'var(--text-secondary)' }}>{t('tab_sold')}</button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="relative flex-1 max-w-md group w-full">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-red-600 transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 transition-colors" size={18} style={{ color: 'var(--text-tertiary)' }} />
           <input
             type="text"
-            placeholder="Filtrar en esta vista..."
-            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200/60 rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-500/5 focus:border-red-500/50 transition-all font-semibold hover:shadow-apple-xl hover:scale-[1.01] active:scale-[0.99] placeholder:text-slate-400 text-slate-700"
+            placeholder={t('filter_in_view')}
+            className="glass-input w-full pl-11 pr-4 py-3 font-semibold hover:scale-[1.01] active:scale-[0.99]"
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar por:</span>
+          <span className="text-xs font-bold uppercase whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{t('sort_by')}</span>
           <select
             value={sortConfig}
             onChange={(e) => setSortConfig(e.target.value)}
-            className="flex-1 sm:flex-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 appearance-none cursor-pointer"
+            className="glass-input flex-1 sm:flex-none px-4 py-3 text-sm font-bold appearance-none cursor-pointer"
           >
-            <option className="text-slate-800" value="brand_asc">Marca (A-Z)</option>
+            <option className="text-slate-800" value="brand_asc">{t('sort_brand_az')}</option>
             <option className="text-slate-800" value="date_desc">Más Recientes</option>
-            <option className="text-slate-800" value="year_desc">Año (Nuevo a Viejo)</option>
-            <option className="text-slate-800" value="year_asc">Año (Viejo a Nuevo)</option>
-            <option className="text-slate-800" value="price_desc">Precio (Mayor a Menor)</option>
-            <option className="text-slate-800" value="price_asc">Precio (Menor a Mayor)</option>
+            <option className="text-slate-800" value="year_desc">{t('sort_year_newest')}</option>
+            <option className="text-slate-800" value="year_asc">{t('sort_year_oldest')}</option>
+            <option className="text-slate-800" value="price_desc">{t('sort_price_high')}</option>
+            <option className="text-slate-800" value="price_asc">{t('sort_price_low')}</option>
             <option className="text-slate-800" value="updated_desc">Última Actualización</option>
-            <option className="text-slate-800" value="name_asc">Modelo (A-Z)</option>
+            <option className="text-slate-800" value="name_asc">{t('sort_model_az')}</option>
           </select>
         </div>
       </div>
@@ -4370,9 +4473,9 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
         {sortedBrands.map(brand => (
           <div key={brand}>
             <div className="flex items-center mb-3 sm:mb-4">
-              <h2 className="text-lg sm:text-xl font-black text-slate-800 mr-2 sm:mr-3">{brand}</h2>
-              <div className="h-px flex-1 bg-gray-100"></div>
-              <span className="text-[10px] font-black text-slate-400 ml-2 sm:ml-3 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">{groupedInventory[brand].length}</span>
+              <h2 className="text-lg sm:text-xl font-black mr-2 sm:mr-3 font-display" style={{ color: 'var(--text-primary)' }}>{brand}</h2>
+              <div className="h-px flex-1" style={{ background: 'var(--divider)' }}></div>
+              <span className="text-[10px] font-black ml-2 sm:ml-3 px-2.5 py-1 rounded-full" style={{ color: 'var(--text-secondary)', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>{groupedInventory[brand].length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {groupedInventory[brand].map(item => {
@@ -4392,19 +4495,19 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
                     }}
                     className="cursor-pointer"
                   >
-                    <Card noPadding className={`group flex flex-col h-full !overflow-visible relative border-none ${isSold ? 'bg-emerald-50/40 ring-1 ring-emerald-500/20 !shadow-emerald-500/10' :
-                      isQuoted ? 'bg-amber-50/40 ring-1 ring-amber-400/20 !shadow-amber-500/10' :
-                        isUpcoming ? 'bg-indigo-50/40 ring-1 ring-indigo-400/20 !shadow-indigo-500/10' : ''
+                    <Card noPadding className={`glass-card group flex flex-col h-full !overflow-visible relative ${isSold ? 'ring-1 ring-emerald-500/20' :
+                      isQuoted ? 'ring-1 ring-amber-400/20' :
+                        isUpcoming ? 'ring-1 ring-indigo-400/20' : ''
                       }`}>
-                      <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden rounded-t-[2rem]">
+                      <div className="relative aspect-[16/10] overflow-hidden rounded-t-[28px]" style={{ background: 'var(--bg-tertiary)' }}>
                         {item.image && !item.image.includes('unsplash') ? (
                           <img src={item.image} alt={item.model} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" />
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50 group-hover:scale-110 transition-transform duration-1000 ease-out">
+                          <div className="w-full h-full flex flex-col items-center justify-center p-8 group-hover:scale-110 transition-transform duration-1000 ease-out" style={{ background: 'var(--bg-tertiary)' }}>
                             {userProfile?.dealer_logo ? (
                               <img src={userProfile.dealer_logo} alt="Dealer Logo" className="w-full h-full object-contain opacity-60 drop-shadow-sm" />
                             ) : (
-                              <div className="flex flex-col items-center text-slate-300">
+                              <div className="flex flex-col items-center" style={{ color: 'var(--text-tertiary)' }}>
                                 <Car size={48} className="mb-2 opacity-50" />
                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Sin Foto</span>
                               </div>
@@ -4418,8 +4521,8 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
                       <div className="p-6 flex flex-col flex-1">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-black text-slate-900 text-lg leading-tight">{item.make} {item.model}</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.year} • {item.edition || 'EDICIÓN'} • {item.color || 'COLOR'}</p>
+                            <h3 className="font-black text-lg leading-tight" style={{ color: 'var(--text-primary)' }}>{item.make} {item.model}</h3>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>{item.year} • {item.edition || 'EDICIÓN'} • {item.color || 'COLOR'}</p>
                           </div>
                         </div>
 
@@ -4481,12 +4584,12 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
                           </div>
                         ) : (
                           <div className="mb-6">
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Precio</p>
-                            <p className="text-2xl font-black text-red-700 tracking-tighter">
-                              {item.price_dop > 0 ? `RD$ ${item.price_dop.toLocaleString()}` : `US$ ${item.price.toLocaleString()}`}
+                            <p className="text-xs font-black uppercase tracking-widest mb-1" style={{ color: 'var(--text-secondary)' }}>Precio</p>
+                            <p className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>
+                              {formatVehiclePrice(item)}
                             </p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                              Inicial: <span className="text-slate-900 font-black">{item.initial_payment_dop > 0 ? `RD$ ${item.initial_payment_dop.toLocaleString()}` : `US$ ${item.initial_payment.toLocaleString()}`}</span>
+                            <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                              Inicial: <span className="font-black" style={{ color: 'var(--text-primary)' }}>{formatPrice(item.initial_payment || item.initial_payment_dop || 0, item.downPaymentCurrency || (item.initial_payment_dop > 0 ? 'DOP' : 'USD'))}</span>
                             </p>
                           </div>
                         )}
@@ -4650,7 +4753,7 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
                       : 'No se encontraron vehículos que coincidan con los criterios actuales.'}
                 </p>
                 {!readOnly && activeTab === 'available' && (
-                  <Button onClick={handleCreate} icon={Plus} className="shadow-2xl shadow-red-600/20 px-10 py-4 text-base"> Agregar Primer Vehículo </Button>
+                  <Button onClick={handleCreate} icon={Plus} className="shadow-2xl shadow-red-600/20 px-10 py-4 text-base">{t('add_first_vehicle')}</Button>
                 )}
               </>
             )}
@@ -5047,140 +5150,148 @@ const ContractsView = ({ contracts, quotes, inventory, onGenerateContract, onDel
 
 // --- LAYOUT ---
 const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, searchTerm, onSearchChange, isStoreRoute, isChatOpen = false }) => {
+  const { t } = useI18n();
+  const { isDark, toggleTheme } = useTheme();
   const menuItems = [
-    { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-    { id: 'inventory', label: 'INVENTARIO', icon: Box },
-    { id: 'contacts', label: 'CONTACTOS', icon: Users },
-    { id: 'conversations', label: 'MENSAJES', icon: MessageCircle },
-    { id: 'settings', label: 'AJUSTES', icon: Settings },
+    { id: 'dashboard', label: t('nav_dashboard').toUpperCase(), icon: LayoutDashboard },
+    { id: 'inventory', label: t('nav_inventory').toUpperCase(), icon: Box },
+    { id: 'contacts', label: t('nav_contacts').toUpperCase(), icon: Users },
+    { id: 'conversations', label: t('nav_messages').toUpperCase(), icon: MessageCircle },
+    { id: 'settings', label: t('nav_settings').toUpperCase(), icon: Settings },
   ];
 
   return (
-    <div className={`bg-[#f8fafc] flex flex-col font-sans selection:bg-red-200 selection:text-red-900 ${activeTab === 'conversations' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-      {/* Top Navigation Bar */}
-      {/* Top Navigation Bar */}
-      {!isStoreRoute ? (
-        <header className={`sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-2 sm:py-3 transition-all duration-300 ${isChatOpen ? 'hidden sm:block' : ''}`}>
-          <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-            {/* Left: Logo & Brand */}
-            <div className="flex-1 flex items-center">
-              <div className="flex items-center gap-3 shrink-0 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-                <AppLogo size={50} className="sm:h-[65px]" />
-                <div className="hidden lg:flex flex-col leading-none ml-2">
-                  <span className="text-sm font-bold text-slate-500 tracking-[0.05em] mb-[-3px]">
-                    CarBot
-                  </span>
-                  <span className="text-lg font-black tracking-tighter mt-[-2px] text-red-600">
-                    System
-                  </span>
-                </div>
-              </div>
-            </div>
+    <div className={`flex font-sans selection:bg-red-200 selection:text-red-900 h-screen overflow-hidden`} style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {/* Ambient mesh background */}
+      <div className="bg-mesh" />
 
-            {/* Center: Main Nav Items (Hidden on Mobile) */}
-            <nav className="hidden sm:flex items-center justify-center flex-1 px-8 gap-2">
-              {menuItems.map(item => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 border border-transparent hover:scale-105 active:scale-95 ${isActive
-                      ? 'bg-red-600 text-white shadow-xl shadow-red-600/30 font-black tracking-wide transform scale-105'
-                      : 'text-slate-500 font-bold hover:bg-white/50 hover:text-slate-800 hover:border-white hover:shadow-lg hover:shadow-slate-200/30'
-                      }`}
+      {/* ─── Desktop Sidebar (hidden on mobile) ─── */}
+      {!isStoreRoute && (
+        <aside
+          className="hidden sm:flex flex-col w-[78px] h-screen sticky top-0 z-40 shrink-0 items-center py-6 gap-2"
+          style={{
+            background: 'var(--nav-bg)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            borderRight: '1px solid var(--nav-border)',
+          }}
+        >
+          {/* Logo */}
+          <div className="mb-4 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+            <AppLogo size={40} />
+          </div>
+
+          {/* Nav Items */}
+          <nav className="flex flex-col items-center gap-1 flex-1">
+            {menuItems.map(item => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className="relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-90 group"
+                  style={{
+                    background: isActive ? 'var(--accent)' : 'transparent',
+                    boxShadow: isActive ? 'var(--accent-glow)' : 'none',
+                  }}
+                  title={item.label}
+                >
+                  <item.icon
+                    size={20}
+                    strokeWidth={isActive ? 2.2 : 1.8}
+                    style={{ color: isActive ? '#ffffff' : 'var(--nav-inactive)' }}
+                  />
+                  <span
+                    className="text-[8px] font-bold mt-0.5 uppercase tracking-wider"
+                    style={{ color: isActive ? '#ffffff' : 'var(--nav-inactive)' }}
                   >
-                    <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                    <span className="uppercase text-[11px] tracking-widest">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+                    {item.label.slice(0, 5)}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
 
-            {/* Right Side: Search, Trash, User */}
-            <div className="flex-1 flex items-center gap-2 sm:gap-4 justify-end">
-
-              {/* Trash Icon (Visible on all sizes, but adjusted for mobile) */}
-              <button
-                onClick={() => setActiveTab('trash')}
-                className={`p-2 rounded-xl transition-all duration-300 hover:scale-110 active:scale-90 ${activeTab === 'trash' ? 'bg-red-50 text-red-600 shadow-md' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'} `}
-                title="Ir a Basurero"
-              >
-                <Trash2 size={18} className={`sm:w-[20px] sm:h-[20px] transition-colors ${activeTab === 'trash' ? 'text-red-600' : 'text-slate-400'}`} />
-              </button>
-
-              {/* User Profile Info */}
-              <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-slate-100 group cursor-pointer" onClick={() => setActiveTab('settings')}>
-                <div className="text-right hidden sm:block transition-transform duration-300 group-hover:-translate-x-1">
-                  <p className="text-sm font-black text-slate-900 leading-tight">
-                    {userProfile?.name || new URLSearchParams(window.location.search).get('user_name') || 'Usuario'}
-                  </p>
-                  <p className="text-[10px] font-black text-red-600 uppercase tracking-tighter">
-                    {(userProfile?.dealerName || new URLSearchParams(window.location.search).get('location_name') || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}
-                  </p>
-                </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center text-red-600 text-xs sm:text-base font-black border-2 border-white shadow-sm ring-1 ring-red-100 overflow-hidden transition-all duration-300 group-hover:ring-red-400 group-hover:shadow-md group-hover:scale-110">
-                  {userProfile?.avatar_url ? (
-                    <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    (userProfile?.name || new URLSearchParams(window.location.search).get('user_name') || 'U').charAt(0)
-                  )}
-                </div>
-              </div>
+          {/* Bottom: Trash + Theme Toggle + User */}
+          <div className="flex flex-col items-center gap-2 mt-auto">
+            <button
+              onClick={() => setActiveTab('trash')}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90"
+              style={{
+                background: activeTab === 'trash' ? 'var(--accent-soft)' : 'transparent',
+                color: activeTab === 'trash' ? 'var(--accent)' : 'var(--nav-inactive)',
+              }}
+              title={t('nav_trash')}
+            >
+              <Trash2 size={18} />
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-90 hover:scale-110"
+              style={{ background: 'var(--input-bg)', color: isDark ? '#FBBF24' : 'var(--nav-inactive)' }}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+            >
+              {isDark ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              )}
+            </button>
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-black overflow-hidden cursor-pointer transition-all duration-300 hover:scale-110"
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '2px solid var(--border-glass)' }}
+              onClick={() => setActiveTab('settings')}
+            >
+              {userProfile?.avatar_url ? (
+                <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                (userProfile?.name || 'U').charAt(0)
+              )}
             </div>
           </div>
-        </header>
-      ) : (
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-100/50 shadow-[0_1px_2px_rgba(0,0,0,0.03)] px-4 sm:px-6 py-3 sm:py-4 transition-colors duration-500">
-          <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-            {/* Left Spacer for symmetry */}
-            <div className="flex-1 hidden sm:flex"></div>
+        </aside>
+      )}
 
-            {/* Center: Dealer Name */}
+      {/* ─── Store Route Header (catalog) ─── */}
+      {isStoreRoute && (
+        <header className="sticky top-0 z-40 glass-nav px-4 sm:px-6 py-3 sm:py-4 transition-colors duration-500">
+          <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+            <div className="flex-1 hidden sm:flex"></div>
             <div className="flex-[2] flex flex-col items-center text-center">
-              <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-0.5">Catálogo de</p>
-              <h2 className="text-sm sm:text-xl font-black text-slate-900 uppercase tracking-tight line-clamp-1">
+              <p className="text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.3em] mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{t('catalog_of')}</p>
+              <h2 className="text-sm sm:text-xl font-black uppercase tracking-tight line-clamp-1" style={{ color: 'var(--text-primary)' }}>
                 {(userProfile?.dealerName || new URLSearchParams(window.location.search).get('location_name') || 'Mi Dealer').trim().replace(/[*_~\`]/g, '')}
               </h2>
             </div>
-
-            {/* Right: Public Button */}
             <div className="flex-1 flex justify-end">
               <button
                 onClick={() => setActiveTab('inventory')}
-                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] sm:text-[11px] uppercase tracking-wider py-2.5 px-4 sm:px-6 rounded-full transition-all active:scale-95 shadow-lg shadow-red-600/20"
+                className="flex items-center gap-2 text-white font-bold text-[10px] sm:text-[11px] uppercase tracking-wider py-2.5 px-4 sm:px-6 rounded-full transition-all active:scale-95"
+                style={{ background: 'var(--accent)', boxShadow: 'var(--accent-glow)' }}
               >
                 <LayoutGrid size={14} strokeWidth={2.5} />
-                <span className="hidden xs:inline">Ver catálogo completo</span>
-                <span className="xs:hidden">Catálogo</span>
+                <span className="hidden xs:inline">{t('view_full_catalog')}</span>
+                <span className="xs:hidden">{t('catalog')}</span>
               </button>
             </div>
           </div>
         </header>
       )}
 
+      {/* ─── Main Content Area ─── */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <main className={`flex-1 w-full animate-in fade-in duration-500 flex flex-col min-h-0 ${activeTab === 'conversations' || activeTab === 'settings' || activeTab === 'contacts' ? 'overflow-hidden h-full' : 'p-4 sm:p-6 md:p-8 max-w-[1600px] mx-auto overflow-y-auto w-full'}`}>
+          {children}
+        </main>
+      </div>
 
-      {/* Main Content Area */}
-      <main className={`flex-1 w-full animate-in fade-in duration-500 flex flex-col min-h-0 ${activeTab === 'conversations' ? 'overflow-hidden h-full' : 'p-4 sm:p-6 md:p-8 max-w-[1600px] mx-auto overflow-y-auto'}`}>
-        {children}
-      </main>
-
-      {/* Bottom Navigation (Mobile Only) — Apple liquid glass pill */}
+      {/* ─── Bottom Navigation (Mobile Only) — iOS glass pill ─── */}
       {!isStoreRoute && !isChatOpen && (
         <div
           className="sm:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-center"
           style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))', paddingTop: '0.5rem' }}
         >
-          <div
-            className="flex items-center px-2 py-1.5 rounded-full gap-1"
-            style={{
-              background: 'rgba(255,255,255,0.55)',
-              backdropFilter: 'blur(24px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-              border: '1px solid rgba(255,255,255,0.6)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.8) inset',
-            }}
-          >
+          <div className="glass-pill flex items-center px-2 py-1.5 rounded-full gap-1">
             {menuItems.map(item => {
               const isActive = activeTab === item.id;
               return (
@@ -5191,19 +5302,15 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
                   style={{
                     borderRadius: '9999px',
                     padding: isActive ? '10px 20px' : '10px 18px',
-                    background: isActive
-                      ? 'rgba(30,30,35,0.88)'
-                      : 'transparent',
-                    boxShadow: isActive
-                      ? '0 2px 12px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.12) inset'
-                      : 'none',
+                    background: isActive ? 'var(--accent)' : 'transparent',
+                    boxShadow: isActive ? 'var(--accent-glow)' : 'none',
                     transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
                   }}
                 >
                   <item.icon
                     size={20}
                     strokeWidth={isActive ? 2.2 : 1.8}
-                    style={{ color: isActive ? '#ffffff' : 'rgba(100,116,139,0.9)' }}
+                    style={{ color: isActive ? '#ffffff' : 'var(--nav-inactive)' }}
                   />
                 </button>
               );
@@ -5217,6 +5324,7 @@ const AppLayout = ({ children, activeTab, setActiveTab, onLogout, userProfile, s
 
 // --- Reemplaza tu LoginScreen actual con este ---
 const LoginScreen = ({ onLogin }) => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
@@ -5234,31 +5342,33 @@ const LoginScreen = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans selection:bg-red-100">
+    <div className="min-h-screen flex items-center justify-center p-4 font-sans selection:bg-red-100" style={{ background: 'var(--bg-primary)' }}>
+      <div className="bg-mesh" />
       <motion.div
         initial={{ opacity: 0, y: 40, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-[420px] bg-white rounded-[32px] shadow-2xl border border-white/50 flex flex-col justify-center relative overflow-hidden p-8 sm:p-10"
+        className="glass-card w-full max-w-[420px] flex flex-col justify-center relative overflow-hidden p-8 sm:p-10"
+        style={{ boxShadow: 'var(--shadow-modal)' }}
       >
 
-        {/* Top Red Border */}
-        <div className="absolute top-0 left-0 w-full h-2 bg-[#E31C25]"></div>
+        {/* Top accent border */}
+        <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: 'var(--accent)' }}></div>
 
         <div className="text-center mb-10 flex flex-col items-center mt-4">
           <div className="relative mb-6">
             <AppLogo size={72} className="relative z-10 drop-shadow-md" />
           </div>
           <div className="flex flex-col items-center leading-tight">
-            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
-              CarBot <span className="text-[#E31C25]">System</span>
+            <h1 className="text-4xl font-black tracking-tighter font-display" style={{ color: 'var(--text-primary)' }}>
+              CarBot <span style={{ color: 'var(--accent)' }}>System</span>
             </h1>
-            <p className="text-slate-500 font-semibold text-sm mt-3 tracking-wide">Gestión inteligente de inventario</p>
+            <p className="font-semibold text-sm mt-3 tracking-wide" style={{ color: 'var(--text-secondary)' }}>{t('loginSubtitle')}</p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center font-medium">
+          <div className="mb-6 p-4 text-sm rounded-xl flex items-center font-medium" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--border-glass)' }}>
             <AlertTriangle size={18} className="mr-2 shrink-0" /> {error}
           </div>
         )}
@@ -5268,28 +5378,28 @@ const LoginScreen = ({ onLogin }) => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-4">
               <div>
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1 mb-2 block">Correo Electrónico</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.15em] ml-1 mb-2 block" style={{ color: 'var(--text-secondary)' }}>Correo Electrónico</label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2" size={18} style={{ color: 'var(--text-tertiary)' }} />
                   <input
                     name="email"
                     type="email"
                     placeholder="tu@correo.com"
                     required
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-800 placeholder:text-slate-300"
+                    className="glass-input w-full pl-12 pr-4 py-3.5 font-bold"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1 mb-2 block">Contraseña</label>
+                <label className="text-[11px] font-black uppercase tracking-[0.15em] ml-1 mb-2 block" style={{ color: 'var(--text-secondary)' }}>Contraseña</label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2" size={18} style={{ color: 'var(--text-tertiary)' }} />
                   <input
                     name="password"
                     type="password"
                     placeholder="••••••••"
                     required
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-800 placeholder:text-slate-300 text-lg tracking-widest"
+                    className="glass-input w-full pl-12 pr-4 py-3.5 font-bold text-lg tracking-widest"
                   />
                 </div>
               </div>
@@ -5297,7 +5407,7 @@ const LoginScreen = ({ onLogin }) => {
 
             <div className="flex items-center pt-2">
               <label className="flex items-center space-x-3 cursor-pointer group">
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${rememberMe ? 'bg-red-600 border-red-600' : 'border-slate-300 bg-white group-hover:border-red-400'}`}>
+                <div className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors" style={rememberMe ? { background: 'var(--accent)', borderColor: 'var(--accent)' } : { borderColor: 'var(--border-glass)', background: 'var(--input-bg)' }}>
                   {rememberMe && <Check size={14} className="text-white stroke-[4]" />}
                 </div>
                 <input
@@ -5306,11 +5416,11 @@ const LoginScreen = ({ onLogin }) => {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="hidden"
                 />
-                <span className="text-sm text-slate-600 font-bold group-hover:text-slate-800 transition-colors">Mantener sesión abierta</span>
+                <span className="text-sm font-bold transition-colors" style={{ color: 'var(--text-secondary)' }}>Mantener sesión abierta</span>
               </label>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full py-3.5 bg-[#E31C25] hover:bg-red-700 text-white font-black text-base rounded-2xl shadow-lg shadow-red-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group">
+            <button type="submit" disabled={loading} className="w-full py-3.5 text-white font-black text-base rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 group" style={{ background: 'var(--accent)', boxShadow: 'var(--accent-glow)' }}>
               {loading ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
@@ -5527,7 +5637,6 @@ export default function CarbotApp() {
   const [showDealerSwitcher, setShowDealerSwitcher] = useState(false);
   const [allDealers, setAllDealers] = useState([]);
 
-  const [toast, setToast] = useState(null);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
   const [currentVehicleForModal, setCurrentVehicleForModal] = useState(null);
@@ -5535,7 +5644,12 @@ export default function CarbotApp() {
 
   useEffect(() => { localStorage.setItem('activeTab', activeTab); }, [activeTab]);
 
-  const showToast = (message, type = 'success') => setToast({ message, type });
+  const { t } = useI18n();
+  const showToast = (message, type = 'success') => {
+    if (type === 'error') sileo.error(message);
+    else if (type === 'warning') sileo.warning(message);
+    else sileo.success(message);
+  };
 
 
   const [currentUserEmail, setCurrentUserEmail] = useState(() => (urlUserEmail || localStorage.getItem('lastUserEmail') || '').toLowerCase());
@@ -5840,7 +5954,7 @@ export default function CarbotApp() {
             try {
               const { data: supaDealer } = await supabase
                 .from('dealers')
-                .select('id, nombre, logo_url')
+                .select('id, nombre, logo_url, has_bot, bot_name, catalogo_url')
                 .eq('ghl_location_id', urlLocationId)
                 .maybeSingle();
               if (supaDealer) {
@@ -5864,7 +5978,10 @@ export default function CarbotApp() {
               ghlLocationId: urlLocationId,
               supabaseDealerId: supaUuid,
               dealer_logo: supaLogo,
-              ghlUserId: urlUserId || ''
+              ghlUserId: urlUserId || '',
+              has_bot: supaDealer?.has_bot || false,
+              bot_name: supaDealer?.bot_name || null,
+              catalogo_url: supaDealer?.catalogo_url || ''
             };
             dealerIdToUse = supaUuid;
             // ⚡ SKIP steps 1-3 — la URL es la fuente de verdad en AutoLogin
@@ -5950,12 +6067,14 @@ export default function CarbotApp() {
           }
 
           // 5. Fallback Supabase (Para usuarios sincronizados que aún no existen en Firebase local)
-          if (!profileData && !isAutoLogin) {
+          // SuperAdmin con dealer manual seleccionado: NO buscar en usuarios (se resuelve en el bloque SuperAdmin)
+          const isSuperAdminWithManualDealer = emailLower === 'jeancarlosgf13@gmail.com' && manualSelectedDealerId;
+          if (!profileData && !isAutoLogin && !isSuperAdminWithManualDealer) {
             try {
               console.log("⚡ Buscando usuario en Supabase (migración transparente)...");
               const { data: supaUser, error: supaErr } = await supabase
                 .from('usuarios')
-                .select('nombre, correo, rol, dealer_id, avatar_url, foto_url, nombre_dealer, dealers(nombre, ghl_location_id, logo_url)')
+                .select('nombre, correo, rol, dealer_id, avatar_url, foto_url, nombre_dealer, dealers(nombre, ghl_location_id, logo_url, has_bot, bot_name)')
                 .eq('correo', emailLower)
                 .maybeSingle();
 
@@ -5973,7 +6092,9 @@ export default function CarbotApp() {
                   ghlLocationId: supaUser.dealers.ghl_location_id || '',
                   ghlUserId: '',
                   avatar_url: supaUser.avatar_url || supaUser.foto_url || '',
-                  dealer_logo: supaUser.dealers.logo_url || ''
+                  dealer_logo: supaUser.dealers.logo_url || '',
+                  has_bot: supaUser.dealers.has_bot || false,
+                  bot_name: supaUser.dealers.bot_name || null
                 };
               }
             } catch (err) {
@@ -5984,7 +6105,46 @@ export default function CarbotApp() {
           // SUPERADMIN DETECT
           if (emailLower === 'jeancarlosgf13@gmail.com') {
             setIsSuperAdmin(true);
-            // If superadmin has NO profile yet (not even in local storage selection), or specifically wants to switch
+
+            // SuperAdmin con dealer seleccionado manualmente: construir perfil desde datos del dealer
+            if (!profileData && manualSelectedDealerId && !isAutoLogin) {
+              try {
+                const { data: selectedDealer } = await supabase
+                  .from('dealers')
+                  .select('id, nombre, logo_url, address, website, ghl_location_id, id_busqueda, has_bot, bot_name, catalogo_url')
+                  .eq('id', manualSelectedDealerId)
+                  .maybeSingle();
+
+                if (selectedDealer) {
+                  console.log('🎯 SuperAdmin: perfil construido desde dealer seleccionado:', selectedDealer.nombre);
+                  profileData = {
+                    name: 'Jean Gomez',
+                    email: emailLower,
+                    dealerId: selectedDealer.id,
+                    dealerName: selectedDealer.nombre || 'Mi Dealer',
+                    jobTitle: 'SuperAdmin',
+                    role: 'SuperAdmin',
+                    uid: auth.currentUser?.uid || null,
+                    createdAt: new Date().toISOString(),
+                    ghlLocationId: selectedDealer.ghl_location_id || '',
+                    ghlUserId: '',
+                    supabaseDealerId: selectedDealer.id,
+                    dealer_logo: selectedDealer.logo_url || '',
+                    dealer_address: selectedDealer.address || '',
+                    dealer_website: selectedDealer.website || '',
+                    id_busqueda: selectedDealer.id_busqueda || '',
+                    has_bot: selectedDealer.has_bot || false,
+                    bot_name: selectedDealer.bot_name || null,
+                    catalogo_url: selectedDealer.catalogo_url || ''
+                  };
+                  dealerIdToUse = selectedDealer.id;
+                }
+              } catch (err) {
+                console.error('❌ Error cargando dealer para SuperAdmin:', err);
+              }
+            }
+
+            // If superadmin has NO profile yet (not even in local storage selection), show dealer picker
             if (!profileData && !isAutoLogin) {
               const { data: dealers } = await supabase.from('dealers').select('*').order('nombre', { ascending: true });
               setAllDealers(dealers || []);
@@ -6023,12 +6183,28 @@ export default function CarbotApp() {
                 ...(profileData.dealer_logo ? { logo_url: profileData.dealer_logo } : {})
               }, { merge: true });
 
+              // Read back the dealer doc to get the stored slug (may differ from generated one)
+              const dealerSnap = await getDoc(dealerRef);
+              const storedSlug = dealerSnap.exists() ? dealerSnap.data()?.slug : null;
+
               // Solo guardamos el perfil SI el dealerId coincide (o si no teníamos uno)
               await setDoc(dealerUserRef, profileData, { merge: true });
 
               // Inicializar configuración de Bot
               const botConfigRef = doc(db, "Dealers", profileData.dealerId, ":DATA BOT RN", "CONFIG");
-              const cleanLinkName = dealerName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+              const cleanLinkName = dealerName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\./g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+              const generatedCatalogoUrl = `https://carbotsystem.com/inventario/${cleanLinkName}/catalogo`;
+              // Use stored catalogo_url from Supabase if available, otherwise use generated
+              if (!profileData.catalogo_url) {
+                profileData.catalogo_url = generatedCatalogoUrl;
+                // Save to Supabase so it persists for this dealer
+                if (profileData.supabaseDealerId) {
+                  supabase.from('dealers').update({ catalogo_url: generatedCatalogoUrl }).eq('id', profileData.supabaseDealerId).then(() => {
+                    console.log('✅ catalogo_url guardado en Supabase:', generatedCatalogoUrl);
+                  }).catch(() => {});
+                }
+              }
+              profileData.dealerSlug = cleanLinkName;
               const linkTienda = `https://carbotsystem.web.app/tienda/${cleanLinkName}`;
 
               const configDealerId = profileData.supabaseDealerId || profileData.dealerId;
@@ -6079,8 +6255,11 @@ export default function CarbotApp() {
 
                 // MULTI-TENANT FIX:
                 // Only trust supaUser.dealer_id if we are NOT in an iframe with a forced urlLocationId
-                // If GHL tells us we are in urlLocationId X, we MUST ignore supaUser.dealer_id if it's for Y.
-                if (supaUser.dealer_id && !urlLocationId) {
+                // SuperAdmin con dealer manual: no sobreescribir supabaseDealerId
+                const isSuperAdminManualSwitch = emailLower === 'jeancarlosgf13@gmail.com' && manualSelectedDealerId;
+                if (isSuperAdminManualSwitch) {
+                  console.log("🛡️ SuperAdmin: manteniendo dealer seleccionado manualmente, ignorando dealer_id de usuarios");
+                } else if (supaUser.dealer_id && !urlLocationId) {
                   if (!profileData.dealerId) {
                     profileData.supabaseDealerId = supaUser.dealer_id;
                   } else {
@@ -6088,7 +6267,6 @@ export default function CarbotApp() {
                   }
                 } else if (urlLocationId) {
                   console.log("🛡️ Ignorando dealer_id de usuario en Supabase dado que GHL forzó un location_id específico:", urlLocationId);
-                  // Clear it just in case
                   profileData.supabaseDealerId = null;
                 }
               }
@@ -6119,7 +6297,7 @@ export default function CarbotApp() {
               if (queryCol && queryVal) {
                 const { data: dealerData } = await supabase
                   .from('dealers')
-                  .select('id, nombre, logo_url, address, website, ghl_location_id, id_busqueda')
+                  .select('id, nombre, logo_url, address, website, ghl_location_id, id_busqueda, has_bot, bot_name, catalogo_url')
                   .eq(queryCol, queryVal)
                   .maybeSingle();
 
@@ -6130,6 +6308,9 @@ export default function CarbotApp() {
                   profileData.dealer_website = dealerData.website || '';
                   profileData.supabaseDealerId = dealerData.id;
                   profileData.id_busqueda = dealerData.id_busqueda || '';
+                  profileData.catalogo_url = dealerData.catalogo_url || '';
+                  profileData.has_bot = dealerData.has_bot || false;
+                  profileData.bot_name = dealerData.bot_name || null;
 
                   if (dealerData.ghl_location_id && !profileData.ghlLocationId) {
                     profileData.ghlLocationId = dealerData.ghl_location_id;
@@ -6157,6 +6338,7 @@ export default function CarbotApp() {
             }
 
             setUserProfile(profileData);
+            setInitializing(false);
           } else {
             // No se pudo determinar el dealer
             if (!isAutoLogin) {
@@ -6167,10 +6349,12 @@ export default function CarbotApp() {
               // Si es auto-login pero falló todo, evitamos el hang poniendo isLoggedIn en false
               setIsLoggedIn(false);
             }
+            setInitializing(false);
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);
           showToast("Error de conexión", "error");
+          setInitializing(false);
         }
       };
       fetchUserProfile();
@@ -6266,6 +6450,32 @@ export default function CarbotApp() {
     setCurrentUserEmail(supUser.email);
     localStorage.setItem('lastUserEmail', supUser.email);
     setInitializing(false);
+  };
+
+  // Modal de bienvenida a notificaciones — aparece una sola vez por dispositivo
+  const NOTIF_SEEN_KEY = 'carbot_notif_welcome_seen';
+  const [showNotifWelcome, setShowNotifWelcome] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    // Solo mostrar si el navegador soporta notificaciones y aún no se ha visto
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') return; // Ya tiene permiso, no molestar
+    if (localStorage.getItem(NOTIF_SEEN_KEY)) return;  // Ya vio el modal
+    // Pequeño delay para que la app termine de cargar antes de mostrar
+    const t = setTimeout(() => setShowNotifWelcome(true), 1500);
+    return () => clearTimeout(t);
+  }, [isLoggedIn]);
+
+  const handleNotifWelcomeActivate = async () => {
+    setShowNotifWelcome(false);
+    localStorage.setItem(NOTIF_SEEN_KEY, '1');
+    await requestNotificationPermission().catch(() => {});
+  };
+
+  const handleNotifWelcomeDismiss = () => {
+    setShowNotifWelcome(false);
+    localStorage.setItem(NOTIF_SEEN_KEY, '1');
   };
 
   const handleDisconnectGhl = () => {
@@ -6493,7 +6703,7 @@ export default function CarbotApp() {
       setContactsLastFetched(Date.now());
     } catch (err) {
       console.error('❌ fetchGHLContacts error:', err);
-      showToast('Error cargando contactos', 'error');
+      showToast(t('toast_error_load_contacts'), 'error');
     } finally {
       setContactsLoading(false);
     }
@@ -6808,12 +7018,24 @@ export default function CarbotApp() {
       if (existingId) {
         const { error } = await supabase.from('vehiculos').update(dataToSave).eq('id', existingId);
         if (error) throw error;
-        showToast("Vehículo actualizado con éxito");
+        showToast(t('toast_vehicle_updated'));
       } else {
         dataToSave.created_at = new Date().toISOString();
         const { error } = await supabase.from('vehiculos').insert([dataToSave]);
         if (error) throw error;
-        showToast("Vehículo guardado con éxito");
+        showToast(t('toast_vehicle_saved'));
+        // Notificar al equipo del dealer sobre el nuevo vehículo
+        sendDealerNotification({
+          type: 'vehicle',
+          actorName: userProfile?.name || 'Alguien',
+          vehicleData: {
+            año: String(newYear),
+            marca: newMake,
+            modelo: newModel,
+            color: String(pick(vehicleData.color, vehicleData.detalles?.color) || ''),
+          },
+          dealerId: userProfile?.supabaseDealerId || dealerUuid,
+        }).catch(() => {});
       }
 
       fetchVehiclesFromSupabase();
@@ -6835,11 +7057,11 @@ export default function CarbotApp() {
       }).eq('id', id);
       if (error) throw error;
       setInventory(prev => prev.map(v => v.id === id ? { ...v, status: 'trash', detalles: updatedDetalles } : v));
-      showToast("Vehículo movido a la papelera");
+      showToast(t('toast_vehicle_moved_trash'));
       fetchVehiclesFromSupabase();
     } catch (error) {
       console.error(error);
-      showToast("Error al mover a papelera", "error");
+      showToast(t('toast_error_move_trash'), 'error');
     }
   };
 
@@ -6856,11 +7078,11 @@ export default function CarbotApp() {
       }).eq('id', id);
       if (error) throw error;
       setInventory(prev => prev.map(v => v.id === id ? { ...v, status: 'available', detalles: updatedDetalles } : v));
-      showToast("Vehículo restaurado al inventario");
+      showToast(t('toast_vehicle_restored'));
       fetchVehiclesFromSupabase();
     } catch (e) {
       console.error(e);
-      showToast("Error al restaurar", "error");
+      showToast(t('toast_error_restore'), 'error');
     }
   };
 
@@ -6872,9 +7094,9 @@ export default function CarbotApp() {
         const { error } = await supabase.from('vehiculos').delete().eq('id', id);
         if (error) throw error;
         setInventory(prev => prev.filter(v => v.id !== id));
-        if (!force) showToast("Eliminado permanentemente");
+        if (!force) showToast(t('toast_deleted_permanent'));
       } catch (error) {
-        showToast("Error al eliminar", "error");
+        showToast(t('toast_error_delete'), 'error');
       }
     };
 
@@ -6905,10 +7127,10 @@ export default function CarbotApp() {
       }
 
       await updateDoc(ref, { status: 'active' });
-      showToast("Documento restaurado");
+      showToast(t('toast_document_restored'));
     } catch (e) {
       console.error(e);
-      showToast("Error al restaurar documento", "error");
+      showToast(t('toast_error_restore'), 'error');
     }
   };
 
@@ -6931,10 +7153,10 @@ export default function CarbotApp() {
         // También intentar borrar de la colección raíz 'documentos' por si acaso es legacy
         try { await deleteDoc(doc(db, "Dealers", effectiveDealerId, "documentos", item.id)); } catch (e) { }
 
-        if (!force) showToast("Documento eliminado permanentemente");
+        if (!force) showToast(t('toast_deleted_permanent'));
       } catch (e) {
         console.error(e);
-        showToast("Error al eliminar documento", "error");
+        showToast(t('toast_error_delete'), 'error');
       }
     };
 
@@ -6965,9 +7187,9 @@ export default function CarbotApp() {
             if (error) throw error;
             setInventory(prev => prev.filter(v => v.status !== 'trash'));
           }
-          showToast("Papelera vaciada");
+          showToast(t('toast_trash_emptied'));
         } catch (e) {
-          showToast("Error al vaciar papelera", "error");
+          showToast(t('toast_error_empty_trash'), 'error');
         }
       }
     });
@@ -7025,6 +7247,23 @@ export default function CarbotApp() {
 
       // GUARDAR EN SUBCOLECCIÓN 'documentos/cotizaciones'
       await setDoc(doc(db, "Dealers", effectiveDealerId, "documentos", "cotizaciones", "items", customId), newQuote);
+
+      // Notificar al equipo sobre la nueva cotización
+      {
+        const vehicleObj = activeInventory.find(v => v.id === vId);
+        sendDealerNotification({
+          type: 'quote',
+          actorName: userProfile?.name || 'Alguien',
+          vehicleData: {
+            año: String(vehicleObj?.year || vehicleObj?.detalles?.year || ''),
+            marca: vehicleObj?.make || vehicleObj?.detalles?.make || make,
+            modelo: vehicleObj?.model || vehicleObj?.detalles?.model || model,
+            color: vehicleObj?.color || vehicleObj?.detalles?.color || '',
+          },
+          clientName: `${quoteData.name || ''} ${quoteData.lastname || ''}`.trim(),
+          dealerId: userProfile?.supabaseDealerId,
+        }).catch(() => {});
+      }
 
       await supabase.from('vehiculos')
         .update({
@@ -7227,6 +7466,25 @@ export default function CarbotApp() {
         // [LOCAL STATE SYNC] Update contracts state immediately
         setNewContracts(prev => [newContract, ...prev]);
 
+        // Notificar al equipo sobre el nuevo contrato
+        {
+          const vehicleObj = contractData.vehicleId
+            ? activeInventory.find(v => String(v.id) === String(contractData.vehicleId))
+            : null;
+          sendDealerNotification({
+            type: 'contract',
+            actorName: userProfile?.name || 'Alguien',
+            vehicleData: {
+              año: String(vehicleObj?.year || vehicleObj?.detalles?.year || ''),
+              marca: vehicleObj?.make || vehicleObj?.detalles?.make || make,
+              modelo: vehicleObj?.model || vehicleObj?.detalles?.model || model,
+              color: vehicleObj?.color || vehicleObj?.detalles?.color || '',
+            },
+            clientName: combinedClientName,
+            dealerId: userProfile?.supabaseDealerId,
+          }).catch(() => {});
+        }
+
         if (contractData.vehicleId) {
           // Determinar estado basado en tipo de documento
           // El documentType puede ser 'contrato' o 'cotizacion'
@@ -7344,10 +7602,10 @@ export default function CarbotApp() {
         createdAt: data.createdAt || new Date().toISOString()
       }, { merge: true });
 
-      showToast(id ? "Plantilla actualizada" : "Plantilla creada");
+      showToast(id ? t('toast_template_updated') : t('toast_template_created'));
     } catch (error) {
       console.error("Error saving template:", error);
-      showToast("Error al guardar la plantilla", "error");
+      showToast(t('toast_error_save_template'), 'error');
     }
   };
 
@@ -7378,10 +7636,10 @@ export default function CarbotApp() {
       if (!r.ok) throw new Error(await r.text());
       // Optimistic update
       setGhlContacts(prev => prev.map(c => c.id === contactId ? { ...c, ...updateData } : c));
-      showToast('Contacto actualizado');
+      showToast(t('toast_contact_updated'));
     } catch (err) {
       console.error('handleUpdateGHLContact error:', err);
-      showToast('Error actualizando contacto: ' + err.message, 'error');
+      showToast(t('toast_contact_updated') + ': ' + err.message, 'error');
     }
   };
 
@@ -7397,7 +7655,7 @@ export default function CarbotApp() {
       });
       if (!r.ok) throw new Error(await r.text());
       setGhlContacts(prev => prev.filter(c => c.id !== contactId));
-      showToast('Contacto eliminado');
+      showToast(t('toast_contact_deleted'));
     } catch (err) {
       console.error('handleDeleteGHLContact error:', err);
       showToast('Error eliminando contacto: ' + err.message, 'error');
@@ -7685,7 +7943,7 @@ export default function CarbotApp() {
     return (
       <>
         <LoginView onLoginSuccess={handleLoginSuccess} />
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        <Toaster position="top-right" />
       </>
     );
   }
@@ -7706,7 +7964,97 @@ export default function CarbotApp() {
           {renderContent()}
         </AnimatePresence>
       </AppLayout>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      <Toaster position="top-right" />
+
+      {/* Modal de bienvenida a notificaciones — aparece una sola vez */}
+      <AnimatePresence>
+        {showNotifWelcome && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.65)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '24px',
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 30 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 280 }}
+              style={{
+                background: '#fff',
+                borderRadius: '24px',
+                padding: '40px 32px 32px',
+                maxWidth: '380px',
+                width: '100%',
+                textAlign: 'center',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.25)',
+                position: 'relative',
+              }}
+            >
+              {/* Ícono campana */}
+              <div style={{
+                width: '72px', height: '72px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 24px',
+                fontSize: '32px',
+              }}>
+                🔔
+              </div>
+
+              <div style={{
+                fontSize: '11px', fontWeight: 700, letterSpacing: '3px',
+                textTransform: 'uppercase', color: '#ef4444', marginBottom: '8px',
+              }}>
+                Nueva función
+              </div>
+
+              <h2 style={{
+                fontSize: '24px', fontWeight: 800, color: '#0f172a',
+                marginBottom: '14px', lineHeight: 1.2,
+              }}>
+                Notificaciones en tiempo real
+              </h2>
+
+              <p style={{
+                fontSize: '15px', color: '#64748b', lineHeight: 1.6, marginBottom: '28px',
+              }}>
+                Recibe alertas al instante cuando alguien en tu equipo agregue un vehículo, realice una cotización o genere un contrato — directo en tu celular.
+              </p>
+
+              <button
+                onClick={handleNotifWelcomeActivate}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                  color: '#fff', border: 'none', borderRadius: '12px',
+                  fontSize: '15px', fontWeight: 700, cursor: 'pointer',
+                  marginBottom: '10px',
+                }}
+              >
+                Activar notificaciones
+              </button>
+
+              <button
+                onClick={handleNotifWelcomeDismiss}
+                style={{
+                  width: '100%', padding: '12px',
+                  background: 'transparent', color: '#94a3b8',
+                  border: 'none', borderRadius: '12px',
+                  fontSize: '14px', cursor: 'pointer',
+                }}
+              >
+                Ahora no
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {isContractModalOpen && createPortal(
         <GenerateContractModal

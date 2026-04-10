@@ -134,7 +134,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { dealerId, conversationId, messages, lastMessageId, lastId, limit = '25', tags, teamMembers, assignedUserId, contactId, upload } = req.query;
+  const { dealerId, conversationId, messages, lastMessageId, lastId, limit = '25', tags, teamMembers, assignedUserId, contactId, upload, bots, botStatus } = req.query;
 
   // Parse body: JSON for most requests, raw buffer for multipart uploads
   let reqBodyBuffer = null;
@@ -173,6 +173,41 @@ export default async function handler(req, res) {
           avatar: u.profilePhoto || null,
         }));
         return res.status(200).json({ members });
+      }
+
+      // Fetch conversation AI agents/bots for this location
+      if (bots === '1') {
+        const params = new URLSearchParams({ locationId });
+        const r = await fetch(`${GHL_BASE}/conversation-ai/agents/search?${params}`, { headers });
+        const data = await r.json();
+        // Return simplified list of active bots
+        const agents = (data.agents || data.data || []).map(a => ({
+          id: a.id,
+          name: a.name,
+          status: a.status,
+          mode: a.mode,
+          channels: a.channels || [],
+        }));
+        return res.status(200).json({ agents, hasBot: agents.length > 0 });
+      }
+
+      // Get bot status for a specific conversation
+      if (conversationId && botStatus === '1') {
+        const r = await fetch(`${GHL_BASE}/conversations-ai/employeeConfigs/${conversationId}`, { headers });
+        if (!r.ok) {
+          // 404 = no bot config for this conversation (bot never assigned)
+          if (r.status === 404) return res.status(200).json({ status: null, hasConfig: false });
+          const data = await r.json().catch(() => ({}));
+          return res.status(r.status).json(data);
+        }
+        const data = await r.json();
+        return res.status(200).json({
+          status: data.status || null,
+          hasConfig: true,
+          sleepingTill: data.sleepingTill || null,
+          reactivateAfterTimeValue: data.reactivateAfterTimeValue || null,
+          reactivateAfterTimeUnit: data.reactivateAfterTimeUnit || null,
+        });
       }
 
       // Get messages for a conversation
@@ -269,12 +304,13 @@ export default async function handler(req, res) {
       const payload = {
         type: body.type || 'WhatsApp',
         conversationId: body.conversationId,
-        message: body.message || '',
         // GHL expects attachments as an array of URL strings, not objects
         ...(body.attachments && body.attachments.length > 0
           ? { attachments: body.attachments.map(a => (typeof a === 'string' ? a : a.url)) }
           : {}),
       };
+      // Only include message if non-empty — GHL allows attachment-only messages
+      if (body.message) payload.message = body.message;
 
       const r = await fetch(`${GHL_BASE}/conversations/messages`, {
         method: 'POST',
@@ -288,6 +324,35 @@ export default async function handler(req, res) {
     // ── PUT (update conversation or add/remove tag on contact) ────────
     if (req.method === 'PUT') {
       const body = reqBodyJson;
+
+      // Toggle conversation AI bot status
+      if (conversationId && botStatus === '1') {
+        const status = body.status; // "active" or "inactive"
+        if (!status || !['active', 'inactive'].includes(status)) {
+          return res.status(400).json({ error: 'status debe ser "active" o "inactive"' });
+        }
+        const payload = {
+          data: {
+            status,
+            ...(status === 'inactive' ? {
+              reactivateAfterTimeValue: body.reactivateAfterTimeValue || 24,
+              reactivateAfterTimeUnit: body.reactivateAfterTimeUnit || 'hour',
+            } : {}),
+          },
+          locationId,
+        };
+        const r = await fetch(`${GHL_BASE}/conversations-ai/employeeConfigs/${conversationId}`, {
+          method: 'PUT',
+          headers: {
+            ...headers,
+            channel: 'APP',
+            source: 'WEB_USER',
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json().catch(() => ({}));
+        return res.status(r.status).json(data);
+      }
 
       // Add tag to contact
       if (contactId && body.addTag) {

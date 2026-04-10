@@ -2,20 +2,78 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from './supabase.js';
 import {
   MessageCircle, Search, RefreshCw, ChevronLeft, Send, Mic, MicOff,
   Paperclip, Phone, Mail, MessageSquare, Wifi, WifiOff,
   Sparkles, Bot, BotOff, X, Check, CheckCheck, Clock, AlertCircle,
   Hash, Tag, Circle, ChevronDown, AtSign, Globe, Lock, Pin, Trash2
 } from 'lucide-react';
+import { useI18n } from './i18n/I18nContext.jsx';
+
+// ─── CHANNEL ICONS (SVG) ────────────────────────────────────────────────────
+const WhatsAppIcon = ({ size = 16, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" fill="currentColor"/>
+    <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 01-4.243-1.214l-.257-.154-2.938.873.873-2.938-.154-.257A8 8 0 1112 20z" fill="currentColor"/>
+  </svg>
+);
+
+const SmsIcon = ({ size = 16, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z" fill="currentColor"/>
+    <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z" fill="currentColor"/>
+  </svg>
+);
+
+const LiveChatIcon = ({ size = 16, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M12 2C6.48 2 2 5.58 2 10c0 2.24 1.12 4.27 2.94 5.7L4 22l4.71-2.36C9.77 19.88 10.87 20 12 20c5.52 0 10-3.58 10-8s-4.48-8-10-8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    <circle cx="8" cy="10" r="1" fill="currentColor"/>
+    <circle cx="12" cy="10" r="1" fill="currentColor"/>
+    <circle cx="16" cy="10" r="1" fill="currentColor"/>
+  </svg>
+);
+
+const FacebookIcon = ({ size = 16, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="currentColor"/>
+  </svg>
+);
+
+const InstagramIcon = ({ size = 16, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" strokeWidth="2"/>
+    <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2"/>
+    <circle cx="18" cy="6" r="1.5" fill="currentColor"/>
+  </svg>
+);
+
+const LockIcon = ({ size = 12, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2"/>
+    <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const RobotIcon = ({ size = 14, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="4" y="8" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.8"/>
+    <rect x="8" y="12" width="3" height="2.5" rx="0.8" fill="currentColor"/>
+    <rect x="13" y="12" width="3" height="2.5" rx="0.8" fill="currentColor"/>
+    <path d="M9.5 17h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M12 8V5M10 5h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M2 12h2M20 12h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
 
 // ─── CHANNEL CONFIG ──────────────────────────────────────────────────────────
 const CHANNEL_CONFIG = {
-  TYPE_WHATSAPP:    { label: 'WhatsApp',   icon: '📱', color: 'emerald', ghlType: 'WhatsApp' },
-  TYPE_SMS:         { label: 'SMS',        icon: '💬', color: 'blue',    ghlType: 'SMS' },
-  TYPE_LIVE_CHAT:   { label: 'Live Chat',  icon: '⚡',  color: 'amber',   ghlType: 'Live_Chat' },
-  TYPE_FACEBOOK:    { label: 'Facebook',   icon: '📘', color: 'blue',    ghlType: 'Facebook' },
-  TYPE_INSTAGRAM:   { label: 'Instagram',  icon: '📸', color: 'pink',    ghlType: 'IG' },
+  TYPE_WHATSAPP:    { label: 'WhatsApp',   Icon: WhatsAppIcon,  color: 'emerald', ghlType: 'WhatsApp' },
+  TYPE_SMS:         { label: 'SMS',        Icon: SmsIcon,       color: 'blue',    ghlType: 'SMS' },
+  TYPE_LIVE_CHAT:   { label: 'Live Chat',  Icon: LiveChatIcon,  color: 'amber',   ghlType: 'Live_Chat' },
+  TYPE_FACEBOOK:    { label: 'Facebook',   Icon: FacebookIcon,  color: 'blue',    ghlType: 'Facebook' },
+  TYPE_INSTAGRAM:   { label: 'Instagram',  Icon: InstagramIcon, color: 'pink',    ghlType: 'IG' },
 };
 
 const COLOR_MAP = {
@@ -28,12 +86,12 @@ const COLOR_MAP = {
 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-function formatTime(dateStr) {
+function formatTime(dateStr, nowLabel) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   const now = new Date();
   const diff = now - d;
-  if (diff < 60000) return 'ahora';
+  if (diff < 60000) return nowLabel || 'ahora';
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
   if (diff < 86400000) return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
   if (diff < 604800000) return d.toLocaleDateString('es', { weekday: 'short' });
@@ -95,7 +153,7 @@ function MsgSkeleton() {
     <div className="flex-1 p-6 space-y-4 overflow-hidden bg-[#e8eaed]">
       {[...Array(5)].map((_, i) => (
         <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'} animate-pulse`}>
-          <div className={`rounded-2xl px-4 py-3 ${i % 2 === 0 ? 'bg-white/60 w-2/3' : 'bg-[#d9fdd3]/50 w-1/2'} h-10`} />
+          <div className={`rounded-2xl px-4 py-3 ${i % 2 === 0 ? 'bg-white/60 w-2/3' : 'bg-[#1a1a2e]/40 w-1/2'} h-10`} />
         </div>
       ))}
     </div>
@@ -103,7 +161,8 @@ function MsgSkeleton() {
 }
 
 // ─── CONVERSATION ITEM ───────────────────────────────────────────────────────
-function ConvItem({ conv, isActive, onClick, isPinned }) {
+function ConvItem({ conv, isActive, onClick, isPinned, selectMode, isSelected, onToggleSelect }) {
+  const { t } = useI18n();
   const name = conv.fullName || conv.contactName || `${conv.firstName || ''} ${conv.lastName || ''}`.trim() || 'Sin nombre';
   const preview = conv.lastMessage?.body || conv.lastMessageBody || '...';
   const time = conv.lastMessageDate || conv.dateUpdated || conv.dateAdded;
@@ -111,36 +170,53 @@ function ConvItem({ conv, isActive, onClick, isPinned }) {
   const gradient = getAvatarGradient(name);
   const initials = getInitials(name);
 
+  // Channel icon from lastMessageType
+  const channelKey = conv.lastMessageType;
+  const channelCfg = channelKey ? CHANNEL_CONFIG[channelKey] : null;
+  const ChannelIcon = channelCfg?.Icon;
+
   return (
     <motion.button
-      onClick={onClick}
+      onClick={selectMode ? () => onToggleSelect?.(conv.id) : onClick}
       whileTap={{ scale: 0.98 }}
       className={`w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-left group relative
-        ${isActive
-          ? 'bg-white'
-          : 'hover:bg-[#f5f6f6]'
+        ${isActive && !selectMode
+          ? 'bg-white dark:bg-[#2a3942]'
+          : isSelected
+            ? 'bg-[#e0f2fe] dark:bg-[#1e3a5f]'
+            : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'
         }`}
     >
-      {/* Avatar */}
+      {/* Selection checkbox or Avatar */}
       <div className="relative shrink-0">
-        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-          <span className="text-white text-xs font-black">{initials}</span>
-        </div>
+        {selectMode ? (
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors
+            ${isSelected ? 'bg-[#25d366] border-[#25d366]' : 'bg-white dark:bg-[#2a3942] border-[#d1d5db] dark:border-[#667781]'}`}>
+            {isSelected && <Check size={20} className="text-white" />}
+          </div>
+        ) : (
+          <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+            <span className="text-white text-xs font-black">{initials}</span>
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 border-b border-[#e9edef] pb-2.5">
+      <div className="flex-1 min-w-0 border-b border-[#e9edef] dark:border-[#374045] pb-2.5">
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-1 min-w-0">
             {isPinned && <Pin size={10} className="text-[#667781] shrink-0" />}
-            <span className="text-sm font-medium text-[#111827] truncate">{name}</span>
+            <span className="text-sm font-medium text-[#111827] dark:text-[#e9edef] truncate">{name}</span>
           </div>
-          <span className={`text-[11px] shrink-0 ml-2 ${unread > 0 ? 'text-[#25d366]' : 'text-[#667781]'}`}>{formatTime(time)}</span>
+          <span className={`text-[11px] shrink-0 ml-2 ${unread > 0 ? 'text-[#25d366]' : 'text-[#667781]'}`}>{formatTime(time, t('conversations_time_now'))}</span>
         </div>
         <div className="flex items-center justify-between">
-          <p className={`text-[13px] truncate leading-tight ${unread > 0 ? 'text-[#111827] font-medium' : 'text-[#667781]'}`}>
-            {preview}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {ChannelIcon && <ChannelIcon size={13} className={`shrink-0 ${channelCfg.color === 'emerald' ? 'text-emerald-500' : channelCfg.color === 'blue' ? 'text-blue-500' : channelCfg.color === 'pink' ? 'text-pink-500' : channelCfg.color === 'amber' ? 'text-amber-500' : 'text-[#667781]'}`} />}
+            <p className={`text-[13px] truncate leading-tight ${unread > 0 ? 'text-[#111827] dark:text-[#e9edef] font-medium' : 'text-[#667781]'}`}>
+              {preview}
+            </p>
+          </div>
           {unread > 0 && !isActive && (
             <span className="ml-2 min-w-[20px] h-5 px-1 bg-[#25d366] text-black text-[11px] font-bold rounded-full flex items-center justify-center shrink-0">
               {unread > 99 ? '99+' : unread}
@@ -173,7 +249,7 @@ function ChannelSelector({ channels, active, onChange }) {
                 : 'text-[#667781] hover:text-[#111827] hover:bg-[#f5f6f6]'
               }`}
           >
-            <span className="text-sm leading-none">{cfg.icon}</span>
+            {cfg.Icon && <cfg.Icon size={14} className={isActive ? 'text-[#00a884]' : 'text-[#667781]'} />}
             <span>{cfg.label}</span>
           </motion.button>
         );
@@ -182,35 +258,67 @@ function ChannelSelector({ channels, active, onChange }) {
   );
 }
 
-// ─── AI TOGGLE ───────────────────────────────────────────────────────────────
+// ─── AI TOGGLE (Floating Bubble) ─────────────────────────────────────────────
 function AIToggle({ isOn, isLoading, onToggle }) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <motion.button
-      onClick={onToggle}
-      disabled={isLoading}
-      whileTap={{ scale: 0.95 }}
-      className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 font-bold text-xs
-        ${isOn
-          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-          : 'bg-amber-500/10 border-amber-500/30 text-amber-700'
-        }`}
-    >
-      {/* Glow dot */}
-      <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${isOn ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : 'bg-amber-500'}`} />
-      {isLoading ? (
-        <span className="animate-pulse">...</span>
-      ) : (
-        <>
-          {isOn ? <Bot size={13} /> : <BotOff size={13} />}
-          <span>Bot {isOn ? 'Activo' : 'Inactivo'}</span>
-        </>
-      )}
-    </motion.button>
+    <div className="relative flex flex-col items-end gap-2">
+      {/* Expanded label */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 8 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border backdrop-blur-sm text-xs font-bold whitespace-nowrap shadow-lg
+              ${isOn
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                : 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+              }`}
+          >
+            <div className={`w-2 h-2 rounded-full ${isOn ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]'}`} />
+            <span>{isOn ? (t('conversations_bot_active_label') || 'Bot activo') : (t('conversations_bot_inactive_label') || 'Bot pausado')}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating circle button */}
+      <motion.button
+        onClick={onToggle}
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+        disabled={isLoading}
+        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.08 }}
+        className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg border-2 transition-all duration-300
+          ${isOn
+            ? 'bg-emerald-500 border-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,0.4)]'
+            : 'bg-amber-500 border-amber-400 text-white shadow-[0_0_16px_rgba(245,158,11,0.3)]'
+          }`}
+        title={isOn ? (t('conversations_bot_active_label') || 'Bot activo') : (t('conversations_bot_inactive_label') || 'Bot pausado')}
+      >
+        {isLoading ? (
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+            <RefreshCw size={16} />
+          </motion.div>
+        ) : (
+          <RobotIcon size={18} className="text-white" />
+        )}
+        {/* Status dot */}
+        <div className={`absolute top-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-[#111b21]
+          ${isOn ? 'bg-emerald-400' : 'bg-amber-400'}`}
+        />
+      </motion.button>
+    </div>
   );
 }
 
 // ─── MEDIA CONTENT ───────────────────────────────────────────────────────────
 function MediaContent({ msg }) {
+  const { t } = useI18n();
   // GHL returns attachments as array or single mediaUrl
   const attachments = msg.attachments || (msg.mediaUrl ? [{ url: msg.mediaUrl }] : []);
   if (!attachments.length) return null;
@@ -240,23 +348,23 @@ function MediaContent({ msg }) {
         if (isVideo) {
           return (
             <video key={i} src={url} controls className="max-w-[240px] rounded-xl" style={{ maxHeight: 180 }}>
-              Tu navegador no soporta video.
+              {t('conversations_video_unsupported')}
             </video>
           );
         }
         if (isAudio) {
           return (
             <audio key={i} src={url} controls className="w-[220px] h-10 rounded-xl" style={{ accentColor: '#00a884' }}>
-              Tu navegador no soporta audio.
+              {t('conversations_audio_unsupported')}
             </audio>
           );
         }
         // Generic file
         return (
           <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 bg-black/5 rounded-xl text-[12px] text-[#111827] hover:bg-black/10 transition-colors">
+            className="flex items-center gap-2 px-3 py-2 bg-black/5 dark:bg-white/10 rounded-xl text-[12px] text-[#111827] dark:text-[#e9edef] hover:bg-black/10 dark:hover:bg-white/15 transition-colors">
             <Paperclip size={13} className="shrink-0" />
-            <span className="truncate max-w-[180px]">{att.name || 'Archivo adjunto'}</span>
+            <span className="truncate max-w-[180px]">{att.name || t('conversations_file_attachment')}</span>
           </a>
         );
       })}
@@ -264,34 +372,72 @@ function MediaContent({ msg }) {
   );
 }
 
+// ─── AI MESSAGE DETECTION ─────────────────────────────────────────────────────
+function isAIMessage(msg) {
+  // GHL workflow/bot messages: source is 'workflow', 'automation', or 'ai'
+  const src = (msg.source || '').toLowerCase();
+  if (src === 'workflow' || src === 'automation' || src === 'ai') return true;
+  // Messages with automationId or no userId on outbound are likely bot
+  if (msg.automationId) return true;
+  // User-created field from our system
+  if (msg.meta?.isAI || msg.isAI) return true;
+  return false;
+}
+
 // ─── MESSAGE BUBBLE ──────────────────────────────────────────────────────────
-function MessageBubble({ msg, isOwn }) {
+function MessageBubble({ msg, isOwn, teamMembers = [] }) {
+  const { t } = useI18n();
   const time = formatFullTime(msg.dateAdded || msg.createdAt);
   const body = msg.body || msg.message || msg.text || '';
   const status = msg.status;
   const isNote = msg.type === 'Note' || msg.messageType === 'Note';
+  const isAI = isOwn && isAIMessage(msg);
   // GHL attachments or media
   const hasMedia = (msg.attachments?.length > 0) || msg.mediaUrl;
   // Sticker: GHL sends type=Sticker or messageType=Sticker
   const isSticker = msg.type === 'Sticker' || msg.messageType === 'Sticker';
 
+  // Resolve team member who sent this outbound message
+  const sender = isOwn && !isNote && !isAI && msg.userId
+    ? teamMembers.find(m => m.id === msg.userId)
+    : null;
+
   const bubbleClass = isNote
-    ? 'bg-amber-50 border-l-2 border-amber-400 text-amber-900 rounded-lg'
-    : isOwn
-      ? 'bg-[#fde8e8] text-[#1a0a0a] rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-sm'
-      : 'bg-white text-[#111827] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl rounded-tl-sm';
+    ? 'bg-amber-50 border-l-2 border-amber-400 text-amber-900 rounded-lg dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-600'
+    : isAI
+      ? 'bg-[#e0e7ff] text-[#1e1b4b] rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-sm shadow-sm dark:bg-[#312e81] dark:text-[#e0e7ff] border border-indigo-200/50 dark:border-indigo-600/30'
+      : isOwn
+        ? 'bg-[#b71c1c] text-white rounded-tl-2xl rounded-bl-2xl rounded-br-2xl rounded-tr-sm shadow-sm dark:bg-[#7f1d1d] dark:text-[#fecaca]'
+        : 'bg-white text-[#111827] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl rounded-tl-sm shadow-sm dark:bg-[#202c33] dark:text-[#e9edef]';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+    <div
       className={`flex ${isNote ? 'justify-center' : isOwn ? 'justify-end' : 'justify-start'} group`}
     >
       <div className={`${isNote ? 'max-w-[85%] sm:max-w-[80%]' : 'max-w-[80%] sm:max-w-[72%]'} min-w-0 ${isOwn ? 'items-end' : 'items-start'} flex flex-col gap-0.5`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
         {isNote && (
-          <span className="text-[9px] font-bold text-amber-600 uppercase tracking-widest text-center w-full px-1">
-            🔒 Nota interna
+          <span className="text-[9px] font-bold text-amber-600 uppercase tracking-widest text-center w-full px-1 flex items-center justify-center gap-1">
+            <LockIcon size={10} className="text-amber-600" /> {t('conversations_note_internal')}
+          </span>
+        )}
+        {/* AI label */}
+        {isAI && !isNote && (
+          <span className="flex items-center gap-1 px-1 justify-end">
+            <RobotIcon size={11} className="text-indigo-500 dark:text-indigo-300" />
+            <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-300 uppercase tracking-widest">Bot</span>
+          </span>
+        )}
+        {/* Team member label */}
+        {sender && !isAI && !isNote && (
+          <span className="flex items-center gap-1.5 px-1 justify-end">
+            {sender.avatar ? (
+              <img src={sender.avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+            ) : (
+              <span className="w-4 h-4 rounded-full bg-[#c62828] text-white text-[8px] font-bold flex items-center justify-center">
+                {(sender.name || '?')[0].toUpperCase()}
+              </span>
+            )}
+            <span className="text-[10px] font-medium text-[#c62828] dark:text-[#ef9a9a]">{sender.name}</span>
           </span>
         )}
         {/* Sticker — no bubble background */}
@@ -313,11 +459,12 @@ function MessageBubble({ msg, isOwn }) {
         ) : (
           /* Text-only */
           <div className={`px-3 py-2 text-[13.5px] leading-relaxed break-words ${bubbleClass}`}>
-            {body || <span className="text-[#667781] italic text-[12px]">Mensaje sin texto</span>}
+            {body || <span className="text-[#667781] italic text-[12px]">{t('conversations_no_text')}</span>}
           </div>
         )}
         <div className={`flex items-center gap-1 px-1 ${isOwn || isNote ? 'flex-row-reverse' : 'flex-row'}`}>
           <span className="text-[10px] text-[#667781]">{time}</span>
+          {isAI && <RobotIcon size={10} className="text-indigo-400" />}
           {isOwn && !isNote && (
             status === 'delivered' ? <CheckCheck size={11} className="text-[#53bdeb]" /> :
             status === 'sent' ? <Check size={11} className="text-[#667781]" /> :
@@ -326,7 +473,7 @@ function MessageBubble({ msg, isOwn }) {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -334,7 +481,7 @@ function MessageBubble({ msg, isOwn }) {
 function DateDivider({ date }) {
   return (
     <div className="flex items-center justify-center my-3">
-      <span className="text-[11px] text-[#667781] bg-[#e9edef] px-3 py-1 rounded-full">
+      <span className="text-[11px] text-[#667781] bg-white/80 dark:bg-[#202c33]/90 dark:text-[#8696a0] px-3 py-1 rounded-full shadow-sm">
         {new Date(date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
       </span>
     </div>
@@ -342,7 +489,8 @@ function DateDivider({ date }) {
 }
 
 // ─── COMPOSER ────────────────────────────────────────────────────────────────
-function Composer({ onSend, activeChannel, disabled, dealerId, conversationId }) {
+function Composer({ onSend, activeChannel, disabled, dealerId, conversationId, userProfile }) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSecs, setRecordingSecs] = useState(0);
@@ -352,12 +500,110 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
   const [mentionAnchor, setMentionAnchor] = useState(0);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState([]); // [{ url, type, name }]
+  const [slashMode, setSlashMode] = useState(null); // null | 'menu' | 'vehicles'
+  const [slashQuery, setSlashQuery] = useState('');
+  const [vehicles, setVehicles] = useState([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [selectedVehicles, setSelectedVehicles] = useState(new Set());
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
   const cfg = CHANNEL_CONFIG[activeChannel] || CHANNEL_CONFIG.TYPE_WHATSAPP;
+
+  // Dealer catalog URL — read from Supabase via userProfile, fallback to generated slug
+  const rawDealerName = userProfile?.dealerName || userProfile?.nombre || userProfile?.dealer_name || '';
+  const catalogUrl = useMemo(() => {
+    if (userProfile?.catalogo_url) return userProfile.catalogo_url;
+    if (!rawDealerName) return '';
+    const s = rawDealerName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\./g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return `https://carbotsystem.com/inventario/${s}/catalogo`;
+  }, [rawDealerName, userProfile?.catalogo_url]);
+  const dealerName = rawDealerName;
+
+  // Fetch vehicles for slash commands (direct Supabase query)
+  const fetchVehicles = useCallback(async () => {
+    if (!dealerId || vehicles.length > 0) return;
+    setVehiclesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vehiculos')
+        .select('id, titulo_vehiculo, color, precio, estado, fotos, detalles')
+        .eq('dealer_id', dealerId)
+        .in('estado', ['Disponible', 'Cotizado'])
+        .order('titulo_vehiculo', { ascending: true });
+      if (error) throw error;
+      const list = (data || []).map(v => {
+        const d = v.detalles || {};
+        const make = d.make || '';
+        const model = d.model || '';
+        const year = d.year || '';
+        const edition = d.edition || d.edicion || '';
+        const title = v.titulo_vehiculo || `${year} ${make} ${model} ${edition}`.trim();
+        return {
+          id: v.id,
+          nombre: title.toUpperCase(),
+          marca: make.toUpperCase(),
+          precio: v.precio ? `RD$ ${Number(v.precio).toLocaleString()}` : '',
+          img: (v.fotos && v.fotos[0]) || null,
+          estado: v.estado,
+        };
+      });
+      setVehicles(list);
+    } catch (err) {
+      console.error('[Composer] fetchVehicles error:', err);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  }, [dealerId, vehicles.length]);
+
+  // Filter vehicles by slash query (brand, model, etc.)
+  const filteredVehicles = useMemo(() => {
+    if (!slashQuery.trim()) return vehicles;
+    const q = slashQuery.toLowerCase();
+    return vehicles.filter(v => {
+      const searchStr = `${v.nombre || ''} ${v.marca || ''}`.toLowerCase();
+      return searchStr.includes(q);
+    });
+  }, [vehicles, slashQuery]);
+
+  // Paste catalog link into text input (user can edit before sending)
+  const insertCatalog = () => {
+    const msg = catalogUrl
+      ? `Este es nuestro catalogo, aqui puedes ver todo nuestro inventario.\n\n${catalogUrl}`
+      : '';
+    if (!msg) return;
+    setText(msg);
+    setSlashMode(null);
+    setSlashQuery('');
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  // Paste selected vehicles into text input (user can edit before sending)
+  const insertSelectedVehicles = () => {
+    if (selectedVehicles.size === 0) return;
+    const baseUrl = catalogUrl || `https://carbotsystem.com/inventario/catalogo`;
+    const selected = vehicles.filter(v => selectedVehicles.has(v.id));
+    const lines = selected.map(v => {
+      const vehicleUrl = `${baseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
+      return `Mira aqui los detalles y fotos de: ${v.nombre || 'Vehiculo'}\n\n${vehicleUrl}`;
+    });
+    setText(lines.join('\n\n'));
+    setSlashMode(null);
+    setSlashQuery('');
+    setSelectedVehicles(new Set());
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  const toggleVehicleSelection = (id) => {
+    setSelectedVehicles(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Load team members once when entering internal mode
   useEffect(() => {
@@ -382,9 +628,16 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
   };
 
   const handleKey = (e) => {
-    if (e.key === 'Escape') { setMentionQuery(null); return; }
+    if (e.key === 'Escape') {
+      if (slashMode) { setSlashMode(null); setSlashQuery(''); setText(''); return; }
+      setMentionQuery(null);
+      return;
+    }
     if (mentionQuery !== null && filteredMembers.length > 0) {
       if (e.key === 'Enter') { e.preventDefault(); insertMention(filteredMembers[0]); return; }
+    }
+    if (slashMode) {
+      if (e.key === 'Enter') { e.preventDefault(); return; }
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -395,6 +648,30 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
   const handleInput = (e) => {
     const val = e.target.value;
     setText(val);
+
+    // Slash command detection
+    if (val === '/') {
+      setSlashMode('menu');
+      setSlashQuery('');
+      fetchVehicles();
+      return;
+    }
+    if (val.startsWith('/') && val.length > 1) {
+      const cmd = val.slice(1).toLowerCase();
+      if (cmd === 'catalogo') {
+        insertCatalog();
+        return;
+      }
+      // Any other text after / is a vehicle search query
+      setSlashMode('vehicles');
+      setSlashQuery(cmd);
+      fetchVehicles();
+      return;
+    }
+    if (!val.startsWith('/') && slashMode) {
+      setSlashMode(null);
+      setSlashQuery('');
+    }
     const ta = textareaRef.current;
     if (ta) {
       ta.style.height = 'auto';
@@ -553,10 +830,10 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
 
       <div className={`rounded-2xl overflow-hidden transition-colors duration-200
         ${isRecording
-          ? 'bg-red-50 border border-red-200'
+          ? 'bg-red-50 border border-red-200 dark:bg-red-950/40 dark:border-red-800'
           : isInternal
-            ? 'bg-amber-50 border border-amber-200'
-            : 'bg-white'
+            ? 'bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'
+            : 'bg-white dark:bg-[#2a3942] dark:border-[#3b4a54]'
         }`}
       >
         {/* Mode indicator bar */}
@@ -565,12 +842,12 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
             <div className="flex items-center gap-2">
               {isInternal ? (
                 <>
-                  <span className="text-sm">🔒</span>
-                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Nota interna · Solo tu equipo</span>
+                  <LockIcon size={14} className="text-amber-600" />
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{t('conversations_internal_mode')}</span>
                 </>
               ) : (
                 <>
-                  <span className="text-sm">{cfg.icon}</span>
+                  {cfg.Icon && <cfg.Icon size={14} className="text-[#667781]" />}
                   <span className="text-[10px] font-medium text-[#667781] uppercase tracking-widest">via {cfg.label}</span>
                 </>
               )}
@@ -578,15 +855,15 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
             <motion.button
               whileTap={{ scale: 0.92 }}
               onClick={() => setIsInternal(v => !v)}
-              title={isInternal ? 'Cambiar a mensaje normal' : 'Nota interna (solo equipo)'}
+              title={isInternal ? t('conversations_switch_normal') : t('conversations_switch_internal')}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200
                 ${isInternal
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-[#f0f2f5] text-[#667781] hover:text-[#111827]'
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+                  : 'bg-[#f0f2f5] text-[#667781] hover:text-[#111827] dark:bg-[#202c33] dark:text-[#8696a0] dark:hover:text-[#e9edef]'
                 }`}
             >
               <Lock size={10} />
-              Interno
+              {t('conversations_internal_label')}
             </motion.button>
           </div>
         )}
@@ -596,9 +873,9 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span className="text-[13px] font-semibold text-red-600 flex-1">
-              Grabando... {Math.floor(recordingSecs / 60).toString().padStart(2, '0')}:{(recordingSecs % 60).toString().padStart(2, '0')}
+              {t('conversations_recording')} {Math.floor(recordingSecs / 60).toString().padStart(2, '0')}:{(recordingSecs % 60).toString().padStart(2, '0')}
             </span>
-            <span className="text-[11px] text-[#667781]">Toca 🎤 para enviar</span>
+            <span className="text-[11px] text-[#667781]">{t('conversations_mic_hint')}</span>
           </div>
         )}
 
@@ -614,17 +891,17 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
               rows={1}
               placeholder={
                 uploadingFile
-                  ? 'Subiendo archivo...'
+                  ? t('conversations_uploading')
                   : disabled
-                    ? 'Selecciona una conversación...'
+                    ? t('conversations_select_conv')
                     : isInternal
-                      ? '@ para etiquetar a los usuarios...'
+                      ? t('conversations_mention_hint')
                       : `Mensaje por ${cfg.label}...`
               }
               className={`flex-1 bg-transparent resize-none outline-none text-sm leading-relaxed py-1 max-h-[120px] font-normal transition-colors duration-200
                 ${isInternal
-                  ? 'text-amber-900 placeholder:text-amber-300'
-                  : 'text-[#111827] placeholder:text-[#667781]'
+                  ? 'text-amber-900 placeholder:text-amber-300 dark:text-amber-200 dark:placeholder:text-amber-600'
+                  : 'text-[#111827] placeholder:text-[#667781] dark:text-[#e9edef] dark:placeholder:text-[#8696a0]'
                 }`}
             />
 
@@ -689,7 +966,7 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
               }}
               className="text-xs text-[#667781] px-3 py-1.5 rounded-lg hover:bg-red-100 hover:text-red-600 transition-colors"
             >
-              Cancelar
+              {t('cancel')}
             </button>
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -698,6 +975,103 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
             >
               <Mic size={18} />
             </motion.button>
+          </div>
+        )}
+
+        {/* Slash command popup */}
+        {slashMode === 'menu' && (
+          <div className="mx-3 mb-2 bg-white dark:bg-[#2a3942] border border-[#e9edef] dark:border-[#374045] rounded-xl overflow-hidden shadow-lg">
+            <div className="px-3 py-2 border-b border-[#e9edef] dark:border-[#374045]">
+              <span className="text-[10px] font-bold text-[#667781] uppercase tracking-wider">Comandos rapidos</span>
+            </div>
+            <button
+              onMouseDown={e => { e.preventDefault(); insertCatalog(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f5f6f6] dark:hover:bg-[#374045] transition-colors text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                <Globe size={16} className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-[#111827] dark:text-[#e9edef]">/catalogo</p>
+                <p className="text-[11px] text-[#667781]">Enviar link del catalogo completo</p>
+              </div>
+            </button>
+            <button
+              onMouseDown={e => { e.preventDefault(); setSlashMode('vehicles'); setText('/'); fetchVehicles(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#f5f6f6] dark:hover:bg-[#374045] transition-colors text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                <Hash size={16} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-[#111827] dark:text-[#e9edef]">/vehiculo</p>
+                <p className="text-[11px] text-[#667781]">Buscar y enviar vehiculos especificos</p>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Slash vehicle selector */}
+        {slashMode === 'vehicles' && (
+          <div className="mx-3 mb-2 bg-white dark:bg-[#2a3942] border border-[#e9edef] dark:border-[#374045] rounded-xl overflow-hidden shadow-lg max-h-[320px] flex flex-col">
+            <div className="px-3 py-2 border-b border-[#e9edef] dark:border-[#374045] flex items-center justify-between shrink-0">
+              <span className="text-[10px] font-bold text-[#667781] uppercase tracking-wider">
+                {slashQuery ? `Buscando: "${slashQuery}"` : 'Selecciona vehiculos'}
+                {` (${filteredVehicles.length})`}
+              </span>
+              <div className="flex items-center gap-2">
+                {selectedVehicles.size > 0 && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onMouseDown={e => { e.preventDefault(); insertSelectedVehicles(); }}
+                    className="px-3 py-1 bg-[#00a884] text-white text-[11px] font-bold rounded-lg hover:bg-[#00c49a] transition-colors"
+                  >
+                    Enviar ({selectedVehicles.size})
+                  </motion.button>
+                )}
+                <button onMouseDown={e => { e.preventDefault(); setSlashMode(null); setSlashQuery(''); setText(''); setSelectedVehicles(new Set()); }}
+                  className="text-[#667781] hover:text-[#111827] dark:hover:text-[#e9edef]">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {vehiclesLoading ? (
+                <div className="p-4 text-center text-[#667781] text-[12px]">Cargando inventario...</div>
+              ) : filteredVehicles.length === 0 ? (
+                <div className="p-4 text-center text-[#667781] text-[12px]">No se encontraron vehiculos{slashQuery ? ` para "${slashQuery}"` : ''}</div>
+              ) : (
+                filteredVehicles.map(v => {
+                  const name = v.nombre || 'Vehiculo';
+                  const price = v.precio || '';
+                  const isSelected = selectedVehicles.has(v.id);
+                  return (
+                    <button
+                      key={v.id}
+                      onMouseDown={e => { e.preventDefault(); toggleVehicleSelection(v.id); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 transition-colors text-left
+                        ${isSelected ? 'bg-[#e0f2fe] dark:bg-[#1e3a5f]' : 'hover:bg-[#f5f6f6] dark:hover:bg-[#374045]'}`}
+                    >
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors
+                        ${isSelected ? 'bg-[#00a884] border-[#00a884]' : 'border-[#d1d5db] dark:border-[#667781]'}`}>
+                        {isSelected && <Check size={12} className="text-white" />}
+                      </div>
+                      {v.img ? (
+                        <img src={v.img} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0 bg-gray-200 dark:bg-gray-700" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                          <Hash size={14} className="text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold text-[#111827] dark:text-[#e9edef] truncate">{name}</p>
+                        <p className="text-[11px] text-[#667781]">{price}</p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 
@@ -731,6 +1105,7 @@ function Composer({ onSend, activeChannel, disabled, dealerId, conversationId })
 
 // ─── CONTACT HEADER ──────────────────────────────────────────────────────────
 function ConvHeader({ conv, onBack, channels, activeChannel, onChannelChange, onShowContactInfo, onPin, onAddTag, onDelete, dealerId, isPinned }) {
+  const { t } = useI18n();
   const name = conv?.fullName || conv?.contactName || `${conv?.firstName || ''} ${conv?.lastName || ''}`.trim() || 'Sin nombre';
   const gradient = getAvatarGradient(name);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -764,7 +1139,7 @@ function ConvHeader({ conv, onBack, channels, activeChannel, onChannelChange, on
           whileTap={{ scale: 0.95 }}
           onClick={onShowContactInfo}
           className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0 cursor-pointer`}
-          title="Ver info del contacto"
+          title={t('conversations_view_contact')}
         >
           <span className="text-white text-xs font-black">{getInitials(name)}</span>
         </motion.div>
@@ -781,7 +1156,7 @@ function ConvHeader({ conv, onBack, channels, activeChannel, onChannelChange, on
         <div className="relative shrink-0" ref={menuRef}>
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => { setMenuOpen(v => !v); setTagMenuOpen(false); }}
+            onClick={() => setMenuOpen(v => !v)}
             className="w-9 h-9 rounded-full flex items-center justify-center text-[#667781] hover:text-[#111827] hover:bg-[#e9edef] transition-all"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -803,7 +1178,7 @@ function ConvHeader({ conv, onBack, channels, activeChannel, onChannelChange, on
                   className="w-full flex items-center gap-3 px-4 py-3 text-[13px] text-[#111827] hover:bg-[#f5f6f6] transition-colors text-left"
                 >
                   <Pin size={15} className={isPinned ? 'text-red-500' : 'text-[#667781]'} />
-                  {isPinned ? 'Desfijar conversación' : 'Fijar conversación'}
+                  {isPinned ? t('conversations_unpin') : t('conversations_pin')}
                 </button>
               </motion.div>
             )}
@@ -843,6 +1218,7 @@ const ICONS = [
 ];
 
 function ChatWatermark({ dealerLogo }) {
+  const isDark = document.documentElement.classList.contains('dark');
   const cols = 8;
   const rows = 11;
   const cellW = 100 / cols;
@@ -850,7 +1226,7 @@ function ChatWatermark({ dealerLogo }) {
   const rotations = [-18, -12, -20, -15, -10, -22, -16, -14];
 
   return (
-    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0, overflow: 'hidden', opacity: 0.22 }}>
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0, overflow: 'hidden', opacity: isDark ? 0.06 : 0.22 }}>
       {Array.from({ length: cols * rows }).map((_, i) => {
         const col = i % cols;
         const row = Math.floor(i / cols);
@@ -873,11 +1249,11 @@ function ChatWatermark({ dealerLogo }) {
           }}>
             {isLogoPair ? (
               <>
-                <img src="/logo.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain', filter: 'grayscale(100%)' }} />
-                {dealerLogo && <img src={dealerLogo} alt="" style={{ width: 48, height: 28, objectFit: 'contain', filter: 'grayscale(100%)' }} />}
+                <img src="/logo.png" alt="" style={{ width: 28, height: 28, objectFit: 'contain', filter: isDark ? 'grayscale(100%) invert(1) brightness(0.8)' : 'grayscale(100%)' }} />
+                {dealerLogo && <img src={dealerLogo} alt="" style={{ width: 48, height: 28, objectFit: 'contain', filter: isDark ? 'grayscale(100%) invert(1) brightness(0.8)' : 'grayscale(100%)' }} />}
               </>
             ) : (
-              <div style={{ width: 24, height: 24, color: '#334155' }}>
+              <div style={{ width: 24, height: 24, color: 'var(--text-tertiary)' }}>
                 {ICONS[iconIdx]}
               </div>
             )}
@@ -889,7 +1265,8 @@ function ChatWatermark({ dealerLogo }) {
 }
 
 // ─── MESSAGES AREA ───────────────────────────────────────────────────────────
-function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollChange }) {
+function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollChange, teamMembers = [] }) {
+  const { t } = useI18n();
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
   const lastScrollTop = useRef(0);
@@ -935,8 +1312,8 @@ function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollCh
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scroll-smooth"
-      style={{ WebkitOverflowScrolling: 'touch', background: 'transparent' }}
+      className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scroll-smooth chat-bg"
+      style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Load more */}
       {onLoadMore && (
@@ -946,7 +1323,7 @@ function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollCh
             disabled={loadingMore}
             className="text-xs text-[#667781] hover:text-[#111827] font-medium px-4 py-1.5 rounded-full bg-[#e9edef] hover:bg-[#d1d7db] transition-all"
           >
-            {loadingMore ? 'Cargando...' : '↑ Mensajes anteriores'}
+            {loadingMore ? t('loading') : `↑ ${t('conversations_load_more')}`}
           </button>
         </div>
       )}
@@ -957,7 +1334,7 @@ function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollCh
             <div className="w-12 h-12 rounded-full bg-[#f0f2f5] flex items-center justify-center mx-auto">
               <MessageCircle size={20} className="text-[#667781]" />
             </div>
-            <p className="text-xs text-[#667781] font-medium">Sin mensajes aún</p>
+            <p className="text-xs text-[#667781] font-medium">{t('conversations_no_messages')}</p>
           </div>
         </div>
       )}
@@ -969,6 +1346,7 @@ function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollCh
               key={item.key}
               msg={item.msg}
               isOwn={item.msg.direction === 'outbound' || item.msg.fromName === 'You' || item.msg.type === 'outbound'}
+              teamMembers={teamMembers}
             />
       )}
       <div ref={bottomRef} />
@@ -978,6 +1356,7 @@ function MessagesArea({ messages, isLoading, loadingMore, onLoadMore, onScrollCh
 
 // ─── EMPTY STATE ─────────────────────────────────────────────────────────────
 function EmptyState({ onRefresh }) {
+  const { t } = useI18n();
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
       <motion.div
@@ -988,21 +1367,138 @@ function EmptyState({ onRefresh }) {
       >
         <MessageCircle size={28} className="text-[#667781]" />
       </motion.div>
-      <p className="text-sm font-semibold text-[#111827] mb-1">Sin conversaciones</p>
-      <p className="text-xs text-[#667781] mb-4">Las conversaciones de GHL aparecerán aquí</p>
+      <p className="text-sm font-semibold text-[#111827] mb-1">{t('noConversations')}</p>
+      <p className="text-xs text-[#667781] mb-4">{t('conversations_ghl_hint')}</p>
       <button
         onClick={onRefresh}
         className="flex items-center gap-2 px-4 py-2 bg-[#00a884] text-white text-xs font-bold rounded-xl hover:bg-[#00c49a] transition-colors"
       >
         <RefreshCw size={13} />
-        Actualizar
+        {t('refresh')}
       </button>
+    </div>
+  );
+}
+
+// ─── TAGS SECTION (CONTACT INFO PANEL) ────────────────────────────────────────
+function TagsSection({ tags, availableTags, onAddTag, onRemoveTag }) {
+  const { t } = useI18n();
+  const [showPicker, setShowPicker] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const pickerRef = useRef(null);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const handler = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showPicker]);
+
+  const currentTags = tags || [];
+  const filteredAvailable = availableTags.filter(t =>
+    !currentTags.includes(t.name) &&
+    (!newTagInput || t.name.toLowerCase().includes(newTagInput.toLowerCase()))
+  );
+
+  const handleAddTag = (tagName) => {
+    if (!tagName.trim()) return;
+    onAddTag(tagName.trim());
+    setNewTagInput('');
+    setShowPicker(false);
+  };
+
+  return (
+    <div className="py-3 border-b border-[#e9edef] dark:border-[#374045]">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] text-[#667781] uppercase tracking-widest flex items-center gap-1.5">
+          <Tag size={10} />
+          {t('tags') || 'Etiquetas'}
+        </p>
+        <div className="relative" ref={pickerRef}>
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowPicker(v => !v)}
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[#667781] hover:text-[#00a884] hover:bg-[#e9edef] dark:hover:bg-[#374045] transition-all"
+            title="Agregar etiqueta"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </motion.button>
+
+          <AnimatePresence>
+            {showPicker && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: -4 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-8 w-56 bg-white dark:bg-[#2a3942] border border-[#e9edef] dark:border-[#374045] rounded-xl shadow-xl z-50 overflow-hidden"
+              >
+                <div className="p-2 border-b border-[#e9edef] dark:border-[#374045]">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={e => setNewTagInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddTag(newTagInput); }}
+                    placeholder="Buscar o crear etiqueta..."
+                    className="w-full px-2.5 py-1.5 text-[12px] rounded-lg bg-[#f5f6f6] dark:bg-[#1a2429] text-[#111827] dark:text-[#e9edef] placeholder-[#667781] border-none outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-40 overflow-y-auto">
+                  {filteredAvailable.length > 0 ? (
+                    filteredAvailable.map(tag => (
+                      <button
+                        key={tag.id || tag.name}
+                        onClick={() => handleAddTag(tag.name)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#111827] dark:text-[#e9edef] hover:bg-[#f5f6f6] dark:hover:bg-[#374045] transition-colors text-left"
+                      >
+                        <Hash size={10} className="text-[#667781] shrink-0" />
+                        {tag.name}
+                      </button>
+                    ))
+                  ) : newTagInput.trim() ? (
+                    <button
+                      onClick={() => handleAddTag(newTagInput)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-[#00a884] hover:bg-[#f5f6f6] dark:hover:bg-[#374045] transition-colors text-left"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Crear "{newTagInput.trim()}"
+                    </button>
+                  ) : (
+                    <p className="px-3 py-2 text-[11px] text-[#667781]">No hay etiquetas disponibles</p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+      {currentTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {currentTags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0f2f5] dark:bg-[#374045] text-[#374151] dark:text-[#e9edef] text-[11px] group">
+              <Hash size={9} className="text-[#667781]" />
+              {tag}
+              <button
+                onClick={() => onRemoveTag(tag)}
+                className="ml-0.5 opacity-0 group-hover:opacity-100 text-[#667781] hover:text-red-500 transition-all"
+                title="Eliminar etiqueta"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function ConversationsView({ dealerId, showToast, userProfile, onNavigateToContact, onlyAssignedData = false, ghlUserId = '', initialConversations = [], isLoadingConversations = false, onRefreshConversations, contracts = [], onChatOpen, onChatClose }) {
+  const { t } = useI18n();
   const [conversations, setConversations] = useState(initialConversations);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedConvId, setSelectedConvId] = useState(null);
@@ -1012,14 +1508,21 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
   const [lastMessageId, setLastMessageId] = useState(null);
   const [hasMoreMsgs, setHasMoreMsgs] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [channelFilter, setChannelFilter] = useState('ALL');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedConvIds, setSelectedConvIds] = useState(new Set());
   const [aiOn, setAiOn] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [detectedBots, setDetectedBots] = useState(null); // null = not loaded, [] = no bots, [...] = bots found
   const [activeChannel, setActiveChannel] = useState(null);
   const [sending, setSending] = useState(false);
   const [showDetail, setShowDetailRaw] = useState(false); // mobile: show chat panel
   const [showContactInfo, setShowContactInfo] = useState(false); // right panel: contact info
+  const [teamMembers, setTeamMembers] = useState([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showComposer, setShowComposer] = useState(true);
+  const [availableTags, setAvailableTags] = useState([]);
+  const [availableTagsLoaded, setAvailableTagsLoaded] = useState(false);
   const scrollToBottomRef = useRef(null);
 
   // Notify parent when chat opens/closes so it can hide header+nav on mobile
@@ -1042,6 +1545,32 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
   });
 
   const effectiveDealerId = dealerId || userProfile?.supabaseDealerId;
+
+  // Fetch team members for sender labels on outbound messages
+  useEffect(() => {
+    if (!effectiveDealerId) return;
+    fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&teamMembers=1`)
+      .then(r => r.ok ? r.json() : { members: [] })
+      .then(d => setTeamMembers(d.members || []))
+      .catch(() => {});
+  }, [effectiveDealerId]);
+
+  // Fetch available GHL tags for this location (lazy — on first contact info open)
+  const fetchAvailableTags = useCallback(async () => {
+    if (availableTagsLoaded || !effectiveDealerId) return;
+    try {
+      const r = await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&tags=1`);
+      const d = r.ok ? await r.json() : { tags: [] };
+      setAvailableTags(d.tags || []);
+    } catch (_) {}
+    setAvailableTagsLoaded(true);
+  }, [effectiveDealerId, availableTagsLoaded]);
+
+  // ── Auto-detect conversation AI bots for this dealer ────────────
+  // Disabled: GHL does not expose a public API for per-conversation bot control.
+  // The endpoint /conversations-ai/employeeConfigs/ is internal and requires Firebase session tokens.
+  // Re-enable when GHL publishes this capability via OAuth scopes.
+  // useEffect(() => { ... }, [effectiveDealerId]);
 
   const selectedConv = useMemo(
     () => conversations.find(c => c.id === selectedConvId) || null,
@@ -1080,11 +1609,11 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
       setConversations(data.conversations || []);
     } catch (err) {
       console.error('[ConversationsView] fetchConversations error:', err);
-      showToast?.('Error cargando conversaciones', 'error');
+      showToast?.(t('conversations_error_load'), 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [effectiveDealerId, onlyAssignedData, ghlUserId, initialConversations.length]);
+  }, [effectiveDealerId, onlyAssignedData, ghlUserId, initialConversations.length, t]);
 
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
@@ -1110,8 +1639,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
         setMessages(prev => [...list, ...prev]);
       } else {
         setMessages(list);
-        const conv = conversations.find(c => c.id === convId);
-        setAiOn(conv?.aiResponseEnabled ?? false);
+        // Bot status is fetched separately in handleSelectConv via botStatus=1 endpoint
       }
       setHasMoreMsgs(!!nextPage);
       if (raw.length > 0) setLastMessageId(raw[raw.length - 1]?.id || null);
@@ -1138,6 +1666,20 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ unreadCount: 0 }),
     }).catch(() => {});
+
+    // Fetch real bot status from GHL conversation-ai endpoint
+    if (dealerHasBot) {
+      fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${convId}&botStatus=1`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.hasConfig) {
+            setAiOn(data.status === 'active');
+          } else {
+            setAiOn(false);
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   // ── Polling: nuevos mensajes cada 5s ─────────────────────────────
@@ -1198,8 +1740,8 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
       const payload = {
         conversationId: selectedConvId,
         type: ghlType,
-        message: text,
-        ...(attachments.length > 0 ? { attachments: attachments.map(a => ({ url: a.url, type: a.type })) } : {}),
+        ...(text ? { message: text } : {}),
+        ...(attachments.length > 0 ? { attachments: attachments.map(a => a.url || a) } : {}),
       };
       const r = await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}`, {
         method: 'POST',
@@ -1208,49 +1750,151 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(err.error || 'Error al enviar');
+        throw new Error(err.error || t('conversations_error_send'));
       }
       setMessages(prev => prev.map(m => m.id === tempMsg.id ? { ...m, status: 'sent' } : m));
       setConversations(prev => prev.map(c =>
         c.id === selectedConvId
-          ? { ...c, lastMessageBody: text || '📎 Archivo', lastMessageDate: new Date().toISOString() }
+          ? { ...c, lastMessageBody: text || 'Archivo adjunto', lastMessageDate: new Date().toISOString() }
           : c
       ));
     } catch (err) {
       setMessages(prev => prev.map(m => m.id === tempMsg.id ? { ...m, status: 'failed' } : m));
-      showToast?.('Error al enviar mensaje', 'error');
+      showToast?.(t('conversations_error_send'), 'error');
     } finally {
       setSending(false);
     }
   };
 
   // ── Toggle AI bot ─────────────────────────────────────────────────
+  // Auto-detected from GHL API OR Supabase has_bot field
+  const dealerHasBot = detectedBots === null
+    ? (userProfile?.has_bot === true)
+    : (detectedBots.length > 0 || userProfile?.has_bot === true);
+  const botName = (detectedBots?.[0]?.name) || userProfile?.bot_name || 'Bot';
+
   const handleToggleAI = async () => {
-    if (!selectedConvId || aiLoading) return;
+    if (!selectedConvId || aiLoading || !dealerHasBot) return;
     setAiLoading(true);
     const newState = !aiOn;
     try {
-      const r = await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${selectedConvId}`, {
+      const r = await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${selectedConvId}&botStatus=1`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aiResponseEnabled: newState }),
+        body: JSON.stringify({ status: newState ? 'active' : 'inactive' }),
       });
-      if (!r.ok) throw new Error('Error actualizando IA');
+      const data = await r.json().catch(() => ({}));
+      console.log('[Bot Toggle] Response:', r.status, JSON.stringify(data));
+      if (!r.ok) throw new Error(data.error || t('conversations_error_ai'));
       setAiOn(newState);
-      setConversations(prev => prev.map(c =>
-        c.id === selectedConvId ? { ...c, aiResponseEnabled: newState } : c
-      ));
-      showToast?.(newState ? 'Bot activado' : 'Bot pausado', 'success');
+      showToast?.(newState ? t('conversations_bot_activated') : t('conversations_bot_paused'), 'success');
     } catch (err) {
-      showToast?.('Error al cambiar estado del bot', 'error');
+      console.error('[Bot Toggle] Error:', err);
+      showToast?.(err.message || t('conversations_error_bot'), 'error');
     } finally {
       setAiLoading(false);
     }
   };
 
-  // ── Filter + sort conversations (pinned first) ────────────────────
+  // ── Selection mode handlers ────────────────────────────────────────
+  const toggleSelectConv = useCallback((convId) => {
+    setSelectedConvIds(prev => {
+      const next = new Set(prev);
+      if (next.has(convId)) next.delete(convId);
+      else next.add(convId);
+      return next;
+    });
+  }, []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedConvIds(new Set());
+  }, []);
+
+  const handleMarkSelectedRead = useCallback(async () => {
+    const ids = [...selectedConvIds];
+    if (!ids.length) return;
+    // Optimistic update
+    setConversations(prev => prev.map(c => ids.includes(c.id) ? { ...c, unreadCount: 0 } : c));
+    // Fire API calls in parallel
+    await Promise.allSettled(ids.map(convId =>
+      fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${convId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unreadCount: 0 }),
+      })
+    ));
+    showToast?.(t('conversations_marked_read') || `${ids.length} conversaciones marcadas como leidas`, 'success');
+    exitSelectMode();
+  }, [selectedConvIds, effectiveDealerId, showToast, exitSelectMode, t]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    const unreadConvs = conversations.filter(c => (c.unreadCount || 0) > 0);
+    if (!unreadConvs.length) return;
+    // Optimistic update
+    setConversations(prev => prev.map(c => ({ ...c, unreadCount: 0 })));
+    // Fire API calls in parallel
+    await Promise.allSettled(unreadConvs.map(c =>
+      fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${c.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unreadCount: 0 }),
+      })
+    ));
+    showToast?.(t('conversations_all_marked_read') || `${unreadConvs.length} conversaciones marcadas como leidas`, 'success');
+  }, [conversations, effectiveDealerId, showToast, t]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    const ids = [...selectedConvIds];
+    if (!ids.length) return;
+    // Remove from local state
+    setConversations(prev => prev.filter(c => !ids.includes(c.id)));
+    // Fire delete calls (GHL uses DELETE method)
+    await Promise.allSettled(ids.map(convId =>
+      fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${convId}`, {
+        method: 'DELETE',
+      })
+    ));
+    showToast?.(t('conversations_deleted') || `${ids.length} conversaciones eliminadas`, 'success');
+    exitSelectMode();
+    if (ids.includes(selectedConvId)) {
+      setSelectedConvId(null);
+      setMessages([]);
+    }
+  }, [selectedConvIds, effectiveDealerId, showToast, exitSelectMode, selectedConvId, t]);
+
+  // ── Compute available channels from conversations ──────────────────
+  const availableChannels = useMemo(() => {
+    const counts = {};
+    const unreadCounts = {};
+    conversations.forEach(c => {
+      const type = c.lastMessageType;
+      if (type && CHANNEL_CONFIG[type]) {
+        counts[type] = (counts[type] || 0) + 1;
+        if ((c.unreadCount || 0) > 0) {
+          unreadCounts[type] = (unreadCounts[type] || 0) + 1;
+        }
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => ({ type, count, unread: unreadCounts[type] || 0, ...CHANNEL_CONFIG[type] }));
+  }, [conversations]);
+
+  const totalUnread = useMemo(() =>
+    conversations.filter(c => (c.unreadCount || 0) > 0).length
+  , [conversations]);
+
+  // ── Filter + sort conversations (channel filter + search + pinned first) ──
   const filteredConvs = useMemo(() => {
     let list = conversations;
+    // Channel filter
+    if (channelFilter === 'UNREAD') {
+      list = list.filter(c => (c.unreadCount || 0) > 0);
+    } else if (channelFilter !== 'ALL') {
+      list = list.filter(c => c.lastMessageType === channelFilter);
+    }
+    // Search filter
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(c => {
@@ -1263,7 +1907,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
       const bPinned = pinnedConvIds.includes(b.id) ? 1 : 0;
       return bPinned - aPinned;
     });
-  }, [conversations, searchTerm, pinnedConvIds]);
+  }, [conversations, searchTerm, pinnedConvIds, channelFilter]);
 
   // ─── RENDER ───────────────────────────────────────────────────────
   return (
@@ -1276,18 +1920,68 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Sidebar Header */}
-        <div className="px-4 pt-4 pb-3 bg-[#f0f2f5] shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-[17px] font-semibold text-[#111827]">Mensajes</h1>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => { onRefreshConversations?.(); fetchConversations(); }}
-              disabled={isLoading || isLoadingConversations}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-[#111827] hover:bg-[#e9edef] transition-all"
-            >
-              <RefreshCw size={15} className={(isLoading || isLoadingConversations) ? 'animate-spin' : ''} />
-            </motion.button>
-          </div>
+        <div className="px-4 pt-4 pb-3 bg-[#f0f2f5] dark:bg-[#111b21] shrink-0">
+          {selectMode ? (
+            /* Selection mode toolbar */
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={exitSelectMode}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-[#111827] dark:hover:text-[#e9edef] hover:bg-[#e9edef] dark:hover:bg-[#2a3942] transition-all">
+                  <X size={16} />
+                </motion.button>
+                <span className="text-[14px] font-medium text-[#111827] dark:text-[#e9edef]">{selectedConvIds.size} {t('conversations_selected') || 'seleccionadas'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleMarkSelectedRead}
+                  disabled={selectedConvIds.size === 0}
+                  title={t('conversations_mark_read') || 'Marcar como leidas'}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-[#25d366] hover:bg-[#e9edef] dark:hover:bg-[#2a3942] transition-all disabled:opacity-30">
+                  <CheckCheck size={16} />
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleDeleteSelected}
+                  disabled={selectedConvIds.size === 0}
+                  title={t('conversations_delete') || 'Eliminar'}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-red-500 hover:bg-[#e9edef] dark:hover:bg-[#2a3942] transition-all disabled:opacity-30">
+                  <Trash2 size={16} />
+                </motion.button>
+              </div>
+            </div>
+          ) : (
+            /* Normal header */
+            <div className="flex items-center justify-between mb-3">
+              <h1 className="text-[17px] font-semibold text-[#111827] dark:text-[#e9edef]">{t('nav_messages')}</h1>
+              <div className="flex items-center gap-1">
+                {/* Mark all as read */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleMarkAllRead}
+                  title={t('conversations_mark_all_read') || 'Marcar todo como leido'}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-[#25d366] hover:bg-[#e9edef] dark:hover:bg-[#2a3942] transition-all"
+                >
+                  <CheckCheck size={15} />
+                </motion.button>
+                {/* Select mode */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setSelectMode(true)}
+                  title={t('conversations_select') || 'Seleccionar'}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-[#111827] dark:hover:text-[#e9edef] hover:bg-[#e9edef] dark:hover:bg-[#2a3942] transition-all"
+                >
+                  <Check size={15} />
+                </motion.button>
+                {/* Refresh */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => { onRefreshConversations?.(); fetchConversations(); }}
+                  disabled={isLoading || isLoadingConversations}
+                  title={t('conversations_refresh') || 'Actualizar'}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#667781] hover:text-[#111827] dark:hover:text-[#e9edef] hover:bg-[#e9edef] dark:hover:bg-[#2a3942] transition-all"
+                >
+                  <RefreshCw size={15} className={(isLoading || isLoadingConversations) ? 'animate-spin' : ''} />
+                </motion.button>
+              </div>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative">
@@ -1296,7 +1990,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Buscar conversación..."
+              placeholder={t('conversations_search_placeholder')}
               className="w-full pl-9 pr-4 py-2 bg-white rounded-lg text-[13px] text-[#111827] placeholder:text-[#667781] outline-none focus:bg-[#f5f6f6] transition-all"
             />
             {searchTerm && (
@@ -1304,6 +1998,59 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                 <X size={12} />
               </button>
             )}
+          </div>
+
+          {/* Channel filter chips */}
+          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setChannelFilter('ALL')}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all
+                ${channelFilter === 'ALL'
+                  ? 'bg-[#25d366] text-white'
+                  : 'bg-white dark:bg-[#2a3942] text-[#667781] hover:bg-[#e9edef] dark:hover:bg-[#374045]'
+                }`}
+            >
+              {t('conversations_filter_all')}
+            </button>
+            <button
+              onClick={() => setChannelFilter('UNREAD')}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all
+                ${channelFilter === 'UNREAD'
+                  ? 'bg-[#25d366] text-white'
+                  : 'bg-white dark:bg-[#2a3942] text-[#667781] hover:bg-[#e9edef] dark:hover:bg-[#374045]'
+                }`}
+            >
+              {t('conversations_filter_unread')}
+              {totalUnread > 0 && (
+                <span className={`ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center
+                  ${channelFilter === 'UNREAD' ? 'bg-white/25 text-white' : 'bg-[#25d366] text-white'}`}>
+                  {totalUnread}
+                </span>
+              )}
+            </button>
+            {availableChannels.map(ch => {
+              const ChIcon = ch.Icon;
+              return (
+                <button
+                  key={ch.type}
+                  onClick={() => setChannelFilter(ch.type)}
+                  className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all
+                    ${channelFilter === ch.type
+                      ? `${COLOR_MAP[ch.color]?.active || 'bg-[#25d366]'} text-white`
+                      : 'bg-white dark:bg-[#2a3942] text-[#667781] hover:bg-[#e9edef] dark:hover:bg-[#374045]'
+                    }`}
+                >
+                  <ChIcon size={11} className={channelFilter === ch.type ? 'text-white' : ''} />
+                  {ch.label}
+                  {ch.unread > 0 && (
+                    <span className={`ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center
+                      ${channelFilter === ch.type ? 'bg-white/25 text-white' : 'bg-[#25d366] text-white'}`}>
+                      {ch.unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1322,6 +2069,9 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                   isActive={conv.id === selectedConvId}
                   isPinned={pinnedConvIds.includes(conv.id)}
                   onClick={() => { handleSelectConv(conv.id); setShowContactInfo(false); }}
+                  selectMode={selectMode}
+                  isSelected={selectedConvIds.has(conv.id)}
+                  onToggleSelect={toggleSelectConv}
                 />
               ))}
             </div>
@@ -1330,10 +2080,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
       </div>
 
       {/* ── CHAT PANEL — Desktop ──────────────────────────────────── */}
-      <div className="hidden sm:flex flex-col flex-1 min-w-0 relative overflow-hidden" style={{ background: '#e8eaed' }}>
-        {/* Watermark background pattern */}
-        <ChatWatermark dealerLogo={userProfile?.dealer_logo} />
-
+      <div className="hidden sm:flex flex-col flex-1 min-w-0 relative overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
         {selectedConv ? (
           /* ── Active chat ── */
           <div className="relative z-10 flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -1343,7 +2090,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
               channels={detectedChannels}
               activeChannel={activeChannel}
               onChannelChange={setActiveChannel}
-              onShowContactInfo={() => setShowContactInfo(v => !v)}
+              onShowContactInfo={() => { setShowContactInfo(v => !v); fetchAvailableTags(); }}
               dealerId={effectiveDealerId}
               isPinned={pinnedConvIds.includes(selectedConvId)}
               onPin={() => {
@@ -1352,7 +2099,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                   const isPinned = prev.includes(selectedConvId);
                   const next = isPinned ? prev.filter(id => id !== selectedConvId) : [...prev, selectedConvId];
                   localStorage.setItem('carbot_pinned_convs', JSON.stringify(next));
-                  showToast?.(isPinned ? 'Conversación desfijada' : 'Conversación fijada', 'success');
+                  showToast?.(isPinned ? t('conversations_unpinned') : t('conversations_pinned'), 'success');
                   return next;
                 });
               }}
@@ -1363,8 +2110,20 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ addTag: tag }),
                   });
+                  setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, tags: [...(c.tags || []), tag] } : c));
                   showToast(`Etiqueta "${tag}" agregada`, 'success');
-                } catch (_) { showToast('Error al agregar etiqueta', 'error'); }
+                } catch (_) { showToast(t('conversations_error_tag'), 'error'); }
+              }}
+              onRemoveTag={async (tag) => {
+                if (!selectedConv?.contactId) return;
+                try {
+                  await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&contactId=${selectedConv.contactId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ removeTag: tag }),
+                  });
+                  setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, tags: (c.tags || []).filter(t => t !== tag) } : c));
+                  showToast(`Etiqueta "${tag}" eliminada`, 'success');
+                } catch (_) { showToast(t('conversations_error_tag'), 'error'); }
               }}
               onDelete={async () => {
                 if (!selectedConvId) return;
@@ -1372,8 +2131,8 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                   await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${selectedConvId}`, { method: 'DELETE' });
                   setConversations(prev => prev.filter(c => c.id !== selectedConvId));
                   setSelectedConvId(null);
-                  showToast('Conversación eliminada', 'success');
-                } catch (_) { showToast('Error al eliminar conversación', 'error'); }
+                  showToast(t('conversations_deleted'), 'success');
+                } catch (_) { showToast(t('conversations_error_delete'), 'error'); }
               }}
             />
             {/* Messages — flex-1 scrolls independently */}
@@ -1384,18 +2143,24 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                 loadingMore={loadingMoreMsgs}
                 onLoadMore={hasMoreMsgs ? () => fetchMessages(selectedConvId, true) : null}
                 onScrollChange={handleScrollChange}
+                teamMembers={teamMembers}
               />
-              {/* Scroll-to-bottom button */}
-              <AnimatePresence>
-                {!isAtBottom && (
-                  <motion.button
-                    initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    onClick={() => scrollToBottomRef.current?.()}
-                    className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-[#e9edef] flex items-center justify-center text-[#667781] hover:text-[#111827]"
-                  ><ChevronDown size={20} /></motion.button>
-                )}
-              </AnimatePresence>
+              {/* Floating controls */}
+              <div className="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2">
+                {/* AI Bot toggle — disabled until GHL exposes public API for per-conversation bot control */}
+                {/* {dealerHasBot && <AIToggle isOn={aiOn} isLoading={aiLoading} onToggle={handleToggleAI} />} */}
+                {/* Scroll-to-bottom button */}
+                <AnimatePresence>
+                  {!isAtBottom && (
+                    <motion.button
+                      initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                      onClick={() => scrollToBottomRef.current?.()}
+                      className="w-10 h-10 rounded-full bg-white shadow-lg border border-[#e9edef] flex items-center justify-center text-[#667781] hover:text-[#111827]"
+                    ><ChevronDown size={20} /></motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
             {/* Composer — always visible at bottom */}
             <Composer
@@ -1404,17 +2169,18 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
               disabled={sending}
               dealerId={effectiveDealerId}
               conversationId={selectedConvId}
+              userProfile={userProfile}
             />
           </div>
         ) : (
           /* ── Empty state ── */
           <div className="relative z-10 flex flex-col flex-1 items-center justify-center text-center p-8">
             <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              className="w-24 h-24 rounded-full bg-[#e9edef] flex items-center justify-center mb-6">
-              <MessageCircle size={36} className="text-[#667781]" />
+              className="mb-6">
+              <img src="/logo.png" alt="CarBot" className="w-24 h-24 drop-shadow-lg" />
             </motion.div>
-            <p className="text-[17px] font-semibold text-[#111827] mb-2">CarBot Messenger</p>
-            <p className="text-sm text-[#667781]">Selecciona una conversación para comenzar</p>
+            <p className="text-[17px] font-semibold text-[#111827] mb-2">{t('conversations_messenger')}</p>
+            <p className="text-sm text-[#667781]">{t('conversations_select_to_start')}</p>
           </div>
         )}
       </div>
@@ -1435,7 +2201,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
             style={{
               position: 'fixed', inset: 0, zIndex: 9999,
               display: 'flex', flexDirection: 'column',
-              background: '#e8eaed', overflow: 'hidden',
+              background: 'var(--bg-primary)', overflow: 'hidden',
             }}
           >
             <ConvHeader
@@ -1444,7 +2210,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
               channels={detectedChannels}
               activeChannel={activeChannel}
               onChannelChange={setActiveChannel}
-              onShowContactInfo={() => setShowContactInfo(v => !v)}
+              onShowContactInfo={() => { setShowContactInfo(v => !v); fetchAvailableTags(); }}
               dealerId={effectiveDealerId}
               isPinned={pinnedConvIds.includes(selectedConvId)}
               onPin={() => {
@@ -1453,7 +2219,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                   const isPinned = prev.includes(selectedConvId);
                   const next = isPinned ? prev.filter(id => id !== selectedConvId) : [...prev, selectedConvId];
                   localStorage.setItem('carbot_pinned_convs', JSON.stringify(next));
-                  showToast?.(isPinned ? 'Conversación desfijada' : 'Conversación fijada', 'success');
+                  showToast?.(isPinned ? t('conversations_unpinned') : t('conversations_pinned'), 'success');
                   return next;
                 });
               }}
@@ -1464,8 +2230,20 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ addTag: tag }),
                   });
+                  setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, tags: [...(c.tags || []), tag] } : c));
                   showToast(`Etiqueta "${tag}" agregada`, 'success');
-                } catch (_) { showToast('Error al agregar etiqueta', 'error'); }
+                } catch (_) { showToast(t('conversations_error_tag'), 'error'); }
+              }}
+              onRemoveTag={async (tag) => {
+                if (!selectedConv?.contactId) return;
+                try {
+                  await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&contactId=${selectedConv.contactId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ removeTag: tag }),
+                  });
+                  setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, tags: (c.tags || []).filter(t => t !== tag) } : c));
+                  showToast(`Etiqueta "${tag}" eliminada`, 'success');
+                } catch (_) { showToast(t('conversations_error_tag'), 'error'); }
               }}
               onDelete={async () => {
                 if (!selectedConvId) return;
@@ -1473,30 +2251,33 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                   await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&conversationId=${selectedConvId}`, { method: 'DELETE' });
                   setConversations(prev => prev.filter(c => c.id !== selectedConvId));
                   setSelectedConvId(null); setShowDetail(false);
-                  showToast('Conversación eliminada', 'success');
-                } catch (_) { showToast('Error al eliminar conversación', 'error'); }
+                  showToast(t('conversations_deleted'), 'success');
+                } catch (_) { showToast(t('conversations_error_delete'), 'error'); }
               }}
             />
 
             <MessagesArea messages={messages} isLoading={messagesLoading} loadingMore={loadingMoreMsgs}
               onLoadMore={hasMoreMsgs ? () => fetchMessages(selectedConvId, true) : null}
               onScrollChange={handleScrollChange}
+              teamMembers={teamMembers}
             />
 
             {/* Floating buttons */}
             <div style={{ position: 'absolute', bottom: 80, right: 16, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+              {/* AI Bot toggle — disabled until GHL exposes public API for per-conversation bot control */}
+              {/* {dealerHasBot && <AIToggle isOn={aiOn} isLoading={aiLoading} onToggle={handleToggleAI} />} */}
               <AnimatePresence>
                 {!isAtBottom && (
                   <motion.button initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                     onClick={() => scrollToBottomRef.current?.()}
-                    style={{ width: 40, height: 40, borderRadius: '50%', background: 'white', border: '1px solid #e9edef', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                    style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-card)' }}
                   ><ChevronDown size={20} color="#667781" /></motion.button>
                 )}
               </AnimatePresence>
             </div>
 
-            <Composer onSend={handleSend} activeChannel={activeChannel || 'TYPE_WHATSAPP'} disabled={sending} dealerId={effectiveDealerId} conversationId={selectedConvId} />
+            <Composer onSend={handleSend} activeChannel={activeChannel || 'TYPE_WHATSAPP'} disabled={sending} dealerId={effectiveDealerId} conversationId={selectedConvId} userProfile={userProfile} />
           </motion.div>
         </AnimatePresence>,
         document.body
@@ -1521,7 +2302,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
               >
                 <X size={18} />
               </motion.button>
-              <h3 className="text-[15px] font-semibold text-[#111827]">Info del contacto</h3>
+              <h3 className="text-[15px] font-semibold text-[#111827]">{t('conversations_contact_info')}</h3>
             </div>
 
             {/* Panel content */}
@@ -1550,7 +2331,7 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                     <Mail size={16} className="text-[#667781] shrink-0" />
                     <div>
                       <p className="text-[13px] text-[#111827]">{selectedConv.email}</p>
-                      <p className="text-[11px] text-[#667781]">Email</p>
+                      <p className="text-[11px] text-[#667781]">{t('email')}</p>
                     </div>
                   </div>
                 )}
@@ -1559,28 +2340,38 @@ export default function ConversationsView({ dealerId, showToast, userProfile, on
                     <Phone size={16} className="text-[#667781] shrink-0" />
                     <div>
                       <p className="text-[13px] text-[#111827]">{selectedConv.phone}</p>
-                      <p className="text-[11px] text-[#667781]">Teléfono</p>
+                      <p className="text-[11px] text-[#667781]">{t('phone')}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Tags */}
-                {(selectedConv.tags || []).length > 0 && (
-                  <div className="py-3 border-b border-[#e9edef]">
-                    <p className="text-[11px] text-[#667781] uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                      <Tag size={10} />
-                      Etiquetas
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(selectedConv.tags || []).map(tag => (
-                        <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0f2f5] text-[#374151] text-[11px]">
-                          <Hash size={9} className="text-[#667781]" />
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <TagsSection
+                  tags={selectedConv.tags || []}
+                  availableTags={availableTags}
+                  onAddTag={async (tag) => {
+                    if (!selectedConv?.contactId) return;
+                    try {
+                      await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&contactId=${selectedConv.contactId}`, {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ addTag: tag }),
+                      });
+                      setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, tags: [...(c.tags || []), tag] } : c));
+                      showToast(`Etiqueta "${tag}" agregada`, 'success');
+                    } catch (_) { showToast('Error al agregar etiqueta', 'error'); }
+                  }}
+                  onRemoveTag={async (tag) => {
+                    if (!selectedConv?.contactId) return;
+                    try {
+                      await fetch(`/api/ghl-conversations?dealerId=${effectiveDealerId}&contactId=${selectedConv.contactId}`, {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ removeTag: tag }),
+                      });
+                      setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, tags: (c.tags || []).filter(t => t !== tag) } : c));
+                      showToast(`Etiqueta "${tag}" eliminada`, 'success');
+                    } catch (_) { showToast('Error al eliminar etiqueta', 'error'); }
+                  }}
+                />
 
               </div>
             </div>

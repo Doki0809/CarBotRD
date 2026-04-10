@@ -1,18 +1,20 @@
 // src/ghl_integration/ghlService.js
 
 export const prepararPayloadGHL = (cliente, vehiculo, locationId) => {
-    // Helper para moneda con divisa textual
+    // Helper para moneda con divisa textual — soporta DOP, USD, EUR, COP
     const formatCurrencyWithText = (monto, moneda) => {
         if (monto === undefined || monto === null || monto === "") return "";
         const val = Number(String(monto).replace(/[^0-9.-]+/g, ""));
         if (isNaN(val) || val === 0) return "";
         const formatted = val.toLocaleString('en-US');
-        if (moneda === 'DOP' || moneda === 'RD$') {
-            return `RD$ ${formatted} Pesos`;
-        } else {
-            // Asume USD por defecto
-            return `US$ ${formatted} Dolares`;
-        }
+        const map = {
+            DOP: `RD$ ${formatted} Pesos`,
+            'RD$': `RD$ ${formatted} Pesos`,
+            USD: `US$ ${formatted} Dolares`,
+            EUR: `€ ${formatted} Euros`,
+            COP: `COP$ ${formatted} Pesos Colombianos`,
+        };
+        return map[moneda] || `US$ ${formatted} Dolares`;
     };
 
     const formatMillaje = () => {
@@ -20,11 +22,8 @@ export const prepararPayloadGHL = (cliente, vehiculo, locationId) => {
         if (!m) return "";
         const val = Number(String(m).replace(/[^0-9.-]+/g, ""));
         if (isNaN(val)) return String(m);
-        // Verificar si explícitamente era Km
-        if (String(m).toLowerCase().includes('km') || vehiculo.kilometraje) {
-            return `${val.toLocaleString('en-US')} Km`;
-        }
-        return `${val.toLocaleString('en-US')} Millas`;
+        const unit = vehiculo.mileage_unit === 'MI' ? 'Millas' : 'Km';
+        return `${val.toLocaleString('en-US')} ${unit}`;
     };
 
     // Helper para motor

@@ -251,9 +251,13 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
         inventory.push({
           id: doc.id,
           nombre: `${data.year || ""} ${data.make || ""} ${data.model || ""} ${data.edition || ""} ${data.color || ""}`.trim().toUpperCase(),
-          precio: data.price_dop > 0
-            ? `RD$ ${Number(data.price_dop).toLocaleString()} Pesos`
-            : `US$ ${Number(data.price || 0).toLocaleString()} Dólares`,
+          precio: (() => {
+            const cur = data.currency || (data.price_dop > 0 ? 'DOP' : 'USD');
+            const val = Number(data.price || data.price_dop || 0);
+            const f = val.toLocaleString();
+            const m = { DOP: `RD$ ${f} Pesos`, USD: `US$ ${f} Dólares`, EUR: `€ ${f} Euros`, COP: `COP$ ${f} Pesos Colombianos` };
+            return m[cur] || `US$ ${f} Dólares`;
+          })(),
           carfax_status: (data.clean_carfax === "Sí" || data.clean_carfax === "Si" || data.clean_carfax === true || data.carfax === "Sí" || data.carfax === "Si") ? "Sí" : (data.clean_carfax === "No" || data.carfax === "No" || data.carfax === false) ? "No" : capitalize(data.clean_carfax || data.carfax),
           mileage_formatted: `${Number(data.mileage || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((data.mileage_unit || data.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
           link_catalogo: `https://carbotsystem.com/inventario/${slugify(dealerName)}/catalogo/${vehicleSlugify(data.make, data.model, data.color, data.year)}`,
@@ -284,13 +288,21 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
           vidrios_fmt: capitalize(data.electric_windows || "Sí"),
           material_fmt: capitalize(data.material_interior || data.seat_material || data.interior_material),
           vin_fmt: (data.vin || data.chassis || "").toUpperCase() || "-",
-          inicial_fmt: (data.initial_payment_dop > 0 || data.initial_dop > 0)
-            ? `RD$ ${Number(data.initial_payment_dop || data.initial_dop).toLocaleString()} Pesos`
-            : ((data.initial_payment > 0 || data.initial > 0)
-              ? `US$ ${Number(data.initial_payment || data.initial).toLocaleString()} Dólares`
-              : (data.price_dop > 0
-                ? `RD$ ${Number(data.price_dop * 0.2).toLocaleString()} Pesos`
-                : `RD$ ${Number((data.price || 0) * 60 * 0.2).toLocaleString()} Pesos`)),
+          inicial_fmt: (() => {
+            const initVal = Number(data.initial_payment || data.initial_payment_dop || 0);
+            const initCur = data.downPaymentCurrency || data.currency || (data.price_dop > 0 ? 'DOP' : 'USD');
+            if (initVal > 0) {
+              const f = initVal.toLocaleString();
+              const m = { DOP: `RD$ ${f} Pesos`, USD: `US$ ${f} Dólares`, EUR: `€ ${f} Euros`, COP: `COP$ ${f} Pesos Colombianos` };
+              return m[initCur] || `US$ ${f} Dólares`;
+            }
+            const pVal = Number(data.price || data.price_dop || 0);
+            const pCur = data.currency || (data.price_dop > 0 ? 'DOP' : 'USD');
+            const fallback = Math.round(pVal * 0.2);
+            const ff = fallback.toLocaleString();
+            const mm = { DOP: `RD$ ${ff} Pesos`, USD: `US$ ${ff} Dólares`, EUR: `€ ${ff} Euros`, COP: `COP$ ${ff} Pesos Colombianos` };
+            return mm[pCur] || `US$ ${ff} Dólares`;
+          })(),
           // Fix: Include image for Related Vehicles section
           imagen: (data.images && data.images.length > 0) ? data.images[0] : (data.image || ""),
           has_images: (data.images && data.images.length > 0) || !!data.image,
@@ -336,8 +348,8 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
 
             // Detectar moneda específica del inicial
             const dpCurrency = data.downPaymentCurrency || (data.initial_payment_dop > 0 ? 'DOP' : 'USD');
-            const simbolo = dpCurrency === 'USD' ? 'US$' : 'RD$';
-            const nombre = dpCurrency === 'USD' ? 'Dólares' : 'Pesos';
+            const currMap = { DOP: ['RD$', 'Pesos'], USD: ['US$', 'Dólares'], EUR: ['€', 'Euros'], COP: ['COP$', 'Pesos Colombianos'] };
+            const [simbolo, nombre] = currMap[dpCurrency] || currMap['USD'];
 
             return `${simbolo} ${Number(dpVal).toLocaleString()} ${nombre}`;
           })(),
@@ -391,14 +403,14 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             const priceVal = parseFloat(v.precio || 0);
             const initialVal = parseFloat(v.inicial || 0);
 
-            // Determinar precios formateados
-            const priceFormatted = (currency === 'DOP' || currency === 'RD$')
-              ? `RD$ ${priceVal.toLocaleString()} Pesos`
-              : `US$ ${priceVal.toLocaleString()} Dólares`;
-
-            const initialFormatted = (downPaymentCurrency === 'DOP' || downPaymentCurrency === 'RD$')
-              ? `RD$ ${initialVal.toLocaleString()} Pesos`
-              : `US$ ${initialVal.toLocaleString()} Dólares`;
+            // Determinar precios formateados (soporta DOP, USD, EUR, COP)
+            const fmtCurrMap = { DOP: ['RD$', 'Pesos'], USD: ['US$', 'Dólares'], EUR: ['€', 'Euros'], COP: ['COP$', 'Pesos Colombianos'] };
+            const fmtC = (val, cur) => {
+              const [sym, name] = fmtCurrMap[cur] || fmtCurrMap['USD'];
+              return `${sym} ${val.toLocaleString()} ${name}`;
+            };
+            const priceFormatted = fmtC(priceVal, currency);
+            const initialFormatted = fmtC(initialVal, downPaymentCurrency);
 
             // Status similar a Firestore (disponible, cotizado)
             const s = (v.estado || '').toLowerCase().trim();
@@ -758,6 +770,8 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
           return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         };
 
+        const catalogUrl = `https://carbotsystem.com/inventario/${slugify(dealerName)}/catalogo`;
+
         let html = `
           <!DOCTYPE html>
           <html lang="es">
@@ -765,535 +779,480 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${v.nombre} | ${dealerName}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
             <style>
-              :root { --primary: #d32f2f; --bg: #f5f5f7; --text: #1e293b; }
-              * { box-sizing: border-box; margin: 0; padding: 0; }
-              body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding-bottom: 60px; -webkit-font-smoothing: antialiased; }
-              
-              /* ── HEADER ──────────────────────────────── */
-              .header-wrapper { padding: 20px; display: flex; justify-content: center; }
-              .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 15px 40px; text-align: center; border-radius: 9999px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.1); position: relative; display: flex; align-items: center; gap: 20px; }
-              .header-content { display: flex; flex-direction: column; align-items: center; }
-              .header p { margin: 0; font-size: 0.55rem; font-weight: 800; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase; }
-              .header h1 { margin: 2px 0 0; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; color: #ffffff; letter-spacing: 0px; }
-              .header-back { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; text-decoration: none; border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s; }
-              .header-back:hover { background: rgba(255,255,255,0.2); }
-              .header-back svg { width: 18px; height: 18px; }
-              
-              /* ── CONTAINER ──────────────────────────── */
-              body { background-color: #f3f4f6; } /* Light gray background for the whole page */
-              .container { max-width: 1400px; margin: 0 auto; padding: 20px 20px 50px; }
-              
-              /* ── TWO COLUMN LAYOUT (DESKTOP) ──────── */
-              .details-card {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 30px;
+              :root {
+                --accent: #d32f2f;
+                --accent-light: rgba(211,47,47,0.08);
+                --accent-border: rgba(211,47,47,0.2);
+                --glass: rgba(255,255,255,0.72);
+                --glass-border: rgba(255,255,255,0.45);
+                --glass-strong: rgba(255,255,255,0.88);
+                --text-primary: #111827;
+                --text-secondary: #6b7280;
+                --text-muted: #9ca3af;
+                --bg: #f0f0f0;
+                --radius-xl: 32px;
+                --radius-lg: 24px;
+                --shadow-soft: 0 8px 32px rgba(0,0,0,0.06);
+                --shadow-hover: 0 20px 60px rgba(0,0,0,0.1);
+              }
+              * { box-sizing: border-box; margin: 0; padding: 0; min-width: 0; }
+              html { scroll-behavior: smooth; }
+              body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text-primary); line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+
+              /* ── LOADER ──────────────────────────────── */
+              .loader-screen { position: fixed; inset: 0; background: #fff; z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease, visibility 0.5s ease; }
+              .loader-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+              .loader-ring { width: 44px; height: 44px; border: 3px solid #e5e7eb; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.75s linear infinite; }
+              .loader-text { margin-top: 14px; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; }
+              .loader-bar { width: 100px; height: 3px; background: #e5e7eb; border-radius: 4px; margin-top: 10px; overflow: hidden; }
+              .loader-bar-fill { width: 0%; height: 100%; background: var(--accent); border-radius: 4px; animation: loadBar 1s ease-in-out forwards; }
+              @keyframes spin { to { transform: rotate(360deg); } }
+              @keyframes loadBar { 0% { width: 0%; } 60% { width: 80%; } 100% { width: 100%; } }
+
+              /* ── ANIMATIONS ──────────────────────────── */
+              .fade-up { opacity: 0; transform: translateY(20px); transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1); }
+              .fade-up.visible { opacity: 1; transform: translateY(0); }
+              .fade-up.d1 { transition-delay: 0.06s; } .fade-up.d2 { transition-delay: 0.12s; } .fade-up.d3 { transition-delay: 0.18s; } .fade-up.d4 { transition-delay: 0.24s; }
+
+              /* ── TOP BAR ─────────────────────────────── */
+              .top-bar { position: sticky; top: 0; z-index: 1000; width: 100%; background: var(--glass); backdrop-filter: blur(20px) saturate(1.8); -webkit-backdrop-filter: blur(20px) saturate(1.8); border-bottom: 1px solid var(--glass-border); padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: center; transition: box-shadow 0.3s; border-radius: 0 0 24px 24px; }
+              .top-bar.scrolled { box-shadow: 0 4px 30px rgba(0,0,0,0.06); }
+              .top-bar-center { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+              .top-bar-label { font-size: 0.55rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2.5px; }
+              .top-bar-dealer { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); letter-spacing: -0.2px; text-align: center; }
+              .top-bar-catalog { position: absolute; right: 24px; display: inline-flex; align-items: center; gap: 5px; background: var(--accent); color: #fff; padding: 7px 16px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; text-decoration: none; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
+              .top-bar-catalog:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(211,47,47,0.3); }
+              .top-bar-catalog svg { width: 12px; height: 12px; }
+              .catalog-short { display: none; }
+              @media (max-width: 600px) { .catalog-full { display: none; } .catalog-short { display: inline; } }
+
+              /* ── TOP BAR MOBILE ───────────────────────── */
+              @media (max-width: 600px) {
+                .top-bar { height: 52px; padding: 0 10px; }
+                .top-bar-label { font-size: 0.48rem; letter-spacing: 2px; }
+                .top-bar-dealer { font-size: 0.72rem; }
+                .top-bar-catalog { right: 10px; padding: 5px 10px; font-size: 0.55rem; gap: 3px; }
+                .top-bar-catalog svg { width: 10px; height: 10px; }
               }
 
-              @media (min-width: 900px) {
-                .details-card {
-                  grid-template-columns: 1.4fr 1fr;
-                  gap: 30px;
-                  align-items: start;
-                }
-              }
-              
-              /* ── IMAGE SECTION ──────────────────────── */
-              .image-column {
-                background: #ffffff;
-                border-radius: 2rem;
-                padding: 12px;
-                box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
-                border: 1px solid rgba(0,0,0,0.02);
-              }
-              .main-image-container { 
-                position: relative; 
-                border-radius: 1.5rem; 
-                overflow: hidden; 
-              }
-              .main-image { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; cursor: zoom-in; }
-              
-              /* Image Nav Arrows */
-              .img-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; background: #ffffff; color: #d32f2f; border: 1px solid rgba(0,0,0,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.2s; z-index: 5; }
-              .img-nav:hover { background: #f8fafc; transform: translateY(-50%) scale(1.05); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
-              .img-nav.prev { left: 16px; }
-              .img-nav.next { right: 16px; }
-              .img-nav svg { width: 20px; height: 20px; }
-              @media (max-width: 768px) { .img-nav { width: 36px; height: 36px; } .img-nav svg { width: 16px; height: 16px; } }
-              
-              /* ── INFO COLUMN ────────────────────────── */
-              .info-column { 
-                background: #ffffff; 
-                border-radius: 2rem; 
-                padding: 40px; 
-                box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08); 
-                border: 1px solid rgba(0,0,0,0.02);
-              }
-              
-              /* Year / Color Badge */
-              .vehicle-badge { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-              .vehicle-badge span { font-weight: 800; font-size: 0.85rem; letter-spacing: 0.5px; }
-              .badge-year { color: #d32f2f; }
-              .badge-dot { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; display: inline-block; }
-              .badge-text { color: #94a3b8; text-transform: uppercase; }
-              
-              /* Vehicle Title */
-              .vehicle-title { font-size: 2.2rem; font-weight: 900; line-height: 1.1; margin: 0 0 24px; text-transform: uppercase; color: #0f172a; letter-spacing: -1px; }
-              .vehicle-title .model { color: #d32f2f; }
-              @media (min-width: 900px) { .vehicle-title { font-size: 2.4rem; } }
-              @media (max-width: 500px) { .vehicle-title { font-size: 1.8rem; } }
-              
-              /* Price Block */
-              .price-block { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px dashed #e2e8f0; }
-              .price-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-              .price-label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 6px; }
-              .price-label svg { color: #d32f2f; }
-              .currency-toggle { display: flex; background: #f8fafc; border-radius: 999px; padding: 2px; border: 1px solid #e2e8f0; }
-              .currency-btn { background: transparent; border: none; font-size: 0.65rem; font-weight: 800; color: #64748b; padding: 4px 10px; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
-              .currency-btn.active { background: #ffffff; color: #d32f2f; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-              .price-value { display: flex; align-items: baseline; gap: 6px; }
-              .price-currency { font-size: 1.8rem; font-weight: 800; color: #d32f2f; }
-              .price-amount { font-size: 2.4rem; font-weight: 900; color: #0f172a; letter-spacing: -1px; }
-              
-              /* Initial Payment Block */
-              .initial-block { margin-bottom: 30px; }
-              .initial-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-              .initial-label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 6px; }
-              .initial-value { display: flex; align-items: baseline; gap: 6px; justify-content: flex-end; }
-              .initial-curr { font-size: 1rem; font-weight: 800; color: #94a3b8; }
-              .initial-amt { font-size: 1.4rem; font-weight: 900; color: #475569; letter-spacing: -0.5px; }
+              /* ── CONTAINER ───────────────────────────── */
+              .container { max-width: 1400px; margin: 0 auto; padding: 24px 20px 80px; }
 
-              /* ── CARRETE / THUMBNAILS ───────────────── */
-              .thumbs-section { margin-top: 24px; padding-top: 20px; border-top: 1px dashed #e2e8f0; }
-              .thumbs-title { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; }
-              .thumbs-title svg { color: #d32f2f; }
-              .thumbs-reel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-              .thumb-item { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; aspect-ratio: 4/3; }
-              .thumb-item.active { border-color: #d32f2f; }
-              .thumb-item:hover { border-color: #fca5a5; }
-              .thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-              .thumb-badge { position: absolute; top: 4px; left: 4px; background: #e3342f; color: #fff; font-size: 0.5rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-              @media (max-width: 768px) { .thumbs-reel { grid-template-columns: repeat(4, 1fr); gap: 8px; } }
-              @media (max-width: 500px) { .thumbs-reel { grid-template-columns: repeat(3, 1fr); } }
-              
-              /* ── BACK BUTTON ────────────────────────── */
-              .back-btn { display: inline-flex; align-items: center; gap: 8px; background: #e3342f; color: #fff !important; padding: 10px 20px; border-radius: 9999px; text-decoration: none; font-weight: 800; font-size: 0.70rem; text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s; cursor: pointer; border: 2px solid transparent; margin-bottom: 24px; }
-              .back-btn:hover { background: #cc1f1a; }
-              .back-btn svg { width: 14px; height: 14px; }
-              
-              /* ── LIGHTBOX ───────────────────────────── */
-              .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; justify-content: center; align-items: center; z-index: 10000; overflow: hidden; background: #fff; touch-action: none; }
-              .lightbox-backdrop { display: none; }
-              .lightbox-header { position: absolute; top: 30px; left: 30px; z-index: 20; pointer-events: none; }
-              .lb-title { color: #d32f2f; font-weight: 900; font-size: 1.5rem; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
-              .lb-counter { color: #64748b; font-size: 0.8rem; font-weight: 700; margin: 5px 0 0; letter-spacing: 2px; text-transform: uppercase; }
-              .lightbox-img-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; }
-              .lightbox-img { max-width: 90%; max-height: 80vh; object-fit: contain; pointer-events: auto; filter: drop-shadow(0 20px 50px rgba(0,0,0,0.1)); border-radius: 15px; }
-              .close-btn { position: absolute; top: 20px; right: 30px; color: #d32f2f; font-size: 3rem; cursor: pointer; z-index: 20; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 50%; background: #f1f5f9; }
-              .close-btn:hover { background: #e2e8f0; transform: rotate(90deg); }
-              .nav-btn { position: fixed; top: 50%; transform: translateY(-50%); color: #d32f2f !important; font-size: 3rem; cursor: pointer; user-select: none; padding: 20px; z-index: 20; transition: all 0.2s; background: #f1f5f9; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-              .nav-btn:hover { background: #fee2e2; scale: 1.1; }
-              .nav-btn svg { width: 50px; height: 50px; stroke-width: 4px; }
-              .prev { left: 40px; }
-              .next { right: 40px; }
-              .lb-thumbs-container { position: absolute; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 30; pointer-events: none; }
-              .lb-thumbs-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; max-width: 95%; background: transparent; pointer-events: auto; scrollbar-width: none; }
-              .lb-thumbs-scroll::-webkit-scrollbar { display: none; }
-              .lb-thumb { height: 60px; width: 60px; border-radius: 8px; object-fit: cover; opacity: 0.6; transition: 0.2s; border: 2px solid transparent; flex-shrink: 0; cursor: pointer; background: #000; }
-              .lb-thumb.active { opacity: 1; border-color: #d32f2f; transform: scale(1.05); }
-              @media (max-width: 1024px) { .nav-btn { display: none !important; } .lightbox-img { max-height: 70vh !important; } .close-btn { top: 15px; right: 15px; width: 50px; height: 50px; } }
-              @media (min-width: 900px) { .nav-btn { display: flex; } .lb-thumbs-container { display: flex; } }
-              
-              /* ── RELATED VEHICLES ───────────────────── */
+              /* ── LAYOUT ──────────────────────────────── */
+              .details-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+              @media (min-width: 960px) { .details-grid { grid-template-columns: 1.4fr 1fr; gap: 28px; align-items: start; } }
+
+              /* Mobile: title/badges above photo, then photo, carrete, then price/specs */
+              .mobile-title-block { display: none; }
+              @media (max-width: 959px) {
+                .mobile-title-block { display: block; }
+                .info-card .badge-row, .info-card .vehicle-title { display: none; }
+                .details-grid { gap: 16px; }
+              }
+
+              /* ── IMAGE CARD ──────────────────────────── */
+              .image-col { max-width: 100%; overflow: hidden; }
+              .image-card { background: var(--glass-strong); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: var(--radius-xl); padding: 10px; border: 1px solid var(--glass-border); box-shadow: var(--shadow-soft); transition: box-shadow 0.4s; overflow: hidden; max-width: 100%; }
+              .image-card:hover { box-shadow: var(--shadow-hover); }
+              .main-image-wrap { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: #f9fafb; }
+              .main-image { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; cursor: zoom-in; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+              .main-image:hover { transform: scale(1.02); }
+              .img-counter { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); color: #fff; padding: 5px 11px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; }
+              .img-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.6); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.08); transition: all 0.3s cubic-bezier(0.16,1,0.3,1); z-index: 5; }
+              .img-nav:hover { background: #fff; transform: translateY(-50%) scale(1.1); box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
+              .img-nav.prev { left: 14px; } .img-nav.next { right: 14px; }
+              .img-nav svg { width: 18px; height: 18px; }
+
+              /* ── INFO CARD ───────────────────────────── */
+              .info-card { background: var(--glass-strong); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: var(--radius-xl); padding: 36px; border: 1px solid var(--glass-border); box-shadow: var(--shadow-soft); }
+              @media (max-width: 600px) { .info-card { padding: 24px 20px; } }
+
+              /* Badge row */
+              .badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+              .badge-pill { padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+              .badge-year { background: var(--accent-light); color: var(--accent); }
+              .badge-meta { background: rgba(0,0,0,0.04); color: var(--text-secondary); }
+
+              /* Title */
+              .vehicle-title { font-size: 2rem; font-weight: 900; line-height: 1.05; margin: 0 0 24px; text-transform: uppercase; color: var(--text-primary); letter-spacing: -1px; }
+              .vehicle-title .model-name { display: block; color: var(--accent); }
+              @media (min-width: 960px) { .vehicle-title { font-size: 2.4rem; } }
+              @media (max-width: 500px) { .vehicle-title { font-size: 1.7rem; } }
+
+              /* Divider */
+              .divider { height: 1px; background: linear-gradient(90deg, transparent, #e5e7eb, transparent); margin: 20px 0; }
+
+              /* Price */
+              .price-label { font-size: 0.62rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+              .price-label svg { color: var(--accent); }
+              .price-display { display: flex; align-items: baseline; gap: 6px; }
+              .price-sym { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+              .price-val { font-size: 2.2rem; font-weight: 900; color: var(--text-primary); letter-spacing: -1px; }
+              .price-suffix { font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+              @media (max-width: 500px) { .price-val { font-size: 1.7rem; } .price-sym { font-size: 1.1rem; } }
+
+              /* Initial */
+              .initial-label { font-size: 0.62rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+              .initial-display { display: flex; align-items: baseline; gap: 4px; }
+              .initial-sym { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); }
+              .initial-val { font-size: 1.3rem; font-weight: 800; color: var(--text-secondary); }
+
+              /* Quick Specs */
+              .quick-specs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+              .spec-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); padding: 8px 14px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); transition: all 0.25s; }
+              .spec-pill:hover { background: rgba(0,0,0,0.06); transform: translateY(-1px); }
+              .spec-pill svg { width: 14px; height: 14px; color: var(--text-muted); }
+
+              /* ── THUMBS STRIP (under main image) ────── */
+              .thumbs-strip { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding: 2px; scrollbar-width: none; justify-content: center; }
+              .thumbs-strip::-webkit-scrollbar { display: none; }
+              .thumb-sm { flex-shrink: 0; width: 64px; height: 48px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent; opacity: 0.5; transition: all 0.2s; }
+              .thumb-sm.active { border-color: var(--accent); opacity: 1; }
+              .thumb-sm:hover { opacity: 0.85; }
+              .thumb-sm img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+              /* ── SPECS ───────────────────────────────── */
+              .specs-section { margin-top: 32px; }
+              .specs-card { background: var(--glass-strong); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: var(--radius-xl); padding: 40px; border: 1px solid var(--glass-border); box-shadow: var(--shadow-soft); }
+              @media (max-width: 768px) { .specs-card { padding: 24px 18px; } }
+              .specs-header { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+              .specs-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-light); display: flex; align-items: center; justify-content: center; }
+              .specs-icon svg { color: var(--accent); }
+              .specs-h { font-size: 1rem; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 1.5px; }
+
+              .spec-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+              @media (max-width: 1024px) { .spec-groups { grid-template-columns: repeat(2, 1fr); } }
+              @media (max-width: 600px) { .spec-groups { grid-template-columns: 1fr; } }
+              .spec-group { background: rgba(0,0,0,0.02); border-radius: var(--radius-xl); padding: 24px; border: 1px solid rgba(0,0,0,0.03); transition: all 0.35s; }
+              .spec-group:hover { background: rgba(255,255,255,0.6); box-shadow: 0 8px 24px rgba(0,0,0,0.04); transform: translateY(-2px); }
+              .spec-group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+              .spec-group-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+              .spec-group-title { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
+              .spec-items { display: flex; flex-direction: column; gap: 10px; }
+              .spec-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+              .spec-label { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; padding-left: 2px; }
+              .spec-val-box { background: rgba(255,255,255,0.7); border-radius: 12px; padding: 12px 16px; border: 1px solid rgba(0,0,0,0.04); min-height: 44px; display: flex; align-items: center; transition: all 0.3s; }
+              .spec-val-box:hover { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); }
+              .spec-val { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; text-transform: uppercase; }
+
+              /* ── RELATED ─────────────────────────────── */
               .related-section { margin-top: 40px; }
-              .related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-              .related-card { text-decoration: none; color: inherit; display: block; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #f1f5f9; transition: all 0.3s; }
-              .related-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-              .related-card h4 { margin: 12px 14px 4px; font-size: 0.85rem; font-weight: 800; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-              .related-card p { margin: 0 14px 12px; font-size: 0.85rem; color: #d32f2f; font-weight: 900; }
-              @media (min-width: 900px) { .related-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } .related-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.1); } }
+              .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+              .section-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+              .section-title { font-size: 0.85rem; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 1.5px; }
+              .related-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+              @media (min-width: 960px) { .related-grid { grid-template-columns: repeat(4, 1fr); } }
+              .related-card { text-decoration: none; color: inherit; display: block; border-radius: var(--radius-xl); overflow: hidden; background: var(--glass-strong); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); box-shadow: var(--shadow-soft); transition: all 0.4s cubic-bezier(0.16,1,0.3,1); }
+              .related-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-hover); }
+              .related-card-img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; transition: transform 0.5s; }
+              .related-card:hover .related-card-img { transform: scale(1.04); }
+              .related-card-body { padding: 14px 16px; }
+              .related-card h4 { font-size: 0.82rem; font-weight: 800; color: var(--text-primary); margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              .related-card p { margin: 0; font-size: 0.85rem; color: var(--accent); font-weight: 800; }
 
-              /* ── FICHA TÉCNICA ───────────────────────── */
-              .specs-section { margin-top: 40px; }
-              .tech-sheet-wrapper { background: #fff; border-radius: 2rem; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; }
-              @media (max-width: 768px) { .tech-sheet-wrapper { padding: 24px; border-radius: 1.5rem; } }
-              .tech-header { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
-              .tech-header svg { color: #d32f2f; }
-              .tech-header h2 { font-size: 0.9rem; font-weight: 900; color: #1e293b; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
-              .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-              @media (max-width: 1024px) { .tech-grid { grid-template-columns: repeat(2, 1fr); } }
-              @media (max-width: 600px) { .tech-grid { grid-template-columns: 1fr; } }
-              .tech-group-title { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 15px; }
-              .tech-items-container { display: flex; flex-direction: column; gap: 12px; }
-              .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-              .tech-item { display: flex; flex-direction: column; gap: 4px; }
-              .item-label { font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; padding-left: 2px; }
-              .item-box { background: #f8fafc; border-radius: 14px; padding: 14px 18px; border: 1px solid #f1f5f9; display: flex; align-items: center; min-height: 48px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-              .item-box:hover { background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.04); border-color: #cbd5e1; transform: translateY(-1px); }
-              .item-value { font-size: 0.95rem; font-weight: 800; color: #1e293b; line-height: 1.1; text-transform: uppercase; }
+              /* ── FOOTER ──────────────────────────────── */
+              .page-footer { text-align: center; padding: 40px 20px 60px; }
+              .footer-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; padding: 14px 32px; border-radius: 999px; text-decoration: none; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); box-shadow: 0 4px 16px rgba(211,47,47,0.25); }
+              .footer-cta:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(211,47,47,0.3); }
+              .footer-cta svg { width: 16px; height: 16px; }
+              .footer-tag { margin-top: 18px; font-size: 0.6rem; color: var(--text-muted); font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; }
+
+              /* ── LIGHTBOX ────────────────────────────── */
+              .lightbox { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 10000; background: rgba(255,255,255,0.95); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); touch-action: none; }
+              .lightbox.show { display: flex; animation: lbIn 0.25s ease; }
+              @keyframes lbIn { from { opacity: 0; } to { opacity: 1; } }
+              .lb-header { position: absolute; top: 24px; left: 28px; z-index: 20; pointer-events: none; }
+              .lb-title { font-weight: 800; font-size: 1.1rem; color: var(--text-primary); letter-spacing: 0.3px; }
+              .lb-counter { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; margin: 3px 0 0; letter-spacing: 2px; text-transform: uppercase; }
+              .lb-img-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; }
+              .lb-img { max-width: 88%; max-height: 78vh; object-fit: contain; pointer-events: auto; border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,0.08); transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.16,1,0.3,1); }
+              .lb-close { position: absolute; top: 18px; right: 22px; width: 44px; height: 44px; border-radius: 14px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.06); color: var(--text-primary); cursor: pointer; z-index: 20; display: flex; align-items: center; justify-content: center; transition: all 0.25s; }
+              .lb-close:hover { background: rgba(0,0,0,0.1); transform: scale(1.05); }
+              .lb-nav { position: fixed; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 16px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.06); color: var(--text-primary); cursor: pointer; z-index: 20; display: flex; align-items: center; justify-content: center; transition: all 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+              .lb-nav:hover { background: rgba(0,0,0,0.1); transform: translateY(-50%) scale(1.05); }
+              .lb-nav svg { width: 20px; height: 20px; }
+              .lb-prev { left: 22px; } .lb-next { right: 22px; }
+              .lb-thumbs-wrap { position: absolute; bottom: 18px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 30; pointer-events: none; }
+              .lb-thumbs { display: flex; gap: 6px; overflow-x: auto; padding: 8px; max-width: 88%; pointer-events: auto; scrollbar-width: none; background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border-radius: 14px; border: 1px solid rgba(0,0,0,0.04); }
+              .lb-thumbs::-webkit-scrollbar { display: none; }
+              .lb-thumb { height: 52px; width: 52px; border-radius: 8px; object-fit: cover; opacity: 0.4; transition: all 0.25s; border: 2px solid transparent; flex-shrink: 0; cursor: pointer; }
+              .lb-thumb.active { opacity: 1; border-color: var(--accent); transform: scale(1.06); }
+              @media (max-width: 1024px) { .lb-nav { display: none !important; } .lb-img { max-height: 66vh !important; } }
             </style>
           </head>
           <body>
-            <div class="header-wrapper">
-              <div class="header">
-                 <div class="header-content">
-                   <span style="font-weight: 700; font-size: 0.65rem; color: #94a3b8; letter-spacing: 3px; text-transform: uppercase;">Inventario de</span>
-                   <h1>${dealerName}</h1>
-                 </div>
-              </div>
+            <!-- LOADER -->
+            <div class="loader-screen" id="loader">
+              <div class="loader-ring"></div>
+              <div class="loader-text">Cargando</div>
+              <div class="loader-bar"><div class="loader-bar-fill"></div></div>
             </div>
-            
+
+            <!-- TOP BAR -->
+            <div class="top-bar" id="topBar">
+              <div class="top-bar-center">
+                <span class="top-bar-label">Inventario</span>
+                <span class="top-bar-dealer">${dealerName}</span>
+              </div>
+              <a href="${catalogUrl}" class="top-bar-catalog">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>
+                <span class="catalog-full">Ver Catálogo</span><span class="catalog-short">Ver</span>
+              </a>
+            </div>
+
             <div class="container">
-              <div class="details-card">
-                <!-- LEFT COLUMN: IMAGE -->
-                <div class="image-column">
-                  <div class="main-image-container">
+              <!-- Mobile title (visible only on mobile) -->
+              <div class="mobile-title-block fade-up">
+                <div class="badge-row">
+                  <span class="badge-pill badge-year">${raw.year}</span>
+                  <span class="badge-pill badge-meta">${(raw.color || 'N/A').toUpperCase()}</span>
+                  ${raw.edition || raw.version ? `<span class="badge-pill badge-meta">${(raw.edition || raw.version).toUpperCase()}</span>` : ''}
+                </div>
+                <h2 class="vehicle-title">${raw.make}<span class="model-name">${raw.model}</span></h2>
+              </div>
+
+              <div class="details-grid">
+                <!-- IMAGE -->
+                <div class="image-col fade-up">
+                <div class="image-card">
+                  <div class="main-image-wrap">
                     ${photos.length > 0
             ? `<img src="${photos[0]}" class="main-image" id="mainImg" onclick="openLightbox()">`
-            : `<img src="${logoUrl || 'https://via.placeholder.com/800x600?text=Sin+Imagen'}" class="main-image" id="mainImg" style="object-fit:contain;background:#f8fafc;padding:15%;">`}
+            : `<img src="${logoUrl || 'https://via.placeholder.com/800x600?text=Sin+Imagen'}" class="main-image" id="mainImg" style="object-fit:contain;background:#f9fafb;padding:15%;">`}
                     ${photos.length > 1 ? `
-                    <button class="img-nav prev" onclick="prevPageImg()">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                    <button class="img-nav next" onclick="nextPageImg()">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                    </button>
+                    <button class="img-nav prev" onclick="prevImg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+                    <button class="img-nav next" onclick="nextImg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+                    <div class="img-counter" id="imgCounter">1 / ${photos.length}</div>
                     ` : ''}
                   </div>
                 </div>
 
-                <!-- RIGHT COLUMN: INFO -->
-                <div class="info-column">
-                  <!-- Back Button -->
-                  <a href="?dealer=${req.query.dealer || matchedDealerId}" class="back-btn" style="margin-bottom: 24px;">
-                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                     Regresar al Inventario
-                  </a>
+                ${photos.length > 1 ? `
+                <div class="thumbs-strip">
+                  ${photos.map((img, idx) => `
+                    <div class="thumb-sm ${idx === 0 ? 'active' : ''}" onclick="pickImg(${idx})" id="ci${idx}">
+                      <img src="${img}" loading="lazy">
+                    </div>
+                  `).join('')}
+                </div>
+                ` : ''}
+                </div>
 
-                  <!-- Year / Color Badge -->
-                  <div class="vehicle-badge">
-                    <span class="badge-year">${raw.year}</span>
-                    <span class="badge-dot"></span>
-                    <span class="badge-text">${(raw.color || 'N/A').toUpperCase()}</span>
-                    ${raw.edition || raw.version ? `
-                    <span class="badge-dot"></span>
-                    <span class="badge-text">${(raw.edition || raw.version).toUpperCase()}</span>` : ''}
+                <!-- INFO -->
+                <div class="info-card fade-up d1">
+                  <div class="badge-row">
+                    <span class="badge-pill badge-year">${raw.year}</span>
+                    <span class="badge-pill badge-meta">${(raw.color || 'N/A').toUpperCase()}</span>
+                    ${raw.edition || raw.version ? `<span class="badge-pill badge-meta">${(raw.edition || raw.version).toUpperCase()}</span>` : ''}
                   </div>
 
-                  <!-- Vehicle Title -->
-                  <h2 class="vehicle-title">${raw.make}<br><span class="model">${raw.model}</span></h2>
+                  <h2 class="vehicle-title">${raw.make}<span class="model-name">${raw.model}</span></h2>
 
-                  <!-- Price Section with Currency Toggle -->
-                  <div class="price-block">
-                    <div class="price-header">
-                      <span class="price-label">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                        Precio de Venta
-                      </span>
-                      <div class="currency-toggle" id="priceToggle">
-                        <button class="currency-btn active" data-currency="original" onclick="setPriceCurrency('original')">US$</button>
-                        <button class="currency-btn" data-currency="alt" onclick="setPriceCurrency('alt')">RD$</button>
-                      </div>
+                  <div class="divider"></div>
+
+                  <!-- Price -->
+                  <div>
+                    <div class="price-label">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                      Precio de Venta
                     </div>
-                    <div class="price-value">
-                      <span class="price-currency" id="priceCurrLabel">${(v.precio || '').split(' ')[0]}</span>
-                      <span class="price-amount" id="priceAmtLabel">${(v.precio || '').substring((v.precio || '').indexOf(' ') + 1)}</span>
+                    <div class="price-display">
+                      <span class="price-sym">${(v.precio || '').split(' ')[0]}</span>
+                      <span class="price-val">${(v.precio || '').substring((v.precio || '').indexOf(' ') + 1)}</span>
                     </div>
                   </div>
 
-                  <!-- Initial Payment -->
-                  <div class="initial-block">
-                    <div class="initial-header">
-                      <span class="initial-label">Pago Inicial Sugerido</span>
-                      <div class="currency-toggle" id="initialToggle">
-                        <button class="currency-btn active" data-currency="original" onclick="setInitialCurrency('original')">US$</button>
-                        <button class="currency-btn" data-currency="alt" onclick="setInitialCurrency('alt')">RD$</button>
-                      </div>
-                    </div>
-                    <div class="initial-value">
-                      <span class="initial-curr" id="initialCurrLabel">${(v.inicial_calculado || '').split(' ')[0]}</span>
-                      <span class="initial-amt" id="initialAmtLabel">${(v.inicial_calculado || '').substring((v.inicial_calculado || '').indexOf(' ') + 1)}</span>
+                  <div class="divider"></div>
+
+                  <!-- Initial -->
+                  <div>
+                    <div class="initial-label">Pago Inicial Sugerido</div>
+                    <div class="initial-display">
+                      <span class="initial-sym">${(v.inicial_calculado || '').split(' ')[0]}</span>
+                      <span class="initial-val">${(v.inicial_calculado || '').substring((v.inicial_calculado || '').indexOf(' ') + 1)}</span>
                     </div>
                   </div>
 
-                  <!-- Thumbnail Reel -->
-                  <div class="thumbs-section">
-                    <div class="thumbs-title">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                      <span>Carrete (${photos.length})</span>
-                    </div>
-                    <div class="thumbs-reel">
-                      ${photos.map((img, idx) => `
-                        <div class="thumb-item ${idx === 0 ? 'active' : ''}" onclick="selectImage(${idx})" id="pageThumb${idx}">
-                          ${idx === 0 ? '<span class="thumb-badge">Portada</span>' : ''}
-                          <img src="${img}" class="thumb-img">
-                        </div>
-                      `).join('')}
-                    </div>
+                  <!-- Quick Specs -->
+                  <div class="quick-specs">
+                    ${v.transmision ? `<span class="spec-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6"/><path d="M1 12h6m6 0h6"/></svg>${String(v.transmision).toUpperCase()}</span>` : ''}
+                    ${v.motor ? `<span class="spec-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 1v3m6-3v3m-6 17v3m6-3v3M1 9h3m17 0h3M1 15h3m17 0h3"/></svg>${String(v.motor).toUpperCase()}</span>` : ''}
+                    ${v.traccion ? `<span class="spec-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>${String(v.traccion).toUpperCase()}</span>` : ''}
+                    ${v.combustible ? `<span class="spec-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>${String(v.combustible).toUpperCase()}</span>` : ''}
                   </div>
                 </div>
               </div>
-               <!-- 5. SPECS -->
-              <div class="specs-section">
-                <div class="tech-sheet-wrapper">
-                  <div class="tech-header">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                      <h2>FICHA TÉCNICA COMPLETA</h2>
+
+
+              <!-- SPECS -->
+              <div class="specs-section fade-up d3">
+                <div class="specs-card">
+                  <div class="specs-header">
+                    <div class="specs-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+                    <span class="specs-h">Ficha Técnica Completa</span>
                   </div>
-                  
-                  <div class="tech-grid">
-                    <!-- 1. INFORMACIÓN BÁSICA -->
-                    <div class="tech-group">
-                      <div class="tech-group-title">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="7" y1="8" x2="17" y2="8"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="7" y1="16" x2="13" y2="16"></line></svg>
-                        BÁSICA
-                      </div>
-                      <div class="tech-items-container">
-                        <div class="row-2">
-                          <div class="tech-item"><div class="item-label">Año</div><div class="item-box"><div class="item-value">${v.anio || '-'}</div></div></div>
-                          <div class="tech-item"><div class="item-label">Color</div><div class="item-box"><div class="item-value">${String(v.color || '').toUpperCase()}</div></div></div>
+                  <div class="spec-groups">
+                    <!-- BASICA -->
+                    <div class="spec-group">
+                      <div class="spec-group-header"><div class="spec-group-dot"></div><span class="spec-group-title">Básica</span></div>
+                      <div class="spec-items">
+                        <div class="spec-row">
+                          <div><div class="spec-label">Año</div><div class="spec-val-box"><div class="spec-val">${v.anio || '-'}</div></div></div>
+                          <div><div class="spec-label">Color</div><div class="spec-val-box"><div class="spec-val">${String(v.color || '').toUpperCase()}</div></div></div>
                         </div>
-                        <div class="tech-item"><div class="item-label">Kilometraje</div><div class="item-box"><div class="item-value">${Number(v.mileage).toLocaleString()} ${v.unit}</div></div></div>
-                        <div class="tech-item"><div class="item-label">Versión / Edición</div><div class="item-box"><div class="item-value">${String(v.edicion || '-').toUpperCase()}</div></div></div>
-                        <div class="row-2">
-                          <div class="tech-item"><div class="item-label">Condición</div><div class="item-box"><div class="item-value">${String(v.condicion || '').toUpperCase()}</div></div></div>
-                          <div class="tech-item"><div class="item-label">CarFax</div><div class="item-box"><div class="item-value">${String(v.carfax || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Kilometraje</div><div class="spec-val-box"><div class="spec-val">${Number(v.mileage).toLocaleString()} ${v.unit}</div></div></div>
+                        <div><div class="spec-label">Versión / Edición</div><div class="spec-val-box"><div class="spec-val">${String(v.edicion || '-').toUpperCase()}</div></div></div>
+                        <div class="spec-row">
+                          <div><div class="spec-label">Condición</div><div class="spec-val-box"><div class="spec-val">${String(v.condicion || '').toUpperCase()}</div></div></div>
+                          <div><div class="spec-label">CarFax</div><div class="spec-val-box"><div class="spec-val">${String(v.carfax || '-').toUpperCase()}</div></div></div>
                         </div>
-                        <div class="tech-item"><div class="item-label">Chasis / VIN</div><div class="item-box"><div class="item-value" style="font-family: monospace; font-size: 0.8rem;">${(v.vin || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Chasis / VIN</div><div class="spec-val-box"><div class="spec-val" style="font-family:monospace;font-size:0.78rem;letter-spacing:0.5px;">${(v.vin || '-').toUpperCase()}</div></div></div>
                       </div>
                     </div>
-
-                    <!-- 2. MECÁNICA -->
-                    <div class="tech-group">
-                      <div class="tech-group-title">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                        MECÁNICA
-                      </div>
-                      <div class="tech-items-container">
-                        <div class="tech-item"><div class="item-label">Motor / Potencia</div><div class="item-box"><div class="item-value" style="font-size: 0.85rem;">${String(v.motor || '-').toUpperCase()}</div></div></div>
-                        <div class="tech-item"><div class="item-label">Transmisión</div><div class="item-box"><div class="item-value">${String(v.transmision || '-').toUpperCase()}</div></div></div>
-                        <div class="tech-item"><div class="item-label">Tracción</div><div class="item-box"><div class="item-value">${String(v.traccion || '-').toUpperCase()}</div></div></div>
-                        <div class="tech-item"><div class="item-label">Combustible</div><div class="item-box"><div class="item-value">${String(v.combustible || '-').toUpperCase()}</div></div></div>
+                    <!-- MECANICA -->
+                    <div class="spec-group">
+                      <div class="spec-group-header"><div class="spec-group-dot"></div><span class="spec-group-title">Mecánica</span></div>
+                      <div class="spec-items">
+                        <div><div class="spec-label">Motor / Potencia</div><div class="spec-val-box"><div class="spec-val" style="font-size:0.82rem;">${String(v.motor || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Transmisión</div><div class="spec-val-box"><div class="spec-val">${String(v.transmision || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Tracción</div><div class="spec-val-box"><div class="spec-val">${String(v.traccion || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Combustible</div><div class="spec-val-box"><div class="spec-val">${String(v.combustible || '-').toUpperCase()}</div></div></div>
                       </div>
                     </div>
-
-                    <!-- 3. CONFORT -->
-                    <div class="tech-group">
-                      <div class="tech-group-title">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                        CONFORT
-                      </div>
-                      <div class="tech-items-container">
-                        <div class="row-2">
-                          <div class="tech-item"><div class="item-label">Asientos</div><div class="item-box"><div class="item-value">${v.asientos || '-'}</div></div></div>
-                          <div class="tech-item"><div class="item-label">Interior</div><div class="item-box"><div class="item-value">${String(v.material_interior || '-').toUpperCase()}</div></div></div>
+                    <!-- CONFORT -->
+                    <div class="spec-group">
+                      <div class="spec-group-header"><div class="spec-group-dot"></div><span class="spec-group-title">Confort</span></div>
+                      <div class="spec-items">
+                        <div class="spec-row">
+                          <div><div class="spec-label">Asientos</div><div class="spec-val-box"><div class="spec-val">${v.asientos || '-'}</div></div></div>
+                          <div><div class="spec-label">Interior</div><div class="spec-val-box"><div class="spec-val">${String(v.material_interior || '-').toUpperCase()}</div></div></div>
                         </div>
-                        <div class="row-2">
-                          <div class="tech-item"><div class="item-label">CarPlay</div><div class="item-box"><div class="item-value">${String(v.carplay || '-').toUpperCase()}</div></div></div>
-                          <div class="tech-item"><div class="item-label">Cámara</div><div class="item-box"><div class="item-value">${String(v.camera || '-').toUpperCase()}</div></div></div>
+                        <div class="spec-row">
+                          <div><div class="spec-label">CarPlay</div><div class="spec-val-box"><div class="spec-val">${String(v.carplay || '-').toUpperCase()}</div></div></div>
+                          <div><div class="spec-label">Cámara</div><div class="spec-val-box"><div class="spec-val">${String(v.camera || '-').toUpperCase()}</div></div></div>
                         </div>
-                        <div class="tech-item"><div class="item-label">Sensores</div><div class="item-box"><div class="item-value">${String(v.sensores || '-').toUpperCase()}</div></div></div>
-                        <div class="tech-item"><div class="item-label">Techo</div><div class="item-box"><div class="item-value">${String(v.techo || '-').toUpperCase()}</div></div></div>
-                        <div class="row-2">
-                          <div class="tech-item"><div class="item-label">Vidrios Eléct.</div><div class="item-box"><div class="item-value">${String(v.electric_windows || '-').toUpperCase()}</div></div></div>
-                          <div class="tech-item"><div class="item-label">Baúl Eléct.</div><div class="item-box"><div class="item-value">${String(v.baul || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Sensores</div><div class="spec-val-box"><div class="spec-val">${String(v.sensores || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Techo</div><div class="spec-val-box"><div class="spec-val">${String(v.techo || '-').toUpperCase()}</div></div></div>
+                        <div class="spec-row">
+                          <div><div class="spec-label">Vidrios Eléct.</div><div class="spec-val-box"><div class="spec-val">${String(v.electric_windows || '-').toUpperCase()}</div></div></div>
+                          <div><div class="spec-label">Baúl Eléct.</div><div class="spec-val-box"><div class="spec-val">${String(v.baul || '-').toUpperCase()}</div></div></div>
                         </div>
-                        <div class="tech-item"><div class="item-label">Llave</div><div class="item-box"><div class="item-value">${String(v.llave || '-').toUpperCase()}</div></div></div>
+                        <div><div class="spec-label">Llave</div><div class="spec-val-box"><div class="spec-val">${String(v.llave || '-').toUpperCase()}</div></div></div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              </div> <!-- END SPECS -->
 
-              </div> <!-- END DETAILS CARD -->
-
-              <!-- 6. RELATED -->
-              <div class="related-section">
+              <!-- RELATED -->
+              <div class="related-section fade-up d4">
                 <div class="section-header">
-                    <svg class="section-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 18 16 21 16 18 16 21"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
-                    <h2 class="section-title">VEHÍCULOS RELACIONADOS</h2>
+                  <div class="section-dot"></div>
+                  <span class="section-title">Vehículos Relacionados</span>
                 </div>
                 <div class="related-grid">
                   ${related.map(r => `
                     <a href="?dealerID=${dealerLinkParam}&vehicleID=${r.id}" class="related-card">
-                      <img src="${r.imagen || logoUrl || 'https://via.placeholder.com/400x225?text=Sin+Imagen'}" style="${!r.imagen && logoUrl ? 'object-fit:contain;background:#f8fafc;padding:10%;' : ''}">
-                      <h4>${r.nombre}</h4>
-                      <p>${r.precio || ''}</p>
+                      <div style="overflow:hidden;"><img src="${r.imagen || logoUrl || 'https://via.placeholder.com/400x225?text=Sin+Imagen'}" class="related-card-img" style="${!r.imagen && logoUrl ? 'object-fit:contain;background:#f9fafb;padding:10%;' : ''}"></div>
+                      <div class="related-card-body">
+                        <h4>${r.nombre}</h4>
+                        <p>${r.precio || ''}</p>
+                      </div>
                     </a>
                   `).join('')}
                 </div>
               </div>
 
-              <div style="text-align: center; margin-top: 50px; padding-bottom: 40px;">
-                <a href="?dealer=${req.query.dealer || matchedDealerId}" class="back-btn">
-                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                   Regresar al Inventario
+              <!-- FOOTER -->
+              <div class="page-footer fade-up">
+                <a href="${catalogUrl}" class="footer-cta">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  Ver Catálogo Completo
                 </a>
+                <div class="footer-tag">Powered by CarBot System</div>
               </div>
-
-
             </div>
 
+            <!-- LIGHTBOX -->
             <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-              <div id="lbBackdrop" class="lightbox-backdrop" style="background-image: url('${photos[0] || ''}')"></div>
-              
-              <div class="lightbox-header">
-                <h3 class="lb-title">${v.nombre}</h3>
-                <p id="lbCounter" class="lb-counter">FOTO 1 DE ${photos.length}</p>
+              <div class="lb-header">
+                <div class="lb-title">${v.nombre}</div>
+                <div class="lb-counter" id="lbCounter">Foto 1 de ${photos.length}</div>
               </div>
-
-              <div class="close-btn" onclick="closeLightbox()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </div>
-              
-              <div class="nav-btn prev" onclick="event.stopPropagation(); moveLightbox(-1)">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-              </div>
-              
-              <div class="lightbox-img-wrapper">
-                <img class="lightbox-img" id="lbImg" src="" onclick="event.stopPropagation()">
-              </div>
-              
-              <div class="nav-btn next" onclick="event.stopPropagation(); moveLightbox(1)">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </div>
-
-              <!-- THUMBNAIL STRIP -->
-              <div class="lb-thumbs-container" onclick="event.stopPropagation()">
-                <div class="lb-thumbs-scroll">
-                  ${photos.map((img, idx) => `
-                    <img src="${img}" class="lb-thumb ${idx === 0 ? 'active' : ''}" onclick="selectImage(${idx}); updateLightboxImage();" id="lbThumb${idx}">
-                  `).join('')}
+              <div class="lb-close" onclick="closeLightbox()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+              <div class="lb-nav lb-prev" onclick="event.stopPropagation();moveLB(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+              <div class="lb-img-wrap"><img class="lb-img" id="lbImg" src="" onclick="event.stopPropagation()"></div>
+              <div class="lb-nav lb-next" onclick="event.stopPropagation();moveLB(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+              <div class="lb-thumbs-wrap" onclick="event.stopPropagation()">
+                <div class="lb-thumbs">
+                  ${photos.map((img, idx) => `<img src="${img}" class="lb-thumb ${idx === 0 ? 'active' : ''}" onclick="pickImg(${idx});updLB();" id="lt${idx}">`).join('')}
                 </div>
               </div>
             </div>
 
             <script>
-              const photos = ${JSON.stringify(photos)};
-              let currentIndex = 0;
-              
-              // TOUCH SWIPE VARIABLES
-              let touchStartX = 0;
-              let touchEndX = 0;
+              // Loader
+              window.addEventListener('load',function(){setTimeout(function(){document.getElementById('loader').classList.add('hidden');},1000);});
 
-              function selectImage(index) {
-                currentIndex = index;
-                document.getElementById('mainImg').src = photos[index];
-                // Update page thumbs
-                document.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active'));
-                const pageThumb = document.getElementById('pageThumb' + index);
-                if (pageThumb) pageThumb.classList.add('active');
+              // Scroll reveal
+              var obs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});},{threshold:0.06,rootMargin:'0px 0px -30px 0px'});
+              document.querySelectorAll('.fade-up').forEach(function(el){obs.observe(el);});
+
+              // Nav shadow
+              window.addEventListener('scroll',function(){document.getElementById('topBar').classList.toggle('scrolled',window.scrollY>8);},{passive:true});
+
+              // Gallery
+              var photos=${JSON.stringify(photos)};
+              var ci=0,tsx=0,tex=0;
+
+              function pickImg(i){
+                ci=i;
+                var m=document.getElementById('mainImg');
+                m.style.opacity='0';
+                setTimeout(function(){m.src=photos[i];m.style.opacity='1';},150);
+                // Update thumbs
+                document.querySelectorAll('.thumb-sm').forEach(function(t){t.classList.remove('active');});
+                var ct=document.getElementById('ci'+i);
+                if(ct)ct.classList.add('active');
+                var c=document.getElementById('imgCounter');
+                if(c)c.textContent=(i+1)+' / '+photos.length;
+              }
+              function prevImg(){ci--;if(ci<0)ci=photos.length-1;pickImg(ci);}
+              function nextImg(){ci++;if(ci>=photos.length)ci=0;pickImg(ci);}
+
+              // Lightbox
+              function openLightbox(){updLB();var l=document.getElementById('lightbox');l.classList.add('show');document.body.style.overflow='hidden';document.body.addEventListener('touchmove',pv,{passive:false});}
+              function closeLightbox(){var l=document.getElementById('lightbox');l.classList.remove('show');l.style.display='';document.body.style.overflow='';document.body.removeEventListener('touchmove',pv);}
+              function pv(e){if(e.target.closest('.lb-thumbs'))return;e.preventDefault();}
+              function moveLB(s){ci+=s;if(ci>=photos.length)ci=0;if(ci<0)ci=photos.length-1;updLB();pickImg(ci);}
+              function updLB(){
+                var img=document.getElementById('lbImg');
+                img.style.opacity='0';img.style.transform='scale(0.96)';
+                setTimeout(function(){img.src=photos[ci];img.style.opacity='1';img.style.transform='scale(1)';},100);
+                document.getElementById('lbCounter').textContent='Foto '+(ci+1)+' de '+photos.length;
+                document.querySelectorAll('.lb-thumb').forEach(function(t){t.classList.remove('active');});
+                var at=document.getElementById('lt'+ci);
+                if(at){at.classList.add('active');var c=document.querySelector('.lb-thumbs');if(c){c.scrollTo({left:at.offsetLeft-(c.clientWidth/2)+(at.clientWidth/2),behavior:'smooth'});}}
               }
 
-              function prevPageImg() {
-                currentIndex--;
-                if (currentIndex < 0) currentIndex = photos.length - 1;
-                selectImage(currentIndex);
-              }
+              // Keys
+              document.addEventListener('keydown',function(e){if(document.getElementById('lightbox').classList.contains('show')){if(e.key==='Escape')closeLightbox();if(e.key==='ArrowLeft')moveLB(-1);if(e.key==='ArrowRight')moveLB(1);}});
 
-              function nextPageImg() {
-                currentIndex++;
-                if (currentIndex >= photos.length) currentIndex = 0;
-                selectImage(currentIndex);
-              }
+              // Touch
+              var lbEl=document.getElementById('lightbox');
+              lbEl.addEventListener('touchstart',function(e){tsx=e.changedTouches[0].screenX;},{passive:true});
+              lbEl.addEventListener('touchend',function(e){tex=e.changedTouches[0].screenX;if(tex<tsx-50)moveLB(1);if(tex>tsx+50)moveLB(-1);},{passive:true});
 
-              // Currency toggle functions (visual only - the stored price is what it is)
-              function setPriceCurrency(type) {
-                const btns = document.querySelectorAll('#priceToggle .currency-btn');
-                btns.forEach(b => b.classList.remove('active'));
-                btns.forEach(b => { if (b.dataset.currency === type) b.classList.add('active'); });
-              }
-              function setInitialCurrency(type) {
-                const btns = document.querySelectorAll('#initialToggle .currency-btn');
-                btns.forEach(b => b.classList.remove('active'));
-                btns.forEach(b => { if (b.dataset.currency === type) b.classList.add('active'); });
-              }
-
-              function openLightbox() {
-                updateLightboxImage();
-                document.getElementById('lightbox').style.display = 'flex';
-                document.body.style.overflow = 'hidden'; 
-                // Explicitly disable scrolling on mobile by prevention
-                document.body.addEventListener('touchmove', preventDefault, { passive: false });
-              }
-
-              function closeLightbox() {
-                document.getElementById('lightbox').style.display = 'none';
-                document.body.style.overflow = '';
-                document.body.removeEventListener('touchmove', preventDefault);
-              }
-
-              function preventDefault(e) {
-                // Allow scroll only on the thumbs container
-                if (e.target.closest('.lb-thumbs-scroll')) return;
-                e.preventDefault();
-              }
-
-              function moveLightbox(step) {
-                currentIndex += step;
-                if (currentIndex >= photos.length) currentIndex = 0;
-                if (currentIndex < 0) currentIndex = photos.length - 1;
-                updateLightboxImage();
-              }
-
-              function updateLightboxImage() {
-                const imgUrl = photos[currentIndex];
-                document.getElementById('lbImg').src = imgUrl;
-                document.getElementById('lbBackdrop').style.backgroundImage = 'url(' + imgUrl + ')';
-                document.getElementById('lbCounter').innerText = 'FOTO ' + (currentIndex + 1) + ' DE ' + photos.length;
-                
-                // Update active thumb class
-                document.querySelectorAll('.lb-thumb').forEach(t => t.classList.remove('active'));
-                const activeThumb = document.getElementById('lbThumb' + currentIndex);
-                if(activeThumb) {
-                  activeThumb.classList.add('active');
-                  // Manual scroll to avoid page jumping
-                  const container = document.querySelector('.lb-thumbs-scroll');
-                  if (container) {
-                    const scrollLeft = activeThumb.offsetLeft - (container.clientWidth / 2) + (activeThumb.clientWidth / 2);
-                    container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-                  }
-                }
-              }
-              
-              // Key navigation
-              document.addEventListener('keydown', function(event) {
-                if (document.getElementById('lightbox').style.display === 'flex') {
-                  if (event.key === "Escape") closeLightbox();
-                  if (event.key === "ArrowLeft") moveLightbox(-1);
-                  if (event.key === "ArrowRight") moveLightbox(1);
-                }
-              });
-
-              // Touch Swipe Handling
-              const lightboxEl = document.getElementById('lightbox');
-              
-              lightboxEl.addEventListener('touchstart', e => {
-                touchStartX = e.changedTouches[0].screenX;
-              }, { passive: true });
-
-              lightboxEl.addEventListener('touchend', e => {
-                touchEndX = e.changedTouches[0].screenX;
-                handleSwipe();
-              }, { passive: true });
-
-              function handleSwipe() {
-                const swipeThreshold = 50; 
-                if (touchEndX < touchStartX - swipeThreshold) {
-                  // Swipe LEFT -> Next Image
-                  moveLightbox(1);
-                }
-                if (touchEndX > touchStartX + swipeThreshold) {
-                  // Swipe RIGHT -> Prev Image
-                  moveLightbox(-1);
-                }
-              }
+              // Img transition
+              var mi=document.getElementById('mainImg');if(mi)mi.style.transition='opacity 0.3s ease';
             </script>
           </body>
           </html>
         `;
+
+
         res.set('Content-Type', 'text/html');
         console.log(`✅ [inventarioIA] Retornando HTML de MODO DETALLE, tamaño: ${html.length}`);
         return res.send(html);
@@ -2737,7 +2696,8 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
       const val = Number(String(monto).replace(/[^0-9.-]+/g, ""));
       if (isNaN(val) || val === 0) return "";
       const formatted = addCommas(Math.round(val));
-      return (moneda === 'DOP' || moneda === 'RD$') ? `RD$ ${formatted} Pesos` : `US$ ${formatted} Dolares`;
+      const map = { DOP: `RD$ ${formatted} Pesos`, 'RD$': `RD$ ${formatted} Pesos`, USD: `US$ ${formatted} Dolares`, EUR: `€ ${formatted} Euros`, COP: `COP$ ${formatted} Pesos Colombianos` };
+      return map[moneda] || `US$ ${formatted} Dolares`;
     };
 
     const fmtMil = (m, veh) => {
@@ -3139,7 +3099,7 @@ exports.ghlContacts = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClie
 // ── Conversations API ─────────────────────────────────────────────────────────
 exports.ghlConversations = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
   const GHL_BASE = 'https://services.leadconnectorhq.com';
-  const { dealerId, conversationId, messages, lastMessageId, lastId, limit = '25', assignedUserId } = req.query;
+  const { dealerId, conversationId, messages, lastMessageId, lastId, limit = '25', assignedUserId, bots, botStatus, contactId } = req.query;
 
   if (!dealerId) return res.status(400).json({ error: 'dealerId es requerido' });
 
@@ -3152,6 +3112,38 @@ exports.ghlConversations = onRequest({ cors: true, secrets: [ghlClientSecret, gh
     };
 
     if (req.method === 'GET') {
+      // Fetch conversation AI agents/bots for this location
+      if (bots === '1') {
+        const params = new URLSearchParams({ locationId });
+        const r = await fetch(`${GHL_BASE}/conversation-ai/agents/search?${params}`, { headers });
+        const data = r.ok ? await r.json() : { agents: [] };
+        const agents = (data.agents || data.data || []).map(a => ({
+          id: a.id, name: a.name, status: a.status, mode: a.mode, channels: a.channels || [],
+        }));
+        return res.status(200).json({ agents, hasBot: agents.length > 0 });
+      }
+
+      // Get bot status for a specific conversation
+      if (conversationId && botStatus === '1') {
+        console.log('[ghlConversations] Bot status GET:', { conversationId });
+        const r = await fetch(`${GHL_BASE}/conversations-ai/employeeConfigs/${conversationId}`, { headers });
+        const rawText = await r.text();
+        console.log('[ghlConversations] Bot status response:', { status: r.status, body: rawText });
+        if (!r.ok) {
+          if (r.status === 404) return res.status(200).json({ status: null, hasConfig: false });
+          let data;
+          try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
+          return res.status(r.status).json(data);
+        }
+        let data;
+        try { data = JSON.parse(rawText); } catch { data = {}; }
+        return res.status(200).json({
+          status: data.status || null,
+          hasConfig: true,
+          sleepingTill: data.sleepingTill || null,
+        });
+      }
+
       // Get messages for a conversation
       if (conversationId && messages === '1') {
         const params = new URLSearchParams({ limit: '50' });
@@ -3163,6 +3155,28 @@ exports.ghlConversations = onRequest({ cors: true, secrets: [ghlClientSecret, gh
       if (conversationId) {
         const r = await fetch(`${GHL_BASE}/conversations/${conversationId}`, { headers });
         return res.status(r.status).json(await r.json());
+      }
+      // List all tags for this location
+      if (req.query.tags === '1') {
+        // Try the tags endpoint with the correct API version
+        const tagHeaders = { ...headers, Version: '2021-07-28' };
+        const r = await fetch(`${GHL_BASE}/locations/${locationId}/tags`, { headers: tagHeaders });
+        if (r.ok) {
+          const data = await r.json();
+          const tags = (data.tags || []).map(t => ({ id: t.id, name: t.name }));
+          return res.json({ tags });
+        }
+        // Fallback: collect unique tags from recent contacts
+        const cParams = new URLSearchParams({ locationId, limit: '100' });
+        const cr = await fetch(`${GHL_BASE}/contacts/?${cParams}`, { headers });
+        if (cr.ok) {
+          const cData = await cr.json();
+          const tagSet = new Set();
+          (cData.contacts || []).forEach(c => (c.tags || []).forEach(t => tagSet.add(t)));
+          const tags = [...tagSet].sort().map(name => ({ id: name, name }));
+          return res.json({ tags });
+        }
+        return res.json({ tags: [] });
       }
       // Get team members for @ mentions
       if (req.query.teamMembers === '1') {
@@ -3240,11 +3254,72 @@ exports.ghlConversations = onRequest({ cors: true, secrets: [ghlClientSecret, gh
     }
 
     if (req.method === 'PUT') {
+      // Toggle conversation AI bot status
+      if (conversationId && botStatus === '1') {
+        const body = req.body || {};
+        const status = body.status;
+        if (!status || !['active', 'inactive'].includes(status)) {
+          return res.status(400).json({ error: 'status debe ser "active" o "inactive"' });
+        }
+        const payload = {
+          data: {
+            status,
+            ...(status === 'inactive' ? {
+              reactivateAfterTimeValue: body.reactivateAfterTimeValue || 24,
+              reactivateAfterTimeUnit: body.reactivateAfterTimeUnit || 'hour',
+            } : {}),
+          },
+          locationId,
+        };
+        console.log('[ghlConversations] Bot toggle request:', {
+          url: `${GHL_BASE}/conversations-ai/employeeConfigs/${conversationId}`,
+          payload,
+        });
+        const r = await fetch(`${GHL_BASE}/conversations-ai/employeeConfigs/${conversationId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const rawText = await r.text();
+        console.log('[ghlConversations] Bot toggle response:', { status: r.status, body: rawText });
+        let data;
+        try { data = JSON.parse(rawText); } catch { data = { raw: rawText }; }
+        return res.status(r.status).json(data);
+      }
+
+      // Add tag to contact
+      if (contactId && req.body?.addTag) {
+        const r = await fetch(`${GHL_BASE}/contacts/${contactId}/tags`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ tags: [req.body.addTag] }),
+        });
+        const data = await r.json().catch(() => ({}));
+        return res.status(r.status).json(data);
+      }
+
+      // Remove tag from contact
+      if (contactId && req.body?.removeTag) {
+        const r = await fetch(`${GHL_BASE}/contacts/${contactId}/tags`, {
+          method: 'DELETE', headers,
+          body: JSON.stringify({ tags: [req.body.removeTag] }),
+        });
+        const data = await r.json().catch(() => ({}));
+        return res.status(r.status).json(data);
+      }
+
       if (!conversationId) return res.status(400).json({ error: 'conversationId es requerido para PUT' });
       // GHL requires locationId in the body for conversation updates
       const updateBody = { ...req.body, locationId };
       const r = await fetch(`${GHL_BASE}/conversations/${conversationId}`, { method: 'PUT', headers, body: JSON.stringify(updateBody) });
       return res.status(r.status).json(await r.json());
+    }
+
+    if (req.method === 'DELETE') {
+      if (!conversationId) return res.status(400).json({ error: 'conversationId es requerido para DELETE' });
+      const r = await fetch(`${GHL_BASE}/conversations/${conversationId}`, { method: 'DELETE', headers });
+      if (r.status === 204) return res.status(200).json({ success: true });
+      const data = await r.json().catch(() => ({}));
+      return res.status(r.status).json(data);
     }
 
     return res.status(405).json({ error: 'Método no permitido' });
@@ -3497,3 +3572,185 @@ exports.repairDealerData = onRequest(async (req, res) => {
 
 
 exports.testSecrets = require('./test_secrets').testSecrets;
+
+// ── Push Notifications ─────────────────────────────────────────────────────────
+// Receives a notification request from the frontend, resolves all FCM tokens for
+// the dealer, and fans out personalized push messages via FCM multicast.
+
+const VEHICLE_MESSAGES = [
+  'Hola {receptor}, {actor} agregó un {año} {marca} {modelo} {color} al inventario 🚗',
+  'Nuevo en el lote 👀 {año} {marca} {modelo} {color} añadido por {actor}',
+  '{actor} subió un nuevo vehículo: {marca} {modelo} {año} 🔥',
+  'Ya está disponible un {año} {marca} {modelo} {color} en inventario',
+  'Oye {receptor}, entró un {marca} {modelo} {año} nuevo al lote',
+];
+
+const QUOTE_MESSAGES = [
+  '{actor} cotizó un {año} {marca} {modelo} {color} para {cliente} 📋',
+  'Nueva cotización lista: {cliente} — {marca} {modelo} {año}',
+  '{actor} preparó una cotización para {cliente} del {año} {marca} {modelo}',
+  'Ojo, {cliente} ya recibió cotización del {marca} {modelo} {año} 👀',
+  'Movimiento nuevo 💼 {actor} cotizó el {marca} {modelo} {año} para {cliente}',
+];
+
+const CONTRACT_MESSAGES = [
+  '¡Contrato generado! {cliente} cerró el {año} {marca} {modelo} {color} con {actor} 🎉',
+  '{actor} generó un contrato para {cliente}: {marca} {modelo} {año} ✅',
+  'Venta cerrada 🔥 Contrato listo para el {año} {marca} {modelo} de {cliente}',
+  'Buenas noticias: {actor} cerró con {cliente} el {marca} {modelo} {año} 🙌',
+  'Contrato finalizado 💪 {cliente} ya va con su {año} {marca} {modelo}',
+];
+
+const TEMPLATES_BY_TYPE = {
+  vehicle: VEHICLE_MESSAGES,
+  quote: QUOTE_MESSAGES,
+  contract: CONTRACT_MESSAGES,
+};
+
+/**
+ * Picks a random template from the array and replaces {placeholder} tokens.
+ * Unknown placeholders are left intact.
+ */
+function pickPushMessage(templates, vars) {
+  const template = templates[Math.floor(Math.random() * templates.length)];
+  return template.replace(/\{(\w+)\}/g, (match, key) =>
+    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match
+  );
+}
+
+exports.sendPushNotification = onRequest(async (req, res) => {
+  // CORS — allow the deployed frontend and local dev origins.
+  const allowedOrigins = [
+    'https://carbotsystem.web.app',
+    'https://carbot-5d709.web.app',
+    'http://localhost:5173',
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  }
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const { dealerId, type, actorName, vehicleData, clientName } = req.body ?? {};
+
+  // Input validation
+  if (!dealerId || typeof dealerId !== 'string') {
+    res.status(400).json({ error: 'Missing or invalid dealerId' });
+    return;
+  }
+  if (!type || !TEMPLATES_BY_TYPE[type]) {
+    res.status(400).json({ error: 'Invalid type. Must be vehicle, quote, or contract.' });
+    return;
+  }
+  if (!actorName || typeof actorName !== 'string') {
+    res.status(400).json({ error: 'Missing or invalid actorName' });
+    return;
+  }
+  if (!vehicleData || typeof vehicleData !== 'object') {
+    res.status(400).json({ error: 'Missing or invalid vehicleData' });
+    return;
+  }
+
+  const { año = '', marca = '', modelo = '', color = '' } = vehicleData;
+
+  // Use the service-role key via Secret Manager if available, else fall back to
+  // the anon key already in scope (read-only for push_subscriptions via RLS).
+  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // Fetch all FCM tokens for this dealer, joined with the user's name.
+  const { data: subscriptions, error: fetchError } = await supabaseClient
+    .from('push_subscriptions')
+    .select('fcm_token, user_id, usuarios(nombre)')
+    .eq('dealer_id', dealerId);
+
+  if (fetchError) {
+    console.error('[sendPushNotification] Supabase fetch error:', fetchError);
+    res.status(500).json({ error: 'Failed to fetch subscriptions' });
+    return;
+  }
+
+  if (!subscriptions || subscriptions.length === 0) {
+    res.status(200).json({ message: 'No subscribers for this dealer.', sent: 0 });
+    return;
+  }
+
+  const messaging = admin.messaging();
+  const staleTokens = [];
+  let sentCount = 0;
+
+  // Send a personalized message to each subscriber.
+  // We send individually (not multicast) so each message can have a unique body.
+  const sends = subscriptions.map(async ({ fcm_token, usuarios: userRow }) => {
+    const receptorName = userRow?.nombre || 'tú';
+    const vars = {
+      receptor: receptorName,
+      actor: actorName,
+      año,
+      marca,
+      modelo,
+      color,
+      cliente: clientName || '',
+    };
+
+    const body = pickPushMessage(TEMPLATES_BY_TYPE[type], vars);
+    const title = 'CarBot';
+
+    try {
+      await messaging.send({
+        token: fcm_token,
+        notification: { title, body },
+        webpush: {
+          notification: {
+            title,
+            body,
+            icon: '/logoapp.png',
+            badge: '/logoapp.png',
+            vibrate: [200, 100, 200],
+          },
+        },
+        data: { type, dealerId },
+      });
+      sentCount++;
+    } catch (err) {
+      const code = err.code ?? '';
+      // These error codes signal a permanently invalid token.
+      if (
+        code === 'messaging/invalid-registration-token' ||
+        code === 'messaging/registration-token-not-registered'
+      ) {
+        staleTokens.push(fcm_token);
+      } else {
+        console.error('[sendPushNotification] FCM send error for token', fcm_token, err.message);
+      }
+    }
+  });
+
+  await Promise.all(sends);
+
+  // Clean up invalid tokens so they don't accumulate.
+  if (staleTokens.length > 0) {
+    const { error: deleteError } = await supabaseClient
+      .from('push_subscriptions')
+      .delete()
+      .in('fcm_token', staleTokens);
+
+    if (deleteError) {
+      console.error('[sendPushNotification] Failed to remove stale tokens:', deleteError);
+    } else {
+      console.info(`[sendPushNotification] Removed ${staleTokens.length} stale token(s).`);
+    }
+  }
+
+  res.status(200).json({ sent: sentCount, stalePurged: staleTokens.length });
+});

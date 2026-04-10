@@ -9,6 +9,13 @@
           "carbotsystem"
         ]
       }
+    },
+    "carbot-online-do": {
+      "hosting": {
+        "nuevo": [
+          "carbot-online-do"
+        ]
+      }
     }
   },
   "etags": {}

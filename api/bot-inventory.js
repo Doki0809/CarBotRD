@@ -65,23 +65,25 @@ export default async function handler(req, res) {
 
             const fullTitle = `${yearFromTitle} ${makeFromTitle} ${modelFromTitle} ${editionFromTitle} ${colorFromTitle}`.trim().toUpperCase();
 
-            // Precios
-            const priceVal = Number(data.price_dop) > 0 ? Number(data.price_dop) : Number(data.price || 0);
-            const isDopPrice = Number(data.price_dop) > 0;
-            const precioFmt = isDopPrice ? `RD$ ${priceVal.toLocaleString()} Pesos` : `US$ ${priceVal.toLocaleString()} Dólares`;
+            // Precios — soporta DOP, USD, EUR, COP
+            const fmtCurrency = (val, moneda) => {
+                if (!val || val === 0) return '-';
+                const f = Number(val).toLocaleString();
+                const map = { DOP: `RD$ ${f} Pesos`, USD: `US$ ${f} Dólares`, EUR: `€ ${f} Euros`, COP: `COP$ ${f} Pesos Colombianos` };
+                return map[moneda] || `US$ ${f} Dólares`;
+            };
+            const vehicleCurrency = data.currency || (Number(data.price_dop) > 0 ? 'DOP' : 'USD');
+            const priceVal = Number(data.price || data.price_dop || 0);
+            const precioFmt = fmtCurrency(priceVal, vehicleCurrency);
 
             // Inicial
-            const initialDop = Number(data.initial_payment_dop || data.initial_dop || 0);
-            const initialUsd = Number(data.initial_payment || data.initial || 0);
+            const initialCurrency = data.downPaymentCurrency || vehicleCurrency;
+            const initialVal = Number(data.initial_payment || data.initial_payment_dop || 0);
             let inicialFmt = "-";
-            if (initialDop > 0) {
-                inicialFmt = `RD$ ${initialDop.toLocaleString()} Pesos`;
-            } else if (initialUsd > 0) {
-                inicialFmt = `US$ ${initialUsd.toLocaleString()} Dólares`;
-            } else if (isDopPrice) {
-                inicialFmt = `RD$ ${(priceVal * 0.2).toLocaleString()} Pesos`;
-            } else {
-                inicialFmt = `RD$ ${(priceVal * 60 * 0.2).toLocaleString()} Pesos`;
+            if (initialVal > 0) {
+                inicialFmt = fmtCurrency(initialVal, initialCurrency);
+            } else if (priceVal > 0) {
+                inicialFmt = fmtCurrency(Math.round(priceVal * 0.2), vehicleCurrency);
             }
 
             // Motor

@@ -23,7 +23,7 @@
                 'img.logo-img',
                 '#sidebar-v2 .logo img'
             ].join(', '),
-            opportunitiesHref: '/opportunities',
+            paymentsHref: '/payments',
             carbotHrefMatch: /\/carbot($|\?)/ // Exact match for custom link
         },
         assets: {
@@ -177,11 +177,11 @@
         if (!sidebar) return;
 
         const allLinks = Array.from(sidebar.querySelectorAll('a[href]'));
-        const oppLink = allLinks.find(a => a.getAttribute('href').includes(CONFIG.selectors.opportunitiesHref));
+        const paymentsLink = allLinks.find(a => a.getAttribute('href').includes(CONFIG.selectors.paymentsHref));
         const carbotLink = allLinks.find(a => CONFIG.selectors.carbotHrefMatch.test(a.getAttribute('href')));
 
-        if (oppLink && carbotLink) {
-            const oppWrapper = oppLink.closest('div[id*="sidebar-"]') || oppLink.parentElement;
+        if (paymentsLink && carbotLink) {
+            const oppWrapper = paymentsLink.closest('div[id*="sidebar-"]') || paymentsLink.parentElement;
             const carbotWrapper = carbotLink.closest('div[id*="sidebar-"]') || carbotLink.parentElement;
 
             if (oppWrapper && carbotWrapper && oppWrapper.parentNode === carbotWrapper.parentNode) {
