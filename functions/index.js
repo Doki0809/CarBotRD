@@ -3970,21 +3970,30 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
     const rows = vehiculos.map(v => {
       const title = `${v.anio || ''} ${v.marca || ''} ${v.modelo || ''} ${v.edicion || ''}`.trim();
       
-      const specs = [
-        v.transmision && `Transmisión: ${v.transmision}`,
-        v.combustible && `Combustible: ${v.combustible}`,
-        v.color && `Color: ${v.color}`,
-        v.traccion && `Tracción: ${v.traccion}`,
-        v.motor && `Motor: ${v.motor}`
-      ].filter(Boolean).join(' | ');
+      // Formateo de precios y millaje
+      const fmt = (val) => Number(val || 0).toLocaleString('en-US');
+      const priceStr = `${v.moneda_precio || 'RD$'} ${fmt(v.precio)}`;
+      const initialStr = `${v.moneda_inicial || (v.moneda_precio === 'US$' ? 'US$' : 'RD$')} ${fmt(v.inicial)}`;
+      const mileageStr = `${fmt(v.millas)} km`;
+
+      // Lógica de Importación
+      const isImported = (v.condicion || "").toLowerCase().includes("importado") || v.condicion === "Nuevo";
+      const importStatus = isImported 
+        ? "Recién importada | Clean Carfax | Primer dueño en RD" 
+        : "Usado en el País";
+
+      // Lista de extras dinámica
+      const extras = [];
+      if (v.camara && v.camara !== "No") extras.push("• Cámara de reversa");
+      if (v.techo && (v.techo === "Panorámico" || v.techo === "Sunroof")) extras.push("• Techo panorámico");
+      if (v.material_asientos && (v.material_asientos === "Piel" || v.material_asientos === "Cuero")) extras.push("• Asientos en piel");
+      if (v.traccion && (v.traccion.includes("4x4") || v.traccion.includes("AWD") || v.traccion.includes("4WD"))) extras.push("• Tracción 4x4");
+      if (v.carplay === true) extras.push("• Apple CarPlay y Android Auto");
+      // Suspensión de aire (si existe en detalles)
+      if (v.detalles?.air_suspension === true || v.detalles?.suspension === "Aire") extras.push("• Suspensión de aire");
+
+      const description = `Precio: ${priceStr}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
       
-      const description = `${v.titulo_vehiculo || title}. ${specs}`;
-      
-      let currency = v.moneda_precio || 'USD';
-      if (currency === 'RD$') currency = 'DOP';
-      if (currency === 'US$') currency = 'USD';
-      
-      const price = `${v.precio || 0} ${currency}`;
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
       const images = Array.isArray(v.fotos) ? v.fotos : [];
       const image_link = images[0] || '';
@@ -3998,7 +4007,7 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
         escape(description),
         'in stock',
         v.condicion === 'Nuevo' ? 'new' : 'used',
-        escape(price),
+        escape(priceStr),
         escape(link),
         escape(image_link),
         escape(additional_image_link),
