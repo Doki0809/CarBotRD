@@ -3959,77 +3959,102 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
   const catalogBaseUrl = 'https://carbotsystem.com/inventario/dura-n-ferna-ndez-auto-srl/catalogo';
 
   try {
-    const { data: vehiculos, error } = await supabase
+    const inventoryMap = new Map(); // Para deduplicar por ID
+
+    // 1. Obtener de Firestore (Prioridad para estados actualizados en Dashboard)
+    const firestoreSnap = await db.collection("Dealers").doc(dealerId).collection("vehiculos").get();
+    firestoreSnap.forEach(doc => {
+      const data = doc.data();
+      const s = (data.status || data.estado || '').toLowerCase().trim();
+      const allowed = ['available', 'disponible']; // Solo disponibles para Meta
+
+      if (allowed.includes(s) && !data.is_trash && !data._deleted) {
+        inventoryMap.set(doc.id, {
+          id: doc.id,
+          titulo: `${data.year || ""} ${data.make || ""} ${data.model || ""} ${data.edition || ""}`.trim(),
+          precio: data.price || data.price_dop || 0,
+          moneda: data.currency || (data.price_dop > 0 ? 'DOP' : 'USD'),
+          inicial: data.initial_payment || data.initial_payment_dop || 0,
+          moneda_inicial: data.downPaymentCurrency || data.currency || 'USD',
+          millas: data.mileage || 0,
+          condicion: data.condition || data.condicion || 'Usado Importado',
+          marca: data.make,
+          fotos: data.images || (data.image ? [data.image] : []),
+          detalles: data
+        });
+      }
+    });
+
+    // 2. Obtener de Supabase (Sincronización con catálogo real)
+    const { data: sbVehicles, error: sbError } = await supabase
       .from('vehiculos')
       .select('*')
       .eq('dealer_id', dealerId)
-      .in('estado', ['Disponible', 'Cotizado']);
+      .eq('estado', 'Disponible');
 
-    if (error) throw error;
+    if (!sbError && sbVehicles) {
+      sbVehicles.forEach(v => {
+        const d = v.detalles || {};
+        if (d._deleted || d._deleted_at) return;
 
-    // Filtrar: 
-    // 1. No eliminados
-    // 2. Que tengan al menos una imagen compatible (JPG, PNG, WEBP)
-    const vehiculosListos = vehiculos.filter(v => {
-      const d = v.detalles || {};
-      if (d._deleted || d._deleted_at) return false;
-      
-      const images = Array.isArray(v.fotos) ? v.fotos : [];
-      return images.some(url => 
-        url.toLowerCase().split('?')[0].match(/\.(jpg|jpeg|png|webp|bmp|gif)$/)
-      );
-    });
+        // Si ya está en Firestore, lo saltamos (Firestore es el source de verdad para el dashboard)
+        if (!inventoryMap.has(v.id)) {
+          inventoryMap.set(v.id, {
+            id: v.id,
+            titulo: `${v.anio || ''} ${v.marca || ''} ${v.modelo || ''} ${v.edicion || ''}`.trim(),
+            precio: v.precio || 0,
+            moneda: v.moneda_precio || 'USD',
+            inicial: v.inicial || 0,
+            moneda_inicial: v.moneda_inicial || v.moneda_precio || 'USD',
+            millas: v.millas || 0,
+            condicion: v.condicion || 'Usado Importado',
+            marca: v.marca,
+            fotos: v.fotos || [],
+            detalles: v.detalles
+          });
+        }
+      });
+    }
 
-    const rows = vehiculosListos.map(v => {
-      const title = `${v.anio || ''} ${v.marca || ''} ${v.modelo || ''} ${v.edicion || ''}`.trim();
-      
+    // 3. Generar CSV
+    const rows = Array.from(inventoryMap.values()).map(v => {
       // Formateo de precios y millaje
       const fmt = (val) => Number(val || 0).toLocaleString('en-US');
-      const priceStr = `${v.moneda_precio || 'RD$'} ${fmt(v.precio)}`;
-      const initialStr = `${v.moneda_inicial || (v.moneda_precio === 'US$' ? 'US$' : 'RD$')} ${fmt(v.inicial)}`;
+      const priceStr = `${v.moneda === 'RD$' ? 'DOP' : v.moneda === 'US$' ? 'USD' : v.moneda} ${fmt(v.precio)}`;
+      const initialStr = `${v.moneda_inicial === 'RD$' ? 'DOP' : v.moneda_inicial === 'US$' ? 'USD' : v.moneda_inicial} ${fmt(v.inicial)}`;
       const mileageStr = `${fmt(v.millas)} km`;
 
-      // Lógica de Importación
       const isImported = (v.condicion || "").toLowerCase().includes("importado") || v.condicion === "Nuevo";
       const importStatus = isImported 
         ? "Recién importada | Clean Carfax | Primer dueño en RD" 
         : "Usado en el País";
 
-      // Lista de extras dinámica (TODOS los detalles disponibles)
       const extras = [];
-      if (v.motor) extras.push(`• Motor: ${v.motor}`);
-      if (v.transmision) extras.push(`• Transmisión: ${v.transmision}`);
-      if (v.combustible) extras.push(`• Combustible: ${v.combustible}`);
-      if (v.traccion) extras.push(`• Tracción: ${v.traccion}`);
-      if (v.color) extras.push(`• Color: ${v.color}`);
-      if (v.camara && v.camara !== "No") extras.push(`• Cámara: ${v.camara}`);
-      if (v.techo && v.techo !== "No" && v.techo !== "Normal") extras.push(`• Techo: ${v.techo}`);
-      if (v.material_asientos) extras.push(`• Asientos: ${v.material_asientos}`);
-      if (v.carplay === true) extras.push("• Apple CarPlay y Android Auto");
-      if (v.sensores === true || v.sensores === "Sí") extras.push("• Sensores de parqueo");
-      if (v.baul_electrico === true || v.baul_electrico === "Sí") extras.push("• Baúl eléctrico");
-      if (v.llave) extras.push(`• Llave: ${v.llave}`);
-      if (v.cantidad_asientos) extras.push(`• ${v.cantidad_asientos} Filas de asientos`);
-      if (v.vidrios_electricos === true || v.vidrios_electricos === "Sí") extras.push("• Vidrios eléctricos");
-      if (v.chasis_vin) extras.push(`• Chasis: ${v.chasis_vin}`);
-
+      const d = v.detalles || {};
+      if (d.motor || d.engine) extras.push(`• Motor: ${d.motor || d.engine}`);
+      if (d.transmission || d.transmision) extras.push(`• Transmisión: ${d.transmission || d.transmision}`);
+      if (d.fuel || d.combustible) extras.push(`• Combustible: ${d.fuel || d.combustible}`);
+      if (d.traction || d.traccion) extras.push(`• Tracción: ${d.traction || d.traccion}`);
+      if (d.color) extras.push(`• Color: ${d.color}`);
+      if ((d.camera || d.camara) && (d.camera !== "No" && d.camara !== "No")) extras.push(`• Cámara: ${d.camera || d.camara}`);
+      
       const description = `Precio: ${priceStr}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
       
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
-      // Link de imagen principal (Meta solo acepta JPG, PNG, WEBP, GIF, BMP)
       const images = Array.isArray(v.fotos) ? v.fotos : [];
       const compatibleImages = images.filter(url => 
         url.toLowerCase().split('?')[0].match(/\.(jpg|jpeg|png|webp|bmp|gif)$/)
       );
       
       const image_link = compatibleImages[0] || ''; 
-      const additional_image_link = compatibleImages.slice(1, 11).join(',');
+      if (!image_link) return null; // Saltar si no tiene imagen compatible
 
+      const additional_image_link = compatibleImages.slice(1, 11).join(',');
       const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
 
       return [
         v.id,
-        escape(title),
+        escape(v.titulo),
         escape(description),
         'in stock',
         v.condicion === 'Nuevo' ? 'new' : 'used',
@@ -4039,14 +4064,14 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
         escape(additional_image_link),
         escape(v.marca)
       ].join(',');
-    });
+    }).filter(Boolean);
 
     const headers = 'id,title,description,availability,condition,price,link,image_link,additional_image_link,brand';
     const csvContent = [headers, ...rows].join('\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.csv');
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate'); // Reducido a 5 min para ver cambios rápido
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
     
     return res.status(200).send(csvContent);
 
