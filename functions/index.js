@@ -4020,12 +4020,13 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
     const rows = Array.from(inventoryMap.values()).map(v => {
       const d = v.detalles || {};
       
-      // 1. Validar Imagen Principal (REQUISITO BLOCKER PARA WHATSAPP)
+      // 1. Validar Imagen Principal (CON TOKEN ORIGINAL)
       const images = Array.isArray(v.fotos) ? v.fotos : [];
       const compatibleImages = images.filter(url => {
         if (!url || typeof url !== 'string') return false;
-        const cleanUrl = url.toLowerCase().split('?')[0];
-        return cleanUrl.startsWith('https://') && cleanUrl.match(/\.(jpg|jpeg|png|webp|bmp|gif)$/);
+        // Solo comprobamos la extensión en la parte base de la URL, pero mantenemos el link entero
+        const baseUrl = url.split('?')[0].toLowerCase();
+        return url.startsWith('https://') && baseUrl.match(/\.(jpg|jpeg|png|webp|bmp|gif)$/);
       });
       
       const image_link = compatibleImages[0] || ''; 
