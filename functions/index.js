@@ -3967,7 +3967,13 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
 
     if (error) throw error;
 
-    const rows = vehiculos.map(v => {
+    // Filtrar eliminados que tengan la marca _deleted en el JSON de detalles
+    const vehiculosActivos = vehiculos.filter(v => {
+      const d = v.detalles || {};
+      return !d._deleted && !d._deleted_at;
+    });
+
+    const rows = vehiculosActivos.map(v => {
       const title = `${v.anio || ''} ${v.marca || ''} ${v.modelo || ''} ${v.edicion || ''}`.trim();
       
       // Formateo de precios y millaje
