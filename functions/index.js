@@ -4058,22 +4058,33 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
       
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
       const additional_image_link = compatibleImages.slice(1, 11).join(',');
+
+      // 4. Determinar Imagen Final (Fallback si solo hay HEIC o no hay fotos)
+      let final_image_link = compatibleImages[0];
+      let description_suffix = '';
+      
+      if (!final_image_link) {
+        // Fallback a una imagen de "Carro próximamente" para que Meta acepte el registro
+        final_image_link = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
+        description_suffix = '\n\n⚠️ Fotos en alta resolución procesándose...';
+      }
+
       const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
 
       // ORDEN: id, title, description, availability, condition, price, link, image_link, additional_image_link, brand
       return [
         v.id,
         escape(v.titulo),
-        escape(description),
+        escape(description + description_suffix),
         'in stock',
         v.condicion === 'Nuevo' ? 'new' : 'used',
         escape(priceStr),
         escape(link),
-        escape(image_link),
+        escape(final_image_link),
         escape(additional_image_link),
         escape(v.marca)
       ].join(',');
-    }).filter(Boolean);
+    });
 
     const headers = 'id,title,description,availability,condition,price,link,image_link,additional_image_link,brand';
     const csvContent = [headers, ...rows].join('\n');
