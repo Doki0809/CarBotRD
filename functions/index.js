@@ -4033,7 +4033,7 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.csv');
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate'); // Reducido a 5 min para ver cambios rápido
     
     return res.status(200).send(csvContent);
 
