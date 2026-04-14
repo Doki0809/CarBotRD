@@ -4018,9 +4018,26 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
 
     // 3. Generar CSV
     const rows = Array.from(inventoryMap.values()).map(v => {
-      // Formateo de precios y millaje
+      const d = v.detalles || {};
+      
+      // 1. Validar Imagen Principal (REQUISITO BLOCKER PARA WHATSAPP)
+      const images = Array.isArray(v.fotos) ? v.fotos : [];
+      const compatibleImages = images.filter(url => {
+        if (!url || typeof url !== 'string') return false;
+        const cleanUrl = url.toLowerCase().split('?')[0];
+        return cleanUrl.startsWith('https://') && cleanUrl.match(/\.(jpg|jpeg|png|webp|bmp|gif)$/);
+      });
+      
+      const image_link = compatibleImages[0] || ''; 
+      if (!image_link) return null; // SI NO HAY IMAGEN, NO SE ENVÍA A META
+
+      // 2. Formateo de Precios (Sin comas para evitar errores de parseo en Meta)
+      const priceVal = String(v.precio || 0).replace(/,/g, '');
+      const currency = v.moneda === 'RD$' ? 'DOP' : v.moneda === 'US$' ? 'USD' : v.moneda;
+      const priceStr = `${currency} ${priceVal}`;
+      
+      // 3. Formateo de Descripción Rica
       const fmt = (val) => Number(val || 0).toLocaleString('en-US');
-      const priceStr = `${v.moneda === 'RD$' ? 'DOP' : v.moneda === 'US$' ? 'USD' : v.moneda} ${fmt(v.precio)}`;
       const initialStr = `${v.moneda_inicial === 'RD$' ? 'DOP' : v.moneda_inicial === 'US$' ? 'USD' : v.moneda_inicial} ${fmt(v.inicial)}`;
       const mileageStr = `${fmt(v.millas)} km`;
 
@@ -4030,7 +4047,6 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
         : "Usado en el País";
 
       const extras = [];
-      const d = v.detalles || {};
       if (d.motor || d.engine) extras.push(`• Motor: ${d.motor || d.engine}`);
       if (d.transmission || d.transmision) extras.push(`• Transmisión: ${d.transmission || d.transmision}`);
       if (d.fuel || d.combustible) extras.push(`• Combustible: ${d.fuel || d.combustible}`);
@@ -4038,20 +4054,13 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
       if (d.color) extras.push(`• Color: ${d.color}`);
       if ((d.camera || d.camara) && (d.camera !== "No" && d.camara !== "No")) extras.push(`• Cámara: ${d.camera || d.camara}`);
       
-      const description = `Precio: ${priceStr}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
+      const description = `Precio: ${v.moneda} ${fmt(v.precio)}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
       
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
-      const images = Array.isArray(v.fotos) ? v.fotos : [];
-      const compatibleImages = images.filter(url => 
-        url.toLowerCase().split('?')[0].match(/\.(jpg|jpeg|png|webp|bmp|gif)$/)
-      );
-      
-      const image_link = compatibleImages[0] || ''; 
-      if (!image_link) return null; // Saltar si no tiene imagen compatible
-
       const additional_image_link = compatibleImages.slice(1, 11).join(',');
       const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
 
+      // ORDEN: id, title, description, availability, condition, price, link, image_link, additional_image_link, brand
       return [
         v.id,
         escape(v.titulo),
