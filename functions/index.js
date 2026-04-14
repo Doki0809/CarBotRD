@@ -3982,15 +3982,23 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
         ? "Recién importada | Clean Carfax | Primer dueño en RD" 
         : "Usado en el País";
 
-      // Lista de extras dinámica
+      // Lista de extras dinámica (TODOS los detalles disponibles)
       const extras = [];
-      if (v.camara && v.camara !== "No") extras.push("• Cámara de reversa");
-      if (v.techo && (v.techo === "Panorámico" || v.techo === "Sunroof")) extras.push("• Techo panorámico");
-      if (v.material_asientos && (v.material_asientos === "Piel" || v.material_asientos === "Cuero")) extras.push("• Asientos en piel");
-      if (v.traccion && (v.traccion.includes("4x4") || v.traccion.includes("AWD") || v.traccion.includes("4WD"))) extras.push("• Tracción 4x4");
+      if (v.motor) extras.push(`• Motor: ${v.motor}`);
+      if (v.transmision) extras.push(`• Transmisión: ${v.transmision}`);
+      if (v.combustible) extras.push(`• Combustible: ${v.combustible}`);
+      if (v.traccion) extras.push(`• Tracción: ${v.traccion}`);
+      if (v.color) extras.push(`• Color: ${v.color}`);
+      if (v.camara && v.camara !== "No") extras.push(`• Cámara: ${v.camara}`);
+      if (v.techo && v.techo !== "No" && v.techo !== "Normal") extras.push(`• Techo: ${v.techo}`);
+      if (v.material_asientos) extras.push(`• Asientos: ${v.material_asientos}`);
       if (v.carplay === true) extras.push("• Apple CarPlay y Android Auto");
-      // Suspensión de aire (si existe en detalles)
-      if (v.detalles?.air_suspension === true || v.detalles?.suspension === "Aire") extras.push("• Suspensión de aire");
+      if (v.sensores === true || v.sensores === "Sí") extras.push("• Sensores de parqueo");
+      if (v.baul_electrico === true || v.baul_electrico === "Sí") extras.push("• Baúl eléctrico");
+      if (v.llave) extras.push(`• Llave: ${v.llave}`);
+      if (v.cantidad_asientos) extras.push(`• ${v.cantidad_asientos} Filas de asientos`);
+      if (v.vidrios_electricos === true || v.vidrios_electricos === "Sí") extras.push("• Vidrios eléctricos");
+      if (v.chasis_vin) extras.push(`• Chasis: ${v.chasis_vin}`);
 
       const description = `Precio: ${priceStr}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
       
