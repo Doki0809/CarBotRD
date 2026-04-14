@@ -392,16 +392,17 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
           console.log(`✅ ${supabaseVehicles.length} vehículos encontrados en Supabase`);
 
           supabaseVehicles.forEach(v => {
-            // Mapeo idéntico al de App.jsx para consistencia
-            const makeFromTitle = v.detalles?.make || v.titulo_vehiculo?.split(' ')[1] || 'N/A';
-            const modelFromTitle = v.detalles?.model || v.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
-            const yearFromTitle = v.detalles?.year || v.titulo_vehiculo?.split(' ')[0] || '';
+            // Mapeo idéntico al de App.jsx para consistencia con las nuevas DB columns
+            const yearFromTitle = v.anio || v.detalles?.year || v.detalles?.anio || v.titulo_vehiculo?.split(' ')[0] || '';
+            const makeFromTitle = v.marca || v.detalles?.make || v.detalles?.marca || v.titulo_vehiculo?.split(' ')[1] || 'N/A';
+            const modelFromTitle = v.modelo || v.detalles?.model || v.detalles?.modelo || v.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
+            const editionVal = v.edicion || v.detalles?.edition || v.detalles?.edicion || '';
 
             // Monedas
-            const currency = v.detalles?.currency || 'USD';
-            const downPaymentCurrency = v.detalles?.downPaymentCurrency || 'USD';
-            const priceVal = parseFloat(v.precio || 0);
-            const initialVal = parseFloat(v.inicial || 0);
+            const currency = v.moneda_precio || v.detalles?.currency || 'USD';
+            const downPaymentCurrency = v.moneda_inicial || v.detalles?.downPaymentCurrency || 'USD';
+            const priceVal = parseFloat(v.precio || (currency === 'DOP' ? (v.detalles?.price_dop || v.detalles?.price) : v.detalles?.price) || 0);
+            const initialVal = parseFloat(v.inicial || (downPaymentCurrency === 'DOP' ? (v.detalles?.initial_payment_dop || v.detalles?.initial_payment) : v.detalles?.initial_payment) || 0);
 
             // Determinar precios formateados (soporta DOP, USD, EUR, COP)
             const fmtCurrMap = { DOP: ['RD$', 'Pesos'], USD: ['US$', 'Dólares'], EUR: ['€', 'Euros'], COP: ['COP$', 'Pesos Colombianos'] };
@@ -423,16 +424,16 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
               inventory.push({
                 id: v.id,
                 is_supabase: true,
-                nombre: `${yearFromTitle} ${makeFromTitle} ${modelFromTitle} ${v.detalles?.edition || ""} ${v.color || ""}`.trim().toUpperCase(),
+                nombre: `${yearFromTitle} ${makeFromTitle} ${modelFromTitle} ${editionVal} ${(v.color || v.detalles?.color || v.detalles?.exteriorColor || "")}`.trim().toUpperCase(),
                 precio: priceFormatted,
                 // Carfax: only show "Clean Carfax" if Sí, otherwise empty
                 carfax_status: (v.condicion_carfax === "Sí" || v.condicion_carfax === "Si" || v.condicion_carfax === true || v.detalles?.clean_carfax === "Sí" || v.detalles?.clean_carfax === "Si") ? "Clean Carfax" : "",
                 mileage_formatted: `${Number(v.millas || v.detalles?.mileage || 0).toLocaleString()} ${(["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km"}`,
-                link_catalogo: `https://carbotsystem.com/inventario/${slugify(dealerName)}/catalogo/${vehicleSlugify(makeFromTitle, modelFromTitle, v.color, yearFromTitle)}`,
+                link_catalogo: `https://carbotsystem.com/inventario/${slugify(dealerName)}/catalogo/${vehicleSlugify(makeFromTitle, modelFromTitle, v.color || v.detalles?.color || '', yearFromTitle)}`,
                 link_catalogo_legacy: `https://inventarioia-gzhz2ynksa-uc.a.run.app/catalogo?dealerID=${matchedDealerId}&vehicleID=${v.id}&source=supabase`,
 
                 // Visual Details (fmt) — fallback to detalles when top-level is null
-                color_fmt: capitalize(v.color || v.detalles?.color),
+                color_fmt: capitalize(v.color || v.detalles?.color || v.detalles?.exteriorColor),
                 transmision_fmt: capitalize(v.transmision || v.detalles?.transmission),
                 traccion_fmt: (v.traccion || v.detalles?.traction || v.detalles?.drivetrain || "").toUpperCase() || "-",
                 motor_fmt: (() => {
@@ -441,23 +442,32 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                   const cylVal = (v.detalles?.engine_cyl || "").toString().trim();
                   const cyl = cylVal ? `${cylVal} Cilindros` : "";
                   const engineType = (v.detalles?.engine_type || "").toString().trim();
-                  const turboLabel = (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || engineType === "Turbo") ? "Turbo" : (engineType && engineType !== "Normal" ? engineType : "Aspirado");
+                  let turboLabel = "";
+                  if (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || engineType === "Turbo") {
+                    turboLabel = "Turbo";
+                  } else if (engineType && engineType !== "Normal") {
+                    turboLabel = engineType;
+                  }
                   const parts = [cc, cyl, turboLabel].filter(p => p !== "");
                   if (parts.length === 0) return capitalize(v.motor || v.detalles?.engine || "-");
                   return parts.join(", ");
                 })(),
-                techo_fmt: capitalize(v.techo || v.detalles?.roof_type || v.detalles?.roof),
-                combustible_fmt: capitalize(v.combustible || v.detalles?.fuel),
-                llave_fmt: capitalize(v.llave || v.detalles?.key_type),
-                baul_fmt: (v.baul_electrico === true || v.detalles?.trunk === "Sí" || v.detalles?.trunk === "Si") ? "Sí" : "No",
-                camera_fmt: capitalize(v.camara || v.detalles?.camera),
-                sensores_fmt: (v.sensores === true || v.detalles?.sensors === "Sí" || v.detalles?.sensors === "Si") ? "Sí" : "No",
-                carplay_fmt: (v.carplay === true || v.detalles?.carplay === "Sí" || v.detalles?.carplay === "Si") ? "Sí" : "No",
+                techo_fmt: capitalize(v.techo || v.detalles?.roof_type || v.detalles?.roof || "-"),
+                combustible_fmt: capitalize(v.combustible || v.detalles?.fuel || "-"),
+                llave_fmt: capitalize(v.llave || v.detalles?.key_type || "-"),
+                baul_fmt: (v.baul_electrico === true || v.detalles?.trunk === "Sí" || v.detalles?.trunk === "Si" || v.detalles?.baul === "Sí") ? "Sí" : 
+                          (v.detalles?.trunk === "No" || v.detalles?.baul === "No" || v.detalles?.baul_electrico === "No") ? "No" : "-",
+                camera_fmt: capitalize(v.camara || v.detalles?.camera || "-"),
+                sensores_fmt: (v.sensores === true || v.detalles?.sensors === "Sí" || v.detalles?.sensors === "Si" || v.detalles?.sensores === "Sí") ? "Sí" : 
+                              (v.detalles?.sensors === "No" || v.detalles?.sensores === "No") ? "No" : "-",
+                carplay_fmt: (v.carplay === true || v.detalles?.carplay === "Sí" || v.detalles?.carplay === "Si" || v.detalles?.appleCarplay === "Sí") ? "Sí" : 
+                             (v.detalles?.carplay === "No" || v.detalles?.appleCarplay === "No" || v.detalles?.apple_android === "No") ? "No" : "-",
                 asientos_fmt: (() => {
                   const n = parseInt(v.cantidad_asientos || v.detalles?.seats || 0);
                   return n > 0 ? `${n} Filas de Asientos` : "-";
                 })(),
-                vidrios_fmt: (v.vidrios_electricos === true || v.detalles?.electric_windows === "Sí" || v.detalles?.electric_windows === "Si") ? "Sí" : "No",
+                vidrios_fmt: (v.vidrios_electricos === true || v.detalles?.electric_windows === "Sí" || v.detalles?.electric_windows === "Si" || v.detalles?.vidrios === "Sí") ? "Sí" : 
+                             (v.detalles?.electric_windows === "No" || v.detalles?.vidrios === "No" || v.detalles?.vidrios_electricos === "No") ? "No" : "-",
                 material_fmt: capitalize(v.material_asientos || v.detalles?.seat_material),
                 vin_fmt: (v.chasis_vin || v.detalles?.vin || "").toUpperCase() || "-",
                 inicial_fmt: initialFormatted,
@@ -467,20 +477,25 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 has_images: (v.fotos && v.fotos.length > 0),
                 marca: makeFromTitle,
                 modelo: modelFromTitle,
-                edicion: v.detalles?.edition || v.detalles?.version || "-",
+                edicion: editionVal || v.detalles?.version || "-",
                 anio: yearFromTitle,
                 anio_num: parseInt(yearFromTitle) || 0,
-                color: v.color || v.detalles?.color,
-                transmision: v.transmision || v.detalles?.transmission,
-                traccion: v.traccion || v.detalles?.traction || v.detalles?.drivetrain,
-                combustible: v.combustible || v.detalles?.fuel,
+                color: v.color || v.detalles?.color || v.detalles?.exteriorColor,
+                transmision: v.transmision || v.detalles?.transmission || v.detalles?.transmision,
+                traccion: v.traccion || v.detalles?.traction || v.detalles?.drivetrain || v.detalles?.traccion,
+                combustible: v.combustible || v.detalles?.fuel || v.detalles?.combustible,
                 motor: (() => {
                   const ccVal = (v.detalles?.engine_cc || "").toString().trim();
                   const cc = ccVal ? `${ccVal}.0 Litros` : "";
                   const cylVal = (v.detalles?.engine_cyl || "").toString().trim();
                   const cyl = cylVal ? `${cylVal} Cilindros` : "";
                   const engineType = (v.detalles?.engine_type || "").toString().trim();
-                  const turboLabel = (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || engineType === "Turbo") ? "Turbo" : (engineType && engineType !== "Normal" ? engineType : "Aspirado");
+                  let turboLabel = "";
+                  if (v.detalles?.engine_turbo === "SI" || v.detalles?.turbo === "SI" || v.detalles?.is_turbo === true || engineType === "Turbo") {
+                    turboLabel = "Turbo";
+                  } else if (engineType && engineType !== "Normal") {
+                    turboLabel = engineType;
+                  }
                   return [cc, cyl, turboLabel].filter(Boolean).join(", ") || (v.motor || "-");
                 })(),
                 condicion: v.detalles?.condition || v.condicion || 'Usado Importado',
@@ -492,12 +507,16 @@ exports.inventarioIA = onRequest({ cors: true }, async (req, res) => {
                 asientos_num: parseInt(v.cantidad_asientos || v.detalles?.seats) || 0,
                 material_interior: v.material_asientos || v.detalles?.seat_material || "-",
                 techo: v.techo || v.detalles?.roof_type || v.detalles?.roof || "-",
-                baul: (v.baul_electrico === true || v.detalles?.trunk === "Sí" || v.detalles?.trunk === "Si") ? "Sí" : "No",
+                baul: (v.baul_electrico === true || v.detalles?.trunk === "Sí" || v.detalles?.trunk === "Si" || v.detalles?.baul === "Sí") ? "Sí" : 
+                      (v.detalles?.trunk === "No" || v.detalles?.baul === "No" || v.detalles?.baul_electrico === "No") ? "No" : "-",
                 llave: v.llave || v.detalles?.key_type || "-",
                 camera: v.camara || v.detalles?.camera || "-",
-                sensores: (v.sensores === true || v.detalles?.sensors === "Sí" || v.detalles?.sensors === "Si") ? "Sí" : "No",
-                carplay: (v.carplay === true || v.detalles?.carplay === "Sí" || v.detalles?.carplay === "Si") ? "Sí" : "No",
-                electric_windows: (v.vidrios_electricos === true || v.detalles?.electric_windows === "Sí" || v.detalles?.electric_windows === "Si") ? "Sí" : "No",
+                sensores: (v.sensores === true || v.detalles?.sensors === "Sí" || v.detalles?.sensors === "Si" || v.detalles?.sensores === "Sí") ? "Sí" : 
+                          (v.detalles?.sensors === "No" || v.detalles?.sensores === "No") ? "No" : "-",
+                carplay: (v.carplay === true || v.detalles?.carplay === "Sí" || v.detalles?.carplay === "Si" || v.detalles?.appleCarplay === "Sí") ? "Sí" : 
+                         (v.detalles?.carplay === "No" || v.detalles?.appleCarplay === "No" || v.detalles?.apple_android === "No") ? "No" : "-",
+                electric_windows: (v.vidrios_electricos === true || v.detalles?.electric_windows === "Sí" || v.detalles?.electric_windows === "Si" || v.detalles?.vidrios === "Sí") ? "Sí" : 
+                                  (v.detalles?.electric_windows === "No" || v.detalles?.vidrios === "No" || v.detalles?.vidrios_electricos === "No") ? "No" : "-",
                 mileage: v.millas || v.detalles?.mileage || "0",
                 unit: (["MI", "MILLAS", "MILLA"].includes((v.detalles?.mileage_unit || v.detalles?.unit || "").toUpperCase())) ? "Millas" : "Km",
                 vin: v.chasis_vin || v.detalles?.vin,
@@ -2524,7 +2543,7 @@ exports.ghlTemplates = onRequest({ cors: true, secrets: [ghlClientSecret, ghlCli
 });
 
 // 2. Función para Enviar a GHL (Sustituye el placeholder anterior)
-exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] }, async (req, res) => {
+exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey], timeoutSeconds: 300, memory: '2GiB', cpu: 2 }, async (req, res) => {
   const VERSION = "2024-03-05-v5-GOLD";
   if (req.method !== 'POST') {
     return res.status(405).json({ error: "Método no permitido" });
@@ -2973,14 +2992,14 @@ exports.apiGHL = onRequest({ cors: true, secrets: [ghlClientSecret, ghlClientId,
       || docResult.id
       || null;
 
-    const previewUrl = docId
+    const ghlPreviewUrl = docId
       ? `https://app.iagil.ai/v2/location/${finalLocationId}/payments/proposals-estimates/edit/preview/${docId}?locale=es`
-      : (docResult.url || docResult.documentUrl || `https://app.gohighlevel.com/v2/location/${finalLocationId}/contacts/detail/${contactId}`);
+      : (docResult.url || docResult.documentUrl || null);
 
-    console.log(`📎 Document URL generado: ${previewUrl} (docId: ${docId})`);
+    console.log(`📎 GHL docId: ${docId} | previewUrl: ${ghlPreviewUrl}`);
 
     res.json({
-      documentUrl: previewUrl,
+      documentUrl: ghlPreviewUrl,
       status: "ok",
       ghlDocumentId: docId
     });
@@ -3753,4 +3772,251 @@ exports.sendPushNotification = onRequest(async (req, res) => {
   }
 
   res.status(200).json({ sent: sentCount, stalePurged: staleTokens.length });
+});
+
+// ── storeGhlDocument ──────────────────────────────────────────────────────────
+// Descarga un documento generado en GHL (PDF/imagen) usando el access token del
+// dealer, lo sube al bucket "documents" de Supabase Storage, y guarda el registro
+// en la tabla generated_documents. Devuelve la URL pública propia.
+//
+// POST /storeGhlDocument
+// Body: { dealerId, ghlDocumentId, ghlUrl, documentType, clientName, vehicleId, contactId, templateId }
+exports.storeGhlDocument = onRequest(
+  { cors: true, secrets: [ghlClientSecret, ghlClientId, supabaseServiceKey] },
+  async (req, res) => {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const {
+      dealerId,
+      ghlDocumentId,
+      ghlUrl,
+      documentType = 'contrato',
+      clientName,
+      vehicleId,
+      contactId,
+      templateId,
+    } = req.body || {};
+
+    if (!dealerId || !ghlUrl) {
+      return res.status(400).json({ error: 'dealerId y ghlUrl son requeridos' });
+    }
+
+    const supa = createClient(SUPABASE_URL, supabaseServiceKey.value());
+
+    // 1. Recuperar access token del dealer desde Supabase
+    const { data: dealerRow, error: dealerErr } = await supa
+      .from('dealers')
+      .select('ghl_access_token, ghl_location_id')
+      .eq('id', dealerId)
+      .single();
+
+    if (dealerErr || !dealerRow) {
+      return res.status(404).json({ error: 'Dealer no encontrado', detail: dealerErr?.message });
+    }
+
+    const accessToken = dealerRow.ghl_access_token;
+    if (!accessToken) {
+      return res.status(403).json({ error: 'El dealer no tiene GHL access token configurado' });
+    }
+
+    // 2. Insertar registro en pending para tracking
+    const { data: docRecord, error: insertErr } = await supa
+      .from('generated_documents')
+      .insert({
+        dealer_id: dealerId,
+        vehicle_id: vehicleId || null,
+        contact_id: contactId || null,
+        ghl_document_id: ghlDocumentId || null,
+        ghl_url: ghlUrl,
+        document_type: documentType,
+        client_name: clientName || null,
+        template_id: templateId || null,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
+
+    if (insertErr) {
+      console.error('[storeGhlDocument] Error insertando registro:', insertErr);
+      return res.status(500).json({ error: 'Error creando registro en BD', detail: insertErr.message });
+    }
+
+    const recordId = docRecord.id;
+
+    try {
+      // 3. Descargar el documento desde GHL con el access token del dealer
+      const downloadRes = await fetch(ghlUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Version': '2021-07-28',
+        },
+      });
+
+      if (!downloadRes.ok) {
+        // GHL puede no permitir descarga directa de la preview URL — intentamos
+        // la API de documentos si tenemos el docId
+        if (!ghlDocumentId) {
+          throw new Error(`GHL respondió ${downloadRes.status} y no hay ghlDocumentId para intentar API alternativa`);
+        }
+
+        // Intentar endpoint de exportación de GHL
+        const exportRes = await fetch(
+          `https://services.leadconnectorhq.com/proposals/${ghlDocumentId}/pdf`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Version': '2021-07-28',
+            },
+          }
+        );
+
+        if (!exportRes.ok) {
+          throw new Error(`GHL export respondió ${exportRes.status}: no se pudo descargar el documento`);
+        }
+
+        const contentType = exportRes.headers.get('content-type') || 'application/pdf';
+        const buffer = Buffer.from(await exportRes.arrayBuffer());
+        await uploadToStorage({ supa, recordId, dealerId, buffer, contentType, documentType, clientName });
+      } else {
+        const contentType = downloadRes.headers.get('content-type') || 'application/pdf';
+        const buffer = Buffer.from(await downloadRes.arrayBuffer());
+        await uploadToStorage({ supa, recordId, dealerId, buffer, contentType, documentType, clientName });
+      }
+
+      // 4. Leer el registro actualizado para devolver la URL
+      const { data: updated } = await supa
+        .from('generated_documents')
+        .select('public_url, storage_path, status')
+        .eq('id', recordId)
+        .single();
+
+      return res.json({
+        ok: true,
+        recordId,
+        publicUrl: updated?.public_url || null,
+        status: updated?.status || 'stored',
+      });
+
+    } catch (err) {
+      console.error('[storeGhlDocument] Error descargando/subiendo:', err.message);
+
+      // Marcar el registro como error pero no bloqueamos al usuario
+      await supa
+        .from('generated_documents')
+        .update({ status: 'error', error_message: err.message })
+        .eq('id', recordId);
+
+      // Devolvemos el recordId igual para que el frontend pueda mostrar la URL de GHL como fallback
+      return res.status(200).json({
+        ok: false,
+        recordId,
+        publicUrl: null,
+        fallbackUrl: ghlUrl,
+        error: err.message,
+      });
+    }
+  }
+);
+
+// Helper: sube buffer a Supabase Storage y actualiza el registro
+async function uploadToStorage({ supa, recordId, dealerId, buffer, contentType, documentType, clientName }) {
+  const ext = contentType.includes('pdf') ? 'pdf'
+    : contentType.includes('png') ? 'png'
+    : contentType.includes('jpg') || contentType.includes('jpeg') ? 'jpg'
+    : 'bin';
+
+  const safeName = (clientName || 'documento')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 40);
+
+  const storagePath = `${dealerId}/${documentType}/${safeName}-${recordId}.${ext}`;
+
+  const { error: uploadErr } = await supa.storage
+    .from('documents')
+    .upload(storagePath, buffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (uploadErr) {
+    throw new Error(`Supabase Storage upload falló: ${uploadErr.message}`);
+  }
+
+  const { data: urlData } = supa.storage.from('documents').getPublicUrl(storagePath);
+  const publicUrl = urlData?.publicUrl || null;
+
+  await supa
+    .from('generated_documents')
+    .update({ storage_path: storagePath, public_url: publicUrl, status: 'stored' })
+    .eq('id', recordId);
+}
+
+// 21. Feed Público para Meta Commerce Manager (Duran Fernandez Auto)
+exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
+  const dealerId = '35594257-6176-4a79-a755-304179305938';
+  const catalogBaseUrl = 'https://carbotsystem.com/inventario/dura-n-ferna-ndez-auto-srl/catalogo';
+
+  try {
+    const { data: vehiculos, error } = await supabase
+      .from('vehiculos')
+      .select('*')
+      .eq('dealer_id', dealerId)
+      .in('estado', ['Disponible', 'Cotizado']);
+
+    if (error) throw error;
+
+    const rows = vehiculos.map(v => {
+      const title = `${v.anio || ''} ${v.marca || ''} ${v.modelo || ''} ${v.edicion || ''}`.trim();
+      
+      const specs = [
+        v.transmision && `Transmisión: ${v.transmision}`,
+        v.combustible && `Combustible: ${v.combustible}`,
+        v.color && `Color: ${v.color}`,
+        v.traccion && `Tracción: ${v.traccion}`,
+        v.motor && `Motor: ${v.motor}`
+      ].filter(Boolean).join(' | ');
+      
+      const description = `${v.titulo_vehiculo || title}. ${specs}`;
+      
+      let currency = v.moneda_precio || 'USD';
+      if (currency === 'RD$') currency = 'DOP';
+      if (currency === 'US$') currency = 'USD';
+      
+      const price = `${v.precio || 0} ${currency}`;
+      const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
+      const images = Array.isArray(v.fotos) ? v.fotos : [];
+      const image_link = images[0] || '';
+      const additional_image_link = images.slice(1, 11).join(',');
+
+      const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
+
+      return [
+        v.id,
+        escape(title),
+        escape(description),
+        'in stock',
+        v.condicion === 'Nuevo' ? 'new' : 'used',
+        escape(price),
+        escape(link),
+        escape(image_link),
+        escape(additional_image_link),
+        escape(v.marca)
+      ].join(',');
+    });
+
+    const headers = 'id,title,description,availability,condition,price,link,image_link,additional_image_link,brand';
+    const csvContent = [headers, ...rows].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.csv');
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+    
+    return res.status(200).send(csvContent);
+
+  } catch (err) {
+    console.error('Meta Feed Error:', err);
+    return res.status(500).json({ error: 'Internal Server Error', details: err.message });
+  }
 });

@@ -82,6 +82,10 @@
           "function": "ghlConversations"
         },
         {
+          "source": "/api/meta_feed_duran",
+          "function": "metaFeedDuran"
+        },
+        {
           "source": "**",
           "destination": "/index.html"
         }
