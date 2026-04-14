@@ -447,19 +447,19 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
         {/* Subtle texture overlay — keeps depth without washing out color */}
         <div className="absolute inset-0 bg-black/10" />
 
-        <div className="relative px-8 pt-10 pb-8">
+        <div className="relative px-5 sm:px-8 pt-8 sm:pt-10 pb-6 sm:pb-8">
           {/* Top row: avatar + name + tags */}
-          <div className="flex items-start gap-6 mb-6">
+          <div className="flex items-start gap-4 sm:gap-6 mb-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              <div className="w-24 h-24 rounded-[1.6rem] bg-white/25 backdrop-blur-xl flex items-center justify-center text-white font-black text-3xl shadow-[0_8px_32px_rgba(0,0,0,0.20)] border border-white/40">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-[1.6rem] bg-white/25 backdrop-blur-xl flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-[0_8px_32px_rgba(0,0,0,0.20)] border border-white/40">
                 {initials(contact.firstName, contact.lastName)}
               </div>
             </div>
 
             {/* Name + meta */}
             <div className="flex-1 min-w-0 pt-1">
-              <h1 className="text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">{name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">{name}</h1>
               {contact.companyName && (
                 <p className="text-white/70 font-medium text-sm mt-1">{contact.companyName}</p>
               )}
@@ -477,7 +477,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
 
             {/* Action badge */}
             {actionTag && (
-              <div className="flex-shrink-0 px-4 py-2 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white text-xs font-black uppercase tracking-wider">
+              <div className="flex-shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider">
                 {actionTag}
               </div>
             )}
@@ -487,7 +487,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
           <div className="flex flex-wrap gap-3">
             {contact.phone && (
               <a href={`tel:${contact.phone}`}
-                className="group flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold tabular-nums"
+                className="group flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold tabular-nums"
               >
                 <Phone size={14} className="opacity-70 group-hover:opacity-100 transition-opacity" />
                 {contact.phone}
@@ -495,7 +495,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
             )}
             {contact.email && (
               <a href={`mailto:${contact.email}`}
-                className="group flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold"
+                className="group flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold"
               >
                 <Mail size={14} className="opacity-70 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                 <span className="truncate max-w-[220px]">{contact.email}</span>
