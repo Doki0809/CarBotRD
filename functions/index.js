@@ -4017,84 +4017,75 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
     }
 
     // 3. Generar CSV
+    // 3. Generar TSV (Tab-Separated Values para evitar conflictos con comas en tokens)
     const rows = Array.from(inventoryMap.values()).map(v => {
       const d = v.detalles || {};
       
-      // 1. Validar Imagen Principal (CON TOKEN ORIGINAL)
+      // 1. Validar Imagen Principal
       const images = Array.isArray(v.fotos) ? v.fotos : [];
       const compatibleImages = images.filter(url => {
         if (!url || typeof url !== 'string') return false;
-        // Solo comprobamos la extensión en la parte base de la URL, pero mantenemos el link entero
         const baseUrl = url.split('?')[0].toLowerCase();
         return url.startsWith('https://') && baseUrl.match(/\.(jpg|jpeg|png|webp|bmp|gif)$/);
       });
       
-      const image_link = compatibleImages[0] || ''; 
-      if (!image_link) return null; // SI NO HAY IMAGEN, NO SE ENVÍA A META
+      let final_image_link = compatibleImages[0];
+      let description_suffix = '';
+      
+      if (!final_image_link) {
+        final_image_link = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
+        description_suffix = '\n\n⚠️ Fotos en proceso...';
+      }
 
-      // 2. Formateo de Precios (Sin comas para evitar errores de parseo en Meta)
+      // 2. Formateo de Precios y Moneda
       const priceVal = String(v.precio || 0).replace(/,/g, '');
       const currency = v.moneda === 'RD$' ? 'DOP' : v.moneda === 'US$' ? 'USD' : v.moneda;
       const priceStr = `${currency} ${priceVal}`;
       
-      // 3. Formateo de Descripción Rica
+      // 3. Descripción
       const fmt = (val) => Number(val || 0).toLocaleString('en-US');
       const initialStr = `${v.moneda_inicial === 'RD$' ? 'DOP' : v.moneda_inicial === 'US$' ? 'USD' : v.moneda_inicial} ${fmt(v.inicial)}`;
       const mileageStr = `${fmt(v.millas)} km`;
 
       const isImported = (v.condicion || "").toLowerCase().includes("importado") || v.condicion === "Nuevo";
-      const importStatus = isImported 
-        ? "Recién importada | Clean Carfax | Primer dueño en RD" 
-        : "Usado en el País";
+      const importStatus = isImported ? "Recién importada | Clean Carfax" : "Usado en el País";
 
       const extras = [];
       if (d.motor || d.engine) extras.push(`• Motor: ${d.motor || d.engine}`);
       if (d.transmission || d.transmision) extras.push(`• Transmisión: ${d.transmission || d.transmision}`);
       if (d.fuel || d.combustible) extras.push(`• Combustible: ${d.fuel || d.combustible}`);
-      if (d.traction || d.traccion) extras.push(`• Tracción: ${d.traction || d.traccion}`);
       if (d.color) extras.push(`• Color: ${d.color}`);
-      if ((d.camera || d.camara) && (d.camera !== "No" && d.camara !== "No")) extras.push(`• Cámara: ${d.camera || d.camara}`);
       
-      const description = `Precio: ${v.moneda} ${fmt(v.precio)}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
+      const description = `Precio: ${v.moneda} ${fmt(v.precio)}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}${description_suffix}`;
       
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
       const additional_image_link = compatibleImages.slice(1, 11).join(',');
 
-      // 4. Determinar Imagen Final (Fallback si solo hay HEIC o no hay fotos)
-      let final_image_link = compatibleImages[0];
-      let description_suffix = '';
-      
-      if (!final_image_link) {
-        // Fallback a una imagen de "Carro próximamente" para que Meta acepte el registro
-        final_image_link = 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=800';
-        description_suffix = '\n\n⚠️ Fotos en alta resolución procesándose...';
-      }
+      // Limpieza de tabs y saltos de línea en campos de texto para no romper el TSV
+      const clean = (text) => String(text || '').replace(/\t/g, ' ').replace(/\n/g, '  ');
 
-      const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
-
-      // ORDEN: id, title, description, availability, condition, price, link, image_link, additional_image_link, brand
       return [
         v.id,
-        escape(v.titulo),
-        escape(description + description_suffix),
+        clean(v.titulo),
+        clean(description),
         'in stock',
         v.condicion === 'Nuevo' ? 'new' : 'used',
-        escape(priceStr),
-        escape(link),
-        escape(final_image_link),
-        escape(additional_image_link),
-        escape(v.marca)
-      ].join(',');
+        priceStr,
+        link,
+        final_image_link,
+        additional_image_link,
+        clean(v.marca)
+      ].join('\t');
     });
 
-    const headers = 'id,title,description,availability,condition,price,link,image_link,additional_image_link,brand';
-    const csvContent = [headers, ...rows].join('\n');
+    const headers = ['id', 'title', 'description', 'availability', 'condition', 'price', 'link', 'image_link', 'additional_image_link', 'brand'].join('\t');
+    const tsvContent = [headers, ...rows].join('\n');
 
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.csv');
+    res.setHeader('Content-Type', 'text/tab-separated-values; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.tsv');
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
     
-    return res.status(200).send(csvContent);
+    return res.status(200).send(tsvContent);
 
   } catch (err) {
     console.error('Meta Feed Error:', err);
