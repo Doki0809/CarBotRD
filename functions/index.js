@@ -4003,9 +4003,14 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
       const description = `Precio: ${priceStr}\nInicial: ${initialStr}\nMillaje: ${mileageStr}\n\n${importStatus}\n\n${extras.join('\n')}`;
       
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
+      // Link de imagen principal (Meta solo acepta JPG, PNG, WEBP, GIF, BMP)
       const images = Array.isArray(v.fotos) ? v.fotos : [];
-      const image_link = images[0] || '';
-      const additional_image_link = images.slice(1, 11).join(',');
+      const compatibleImages = images.filter(url => 
+        url.toLowerCase().split('?')[0].match(/\.(jpg|jpeg|png|webp|bmp|gif)$/)
+      );
+      
+      const image_link = compatibleImages[0] || ''; 
+      const additional_image_link = compatibleImages.slice(1, 11).join(',');
 
       const escape = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
 
