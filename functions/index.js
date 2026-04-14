@@ -3967,13 +3967,20 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
 
     if (error) throw error;
 
-    // Filtrar eliminados que tengan la marca _deleted en el JSON de detalles
-    const vehiculosActivos = vehiculos.filter(v => {
+    // Filtrar: 
+    // 1. No eliminados
+    // 2. Que tengan al menos una imagen compatible (JPG, PNG, WEBP)
+    const vehiculosListos = vehiculos.filter(v => {
       const d = v.detalles || {};
-      return !d._deleted && !d._deleted_at;
+      if (d._deleted || d._deleted_at) return false;
+      
+      const images = Array.isArray(v.fotos) ? v.fotos : [];
+      return images.some(url => 
+        url.toLowerCase().split('?')[0].match(/\.(jpg|jpeg|png|webp|bmp|gif)$/)
+      );
     });
 
-    const rows = vehiculosActivos.map(v => {
+    const rows = vehiculosListos.map(v => {
       const title = `${v.anio || ''} ${v.marca || ''} ${v.modelo || ''} ${v.edicion || ''}`.trim();
       
       // Formateo de precios y millaje
