@@ -4017,7 +4017,7 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
     }
 
     // 3. Generar CSV
-    // 3. Generar TSV (Tab-Separated Values para evitar conflictos con comas en tokens)
+    // 3. Generar CSV (Strict RFC 4180)
     const rows = Array.from(inventoryMap.values()).map(v => {
       const d = v.detalles || {};
       
@@ -4061,31 +4061,34 @@ exports.metaFeedDuran = onRequest({ cors: true }, async (req, res) => {
       const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
       const additional_image_link = compatibleImages.slice(1, 11).join(',');
 
-      // Limpieza de tabs y saltos de línea en campos de texto para no romper el TSV
-      const clean = (text) => String(text || '').replace(/\t/g, ' ').replace(/\n/g, '  ');
+      // Función de escapado estricto
+      const esc = (text) => `"${String(text || '').replace(/"/g, '""')}"`;
 
       return [
-        v.id,
-        clean(v.titulo),
-        clean(description),
-        'in stock',
-        v.condicion === 'Nuevo' ? 'new' : 'used',
-        priceStr,
-        link,
-        final_image_link,
-        additional_image_link,
-        clean(v.marca)
-      ].join('\t');
+        esc(v.id),
+        esc(v.titulo),
+        esc(description),
+        esc('in stock'),
+        esc(v.condicion === 'Nuevo' ? 'new' : 'used'),
+        esc(priceStr),
+        esc(link),
+        esc(final_image_link),
+        esc(additional_image_link),
+        esc(v.marca)
+      ].join(',');
     });
 
-    const headers = ['id', 'title', 'description', 'availability', 'condition', 'price', 'link', 'image_link', 'additional_image_link', 'brand'].join('\t');
-    const tsvContent = [headers, ...rows].join('\n');
+    const headers = ['id', 'title', 'description', 'availability', 'condition', 'price', 'link', 'image_link', 'additional_image_link', 'brand']
+      .map(h => `"${h}"`).join(',');
+      
+    const csvContent = [headers, ...rows].join('\n');
 
-    res.setHeader('Content-Type', 'text/tab-separated-values; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.tsv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=meta_feed_duran.csv');
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate');
     
-    return res.status(200).send(tsvContent);
+    // Añadimos UTF-8 BOM para asegurar que Meta lea bien los acentos
+    return res.status(200).send('\ufeff' + csvContent);
 
   } catch (err) {
     console.error('Meta Feed Error:', err);
