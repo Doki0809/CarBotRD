@@ -41,8 +41,8 @@ export default async function handler(req, res) {
       
       const price = `${v.precio || 0} ${currency}`;
       
-      // Link al vehículo específico usando el parámetro confirmado por la lógica de App.jsx
-      const link = `${catalogBaseUrl}?vehicleID=${v.id}`;
+      // Link al vehículo específico usando el formato detectado en el catálogo real
+      const link = `${catalogBaseUrl}?dealer=${dealerId}&vehicleID=${v.id}`;
       
       // Fotos (Meta prefiere JPG/PNG, pero enviamos lo que hay)
       const images = Array.isArray(v.fotos) ? v.fotos : [];
