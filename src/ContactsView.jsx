@@ -449,7 +449,7 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
 
         <div className="relative px-5 sm:px-8 pt-8 sm:pt-10 pb-6 sm:pb-8">
           {/* Top row: avatar + name + tags */}
-          <div className="flex items-start gap-4 sm:gap-6 mb-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 mb-8 sm:mb-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl sm:rounded-[1.6rem] bg-white/25 backdrop-blur-xl flex items-center justify-center text-white font-black text-2xl sm:text-3xl shadow-[0_8px_32px_rgba(0,0,0,0.20)] border border-white/40">
@@ -458,14 +458,14 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
             </div>
 
             {/* Name + meta */}
-            <div className="flex-1 min-w-0 pt-1">
+            <div className="flex-1 min-w-0 text-center sm:text-left w-full">
               <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight drop-shadow-sm">{name}</h1>
               {contact.companyName && (
                 <p className="text-white/70 font-medium text-sm mt-1">{contact.companyName}</p>
               )}
               {/* Tags row */}
               {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap justify-start w-full gap-2 mt-4 sm:mt-3">
                   {tags.map((tag, i) => (
                     <span key={i} className="px-3 py-1 rounded-full text-[11px] font-black bg-white/25 backdrop-blur text-white border border-white/30">
                       {tag}
@@ -477,14 +477,14 @@ function ContactDetailView({ contact, linkedVehicles, linkedDocuments = [], link
 
             {/* Action badge */}
             {actionTag && (
-              <div className="flex-shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider">
+              <div className="flex-shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider mt-3 sm:mt-0">
                 {actionTag}
               </div>
             )}
           </div>
 
           {/* Contact pills */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap justify-center sm:justify-start gap-3">
             {contact.phone && (
               <a href={`tel:${contact.phone}`}
                 className="group flex items-center gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-white/20 backdrop-blur border border-white/30 text-white hover:bg-white/35 transition-all duration-200 text-sm font-semibold tabular-nums"
