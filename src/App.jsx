@@ -351,22 +351,23 @@ const VehicleFormModal = ({ isOpen, onClose, onSave, initialData, userProfile })
     return str.toString().replace(/,/g, '');
   };
 
+
   const [prices, setPrices] = useState({
-    price: initialData?.price_dop > 0 ? initialData.price_dop.toString() : (initialData?.price?.toString() || ''),
-    initial: initialData?.initial_payment_dop > 0 ? initialData.initial_payment_dop.toString() : (initialData?.initial_payment?.toString() || '')
+    price: '',
+    initial: ''
   });
 
   useEffect(() => {
     if (initialData && isOpen) {
-      setCurrency(initialData.currency || (initialData.price_dop && !initialData.price ? 'DOP' : 'USD'));
-      setDownPaymentCurrency(initialData.downPaymentCurrency || (initialData.initial_payment_dop && !initialData.initial_payment ? 'DOP' : 'USD'));
-      setMileageUnit(initialData.mileage_unit || 'MI');
-      setMileageValue(String(initialData.mileage ?? ''));
+      setCurrency(initialData.moneda_precio || initialData.currency || (initialData.precio > 0 ? 'USD' : (initialData.price_dop && !initialData.price ? 'DOP' : 'USD')));
+      setDownPaymentCurrency(initialData.moneda_inicial || initialData.downPaymentCurrency || (initialData.initial_payment_dop && !initialData.initial_payment ? 'DOP' : 'USD'));
+      setMileageUnit(initialData.unit || initialData.mileage_unit || 'MI');
+      setMileageValue(String(initialData.millas ?? initialData.mileage ?? ''));
       setPrices({
-        price: initialData.price_dop > 0 ? initialData.price_dop.toString() : (initialData.price?.toString() || ''),
-        initial: initialData.initial_payment_dop > 0 ? initialData.initial_payment_dop.toString() : (initialData.initial_payment?.toString() || '')
+        price: initialData.precio > 0 ? initialData.precio.toString() : (initialData.price_dop > 0 ? initialData.price_dop.toString() : (initialData.price?.toString() || '')),
+        initial: initialData.inicial > 0 ? initialData.inicial.toString() : (initialData.initial_payment_dop > 0 ? initialData.initial_payment_dop.toString() : (initialData.initial_payment?.toString() || ''))
       });
-      setStatus(initialData.status || 'available');
+      setStatus(initialData.status || initialData.estado || 'available');
 
       // Populate Photos
       if (initialData.images && Array.isArray(initialData.images)) {
@@ -1294,7 +1295,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
                           {displayVehicle.make || displayVehicle.marca} {displayVehicle.model || displayVehicle.modelo} ({displayVehicle.year || displayVehicle.ano})
                         </p>
                         <p className="text-sm font-bold text-emerald-600">
-                          {(displayVehicle.price_dop > 0 ? `RD$ ${displayVehicle.price_dop.toLocaleString()}` : `US$ ${(displayVehicle.price || displayVehicle.precio || 0).toLocaleString()}`)} • {displayVehicle.color || 'N/A'}
+                          {formatVehiclePrice(displayVehicle)} • {displayVehicle.color || 'N/A'}
                         </p>
                       </div>
                       <button onClick={() => setSelectedVehicleId("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-white bg-slate-900 hover:bg-red-600 px-4 py-2 rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-slate-900/10 active:scale-95">
@@ -1312,7 +1313,7 @@ const GenerateQuoteModal = ({ isOpen, onClose, inventory, onSave, templates = []
                   >
                     <option value="">-- Seleccionar vehículo --</option>
                     {availableVehicles.map(v => (
-                      <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {v.price_dop > 0 ? `RD$ ${v.price_dop.toLocaleString()}` : `US$ ${(v.price || v.precio || 0).toLocaleString()}`}</option>
+                      <option key={v.id} value={v.id}>{v.make} {v.model} ({v.year}) - {formatVehiclePrice(v)}</option>
                     ))}
                   </select>
                 );
@@ -1416,6 +1417,8 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   const [successData, setSuccessData] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const documentType = initialDocumentType; // Viene del modal de acción: 'cotizacion' | 'contrato'
+
+
 
   // ── Vehicle dropdown ──
   const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
@@ -1707,18 +1710,21 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
       const errors = [];
       for (const templateId of selectedTemplates) {
         try {
-          const docUrl = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, resolvedDealerId || userProfile?.dealerId, ghlToken, documentType);
-          results.push(docUrl);
+          const docResult = await generarContratoEnGHL(cliente, vehicle, locationId, templateId, resolvedDealerId || userProfile?.dealerId, ghlToken, documentType);
+          results.push(docResult);
         } catch (e) {
           console.error(`⚠️ Error GHL Generate para template ${templateId}:`, e);
           errors.push(e.message || "Error GHL");
         }
       }
 
-      // 1. Mostrar éxito y abrir primer documento
+      // 1. Mostrar éxito — el PDF ya puede estar en Supabase si el backend lo procesó
       if (results.length > 0) {
+        const fullClientName = `${clientName} ${clientLastName}`.trim();
+        const firstResult = results[0];
+
         setSuccessData({
-          clientName: `${clientName} ${clientLastName}`,
+          clientName: fullClientName,
           vehicleDamages: vehicle.condition || vehicle.condicion || 'Sin daños',
           vehicleYear: vehicle.year || '',
           vehicleMake: vehicle.make || '',
@@ -1726,8 +1732,9 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
           vehicleTrim: vehicle.trim || vehicle.edition || '',
           vehicleColor: vehicle.color || '',
           vehicleVinLast4: (vehicle.vin || vehicle.chasis_vin || vehicle.chasis || '').slice(-4),
-          documentUrls: results
+          documentUrls: results.map(r => r?.documentUrl || r),
         });
+
 
         // Trigger confetti gigante
         const duration = 3 * 1000;
@@ -1774,6 +1781,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300">
       <div className="w-full h-full sm:h-auto sm:max-w-3xl animate-in zoom-in-95 duration-200 relative">
         {/* LOADING OVERLAY — Estilo Premium */}
@@ -1857,14 +1865,12 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
 
             <div className="flex flex-col sm:flex-row gap-4 w-full max-w-lg" style={{ animation: 'fadeSlideUp 0.6s ease-out 0.7s both' }}>
               {successData.documentUrls && successData.documentUrls.length > 0 && (
-                <a
-                  href={successData.documentUrls[0]}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => window.open(successData.documentUrls[0], '_blank', 'noopener,noreferrer')}
                   className="bg-red-600 hover:bg-red-700 text-white font-black py-5 px-8 text-sm rounded-[20px] shadow-xl shadow-red-600/30 transition-all hover:scale-105 active:scale-95 flex-1 flex items-center justify-center uppercase tracking-widest text-center"
                 >
                   <Eye className="mr-2" size={20} /> Ver Documento
-                </a>
+                </button>
               )}
               <Button
                 onClick={() => {
@@ -2022,9 +2028,7 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
                                 <div className="px-4 py-8 text-center text-sm text-slate-400 font-medium">Sin resultados</div>
                               ) : (
                                 filteredVehicles.map((v, i) => {
-                                  const priceStr = v.price_dop > 0
-                                    ? `RD$ ${v.price_dop.toLocaleString()}`
-                                    : `US$ ${(v.price || v.precio || 0).toLocaleString()}`;
+                                  const priceStr = formatVehiclePrice(v);
                                   const img = v.image || (v.images && v.images[0]) || (v.fotos && v.fotos[0]) || null;
                                   return (
                                     <button
@@ -2336,6 +2340,8 @@ const GenerateContractModal = ({ isOpen, onClose, inventory, onGenerate, templat
         </Card>
       </div>
     </div>
+
+    </>
   );
 };
 
@@ -4589,7 +4595,7 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
                               {formatVehiclePrice(item)}
                             </p>
                             <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                              Inicial: <span className="font-black" style={{ color: 'var(--text-primary)' }}>{formatPrice(item.initial_payment || item.initial_payment_dop || 0, item.downPaymentCurrency || (item.initial_payment_dop > 0 ? 'DOP' : 'USD'))}</span>
+                              Inicial: <span className="font-black" style={{ color: 'var(--text-primary)' }}>{formatPrice(item.inicial || item.initial_payment || item.initial_payment_dop || 0, item.moneda_inicial || item.downPaymentCurrency || item.detalles?.downPaymentCurrency || (item.initial_payment_dop > 0 ? 'DOP' : 'USD'))}</span>
                             </p>
                           </div>
                         )}
@@ -6589,18 +6595,26 @@ export default function CarbotApp() {
       if (error) throw error;
 
       let vehiclesData = (data || []).map(v => {
-        const makeFromTitle = v.detalles?.make || v.titulo_vehiculo?.split(' ')[1] || 'N/A';
-        const modelFromTitle = v.detalles?.model || v.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
-        const yearFromTitle = v.detalles?.year || v.titulo_vehiculo?.split(' ')[0] || '';
+        // PRIORITIZAR: Columnas nativas nuevas -> campo JSON 'detalles' -> parseo básico del título
+        const yearVal = v.anio || v.detalles?.year || v.detalles?.anio || v.titulo_vehiculo?.split(' ')[0] || '';
+        const makeVal = v.marca || v.detalles?.make || v.detalles?.marca || v.titulo_vehiculo?.split(' ')[1] || 'N/A';
+        const modelVal = v.modelo || v.detalles?.model || v.detalles?.modelo || v.titulo_vehiculo?.split(' ').slice(2).join(' ') || 'N/A';
+        const editionVal = v.edicion || v.detalles?.edition || v.detalles?.edicion || '';
+        const typeVal = v.tipo_vehiculo || v.detalles?.type || v.detalles?.tipo_vehiculo || '';
 
         return {
           ...v,
           ...(v.detalles || {}),
-          make: makeFromTitle,
-          marca: makeFromTitle,
-          model: modelFromTitle,
-          modelo: modelFromTitle,
-          year: yearFromTitle,
+          year: yearVal,
+          anio: yearVal,
+          make: makeVal,
+          marca: makeVal,
+          model: modelVal,
+          modelo: modelVal,
+          edition: editionVal,
+          edicion: editionVal,
+          type: typeVal,
+          tipo_vehiculo: typeVal,
 
           status: v.detalles?._deleted ? 'trash' :
             (v.estado === 'Vendido' || v.sold) ? 'sold' :
@@ -6611,33 +6625,41 @@ export default function CarbotApp() {
           image: (v.fotos && v.fotos.length > 0 ? v.fotos[0] : null),
           documents: v.documentos || [],
 
-          exteriorColor: v.color,
-          carfaxCondition: v.condicion_carfax,
-          vin: v.chasis_vin,
-          drivetrain: v.traccion,
-          transmission: v.transmision,
-          engine: v.motor,
-          roof: v.techo,
-          fuelType: v.combustible,
-          keyType: v.llave,
-          camera: v.camara,
-          interiorMaterial: v.material_asientos,
+          exteriorColor: v.color || v.detalles?.color || v.detalles?.exteriorColor,
+          condicion: v.condicion || v.detalles?.condition || v.detalles?.condicion,
+          condition: v.condicion || v.detalles?.condition || v.detalles?.condicion,
+          carfaxCondition: v.condicion_carfax || v.detalles?.condicion_carfax || v.detalles?.carfaxCondition,
+          vin: v.chasis_vin || v.detalles?.vin || v.detalles?.chassis,
+          drivetrain: v.traccion || v.detalles?.traccion || v.detalles?.drivetrain || v.detalles?.traction,
+          transmission: v.transmision || v.detalles?.transmision || v.detalles?.transmission,
+          engine: v.motor || v.detalles?.motor || v.detalles?.engine,
+          roof: v.techo || v.detalles?.techo || v.detalles?.roof,
+          fuelType: v.combustible || v.detalles?.combustible || v.detalles?.fuelType,
+          keyType: v.llave || v.detalles?.llave || v.detalles?.keyType,
+          camera: v.camara || v.detalles?.camara || v.detalles?.camera,
+          interiorMaterial: v.material_asientos || v.detalles?.material_asientos || v.detalles?.interiorMaterial,
 
-          // Logic to preserve backwards compatibility for price_dop/initial_payment_dop
-          currency: v.detalles?.currency || 'USD',
-          downPaymentCurrency: v.detalles?.downPaymentCurrency || 'USD',
-          price: v.detalles?.currency === 'DOP' ? 0 : parseFloat(v.precio || 0),
-          price_dop: v.detalles?.currency === 'DOP' ? parseFloat(v.precio || 0) : 0,
-          initial_payment: v.detalles?.downPaymentCurrency === 'DOP' ? 0 : parseFloat(v.inicial || 0),
-          initial_payment_dop: v.detalles?.downPaymentCurrency === 'DOP' ? parseFloat(v.inicial || 0) : 0,
+          // Logic to preserve backwards compatibility for prices & currencies
+          currency: v.moneda_precio || v.detalles?.currency || 'USD',
+          moneda_precio: v.moneda_precio || v.detalles?.currency || 'USD',
+          downPaymentCurrency: v.moneda_inicial || v.detalles?.downPaymentCurrency || 'USD',
+          moneda_inicial: v.moneda_inicial || v.detalles?.downPaymentCurrency || 'USD',
+          
+          price: parseFloat(v.precio || (v.detalles?.currency === 'DOP' && !v.detalles?.price ? v.detalles?.price_dop : v.detalles?.price) || 0),
+          price_dop: parseFloat(v.precio || (v.detalles?.currency === 'DOP' ? (v.detalles?.price_dop || v.detalles?.price) : 0) || 0),
+          precio: parseFloat(v.precio || (v.detalles?.currency === 'DOP' && !v.detalles?.price ? v.detalles?.price_dop : v.detalles?.price) || 0),
+          
+          initial_payment: parseFloat(v.inicial || (v.detalles?.downPaymentCurrency === 'DOP' && !v.detalles?.initial_payment ? v.detalles?.initial_payment_dop : v.detalles?.initial_payment) || 0),
+          initial_payment_dop: parseFloat(v.inicial || (v.detalles?.downPaymentCurrency === 'DOP' ? (v.detalles?.initial_payment_dop || v.detalles?.initial_payment) : 0) || 0),
+          inicial: parseFloat(v.inicial || (v.detalles?.downPaymentCurrency === 'DOP' && !v.detalles?.initial_payment ? v.detalles?.initial_payment_dop : v.detalles?.initial_payment) || 0),
 
-          mileage: parseFloat(v.millas || 0),
-          seats: parseInt(v.cantidad_asientos || 0),
+          mileage: parseFloat(v.millas || v.detalles?.mileage || 0),
+          seats: parseInt(v.cantidad_asientos || v.detalles?.seats || 0),
 
-          powerTrunk: v.baul_electrico,
-          sensors: v.sensores,
-          appleCarplay: v.carplay,
-          powerWindows: v.vidrios_electricos,
+          powerTrunk: v.baul_electrico ?? v.detalles?.powerTrunk,
+          sensors: v.sensores ?? v.detalles?.sensors,
+          appleCarplay: v.carplay ?? v.detalles?.appleCarplay,
+          powerWindows: v.vidrios_electricos ?? v.detalles?.powerWindows,
 
           ghlLocationId: v.ghl_location_id,
           createdAt: v.created_at,
@@ -6977,6 +6999,11 @@ export default function CarbotApp() {
       const dataToSave = {
         dealer_id: dealerUuid,
         titulo_vehiculo: finalTitle,
+        anio: parseInt(newYear) || null,
+        marca: newMake || null,
+        modelo: newModel || null,
+        edicion: pick(vehicleData.edition, vehicleData.edicion, existingRecord?.edicion, existingRecord?.detalles?.edition),
+        tipo_vehiculo: pick(vehicleData.type, vehicleData.bodyType, vehicleData.tipo_vehiculo, existingRecord?.tipo_vehiculo, existingRecord?.detalles?.type),
         estado: (vehicleData.status === 'sold' || vehicleData.estado === 'Vendido') ? 'Vendido' :
           (vehicleData.status === 'quoted' || vehicleData.estado === 'Cotizado') ? 'Cotizado' :
             (vehicleData.status === 'upcoming' || vehicleData.estado === 'Próximamente') ? 'Próximamente' :
@@ -6996,7 +7023,9 @@ export default function CarbotApp() {
         material_asientos: pick(vehicleData.interiorMaterial, vehicleData.material_asientos, existingRecord?.material_asientos),
 
         precio: pickNum(vehicleData.price, vehicleData.price_dop, vehicleData.precio, existingRecord?.precio),
+        moneda_precio: pick(vehicleData.currency, existingRecord?.moneda_precio, 'USD'),
         inicial: pickNum(vehicleData.initial_payment, vehicleData.initial_payment_dop, vehicleData.inicial, existingRecord?.inicial),
+        moneda_inicial: pick(vehicleData.downPaymentCurrency, existingRecord?.moneda_inicial, 'USD'),
         millas: pickNum(vehicleData.millas, vehicleData.mileage, existingRecord?.millas),
         cantidad_asientos: parseInt(pick(vehicleData.cantidad_asientos, vehicleData.seats, existingRecord?.cantidad_asientos) || 0),
 
@@ -7041,7 +7070,9 @@ export default function CarbotApp() {
       fetchVehiclesFromSupabase();
     } catch (error) {
       console.error("Error al guardar en Supabase:", error);
-      showToast(`Error: ${error?.message || 'Error al guardar en el Dealer'}`, "error");
+      const detailedError = error?.details || error?.hint || error?.message || 'Error desconocido';
+      alert(`Error al guardar en Supabase: ${detailedError}\n\nRevisa la consola para más detalles.`);
+      showToast(`Error: ${detailedError}`, "error");
     }
   };
 
