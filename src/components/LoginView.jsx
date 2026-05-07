@@ -37,7 +37,18 @@ export default function LoginView({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [savedUser, setSavedUser] = useState(null); // { name, email, lastLoginAt }
+
+  const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('carbot-last-user');
+      if (raw) setSavedUser(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [phraseVisible, setPhraseVisible] = useState(true);
 
@@ -60,6 +71,82 @@ export default function LoginView({ onLoginSuccess }) {
 
   // Reset error on step change
   useEffect(() => { setError(''); }, [step]);
+
+  const saveLastUser = (name, emailAddr, refreshToken) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('carbot-last-user') || '{}');
+      localStorage.setItem('carbot-last-user', JSON.stringify({
+        ...existing,
+        name: name || emailAddr,
+        email: emailAddr,
+        lastLoginAt: Date.now(),
+        ...(refreshToken ? { rt: refreshToken } : {}),
+      }));
+    } catch { /* ignore */ }
+  };
+
+  // ── Acceso rápido con usuario guardado ────────────────────────
+  const handleQuickAccess = async () => {
+    if (!savedUser) return;
+    const isRecent = Date.now() - savedUser.lastLoginAt < FIFTEEN_DAYS_MS;
+    setEmail(savedUser.email);
+    setLoading(true);
+    setError('');
+
+    if (isRecent) {
+      // < 15 días → restaurar sesión con refresh_token (sin contraseña)
+      try {
+        // 1) Intentar sesión activa en memoria
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (existing?.user) {
+          saveLastUser(savedUser.name, savedUser.email, existing.refresh_token);
+          onLoginSuccess?.(existing.user);
+          return;
+        }
+        // 2) Intentar refresh_token guardado
+        const rt = savedUser.rt;
+        if (rt) {
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession({ refresh_token: rt });
+          if (!refreshErr && refreshed?.session?.user) {
+            saveLastUser(savedUser.name, savedUser.email, refreshed.session.refresh_token);
+            onLoginSuccess?.(refreshed.session.user);
+            return;
+          }
+        }
+        // 3) Sin sesión recuperable → pedir contraseña
+        setGhlUser({ name: savedUser.name, email: savedUser.email });
+        setIsNewUser(false);
+        setStep(STEP.PASSWORD);
+      } catch {
+        setGhlUser({ name: savedUser.name, email: savedUser.email });
+        setIsNewUser(false);
+        setStep(STEP.PASSWORD);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // > 15 días → lookup completo + pedir contraseña
+      try {
+        const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/lookup-ghl-user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: savedUser.email }),
+        });
+        const data = await res.json();
+        if (!data.found) {
+          setError(data.error?.message || t('login_user_not_found'));
+        } else {
+          setGhlUser(data);
+          setIsNewUser(data.isNew || data.needsPassword);
+          setStep(STEP.PASSWORD);
+        }
+      } catch {
+        setError(t('login_connection_error'));
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   // ── PASO 1 ──────────────────────────────────────────────────────
   const handleEmailSubmit = async (e) => {
@@ -124,6 +211,8 @@ export default function LoginView({ onLoginSuccess }) {
           password,
         });
         if (loginErr) throw loginErr;
+        if (!rememberMe) localStorage.removeItem('carbot-session');
+        saveLastUser(ghlUser?.name, email.trim().toLowerCase(), loginData.session?.refresh_token);
         onLoginSuccess?.({ ...loginData.user, ...ghlUser });
         return;
       }
@@ -149,7 +238,8 @@ export default function LoginView({ onLoginSuccess }) {
         password,
       });
       if (loginErr) throw loginErr;
-
+      if (!rememberMe) localStorage.removeItem('carbot-session');
+      saveLastUser(ghlUser?.name, email.trim().toLowerCase(), loginData.session?.refresh_token);
       onLoginSuccess?.({ ...loginData.user, ...ghlUser });
     } catch (err) {
       setError(err.message || 'Error al crear cuenta.');
@@ -170,6 +260,8 @@ export default function LoginView({ onLoginSuccess }) {
         password,
       });
       if (loginErr) throw loginErr;
+      if (!rememberMe) localStorage.removeItem('carbot-session');
+      saveLastUser(ghlUser?.name || data.user?.email, email.trim().toLowerCase(), data.session?.refresh_token);
       onLoginSuccess?.(data.user);
     } catch (err) {
       setError(t('login_invalid_credentials'));
@@ -641,6 +733,63 @@ export default function LoginView({ onLoginSuccess }) {
                     {loading ? <><span className="spinner" />{t('login_verifying')}</> : `${t('login_continue')} →`}
                   </button>
                 </form>
+
+                {/* ── Acceso rápido: usuario guardado ── */}
+                {savedUser && (
+                  <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    {/* Divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+                      <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>acceso rápido</span>
+                      <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                    </div>
+                    {/* Pill button */}
+                    <button
+                      type="button"
+                      onClick={handleQuickAccess}
+                      disabled={loading}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '10px',
+                        padding: '8px 20px 8px 8px',
+                        borderRadius: '999px',
+                        border: '1.5px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(255,255,255,0.05)',
+                        cursor: 'pointer', transition: 'all 0.18s',
+                        backdropFilter: 'blur(8px)',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >
+                      {/* Avatar: foto real o inicial */}
+                      {savedUser.avatar ? (
+                        <img
+                          src={savedUser.avatar}
+                          alt={savedUser.name}
+                          style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 2px rgba(227,28,37,0.35)' }}
+                          onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                        />
+                      ) : null}
+                      <div style={{
+                        width: '34px', height: '34px', borderRadius: '50%', background: '#E31C25',
+                        display: savedUser.avatar ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '13px', fontWeight: 800, color: 'white', flexShrink: 0,
+                        boxShadow: '0 0 0 2px rgba(227,28,37,0.25)',
+                      }}>
+                        {savedUser.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 500, color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
+                        ¿Eres <strong style={{ color: '#E31C25' }}>{savedUser.name?.split(' ')[0]}</strong>?
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { localStorage.removeItem('carbot-last-user'); setSavedUser(null); }}
+                      style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 8px' }}
+                    >
+                      No soy yo
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -740,6 +889,31 @@ export default function LoginView({ onLoginSuccess }) {
                         required
                       />
                     </div>
+                  )}
+
+                  {!isNewUser && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: '4px 0 8px', userSelect: 'none' }}>
+                      <span
+                        onClick={() => setRememberMe(v => !v)}
+                        style={{
+                          width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+                          border: `2px solid ${rememberMe ? '#E31C25' : 'rgba(255,255,255,0.2)'}`,
+                          background: rememberMe ? '#E31C25' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {rememberMe && (
+                          <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                            <path d="M1 4L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(v => !v)} style={{ display: 'none' }} />
+                      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>
+                        Recuérdame en este dispositivo
+                      </span>
+                    </label>
                   )}
 
                   {error && <p className="error-msg">{error}</p>}

@@ -32,7 +32,7 @@ import {
   PlusCircle, Box, ArrowUpRight, Building2, Fingerprint, Lock, EyeOff, Share2, Check, ArrowRight, Key, Copy, Link,
   AlertTriangle, TrendingUp, History, Bell, Calendar, Briefcase, Inbox, Headset, Sparkles, Camera,
   ChevronLeft, ChevronRight, Save, ChevronDown, MoreVertical, FileCode, AtSign, Building, LayoutGrid, ShieldCheck,
-  Phone, Mail, RefreshCw, Users, MessageCircle
+  Phone, Mail, RefreshCw, Users, MessageCircle, UploadCloud, FileSpreadsheet, Table2
 } from 'lucide-react';
 import VehicleEditView from './VehicleEditView';
 import ContactsView from './ContactsView';
@@ -4222,6 +4222,290 @@ const DashboardView = ({ inventory, contracts, onNavigate, userProfile }) => {
     </motion.div>
   );
 };
+// ─── CSV Import Modal ─────────────────────────────────────────────────────────
+const IMPORT_COLUMNS = [
+  { key: 'marca',             example: 'Toyota',              note: 'Marca del vehículo' },
+  { key: 'modelo',            example: 'Corolla',             note: 'Modelo' },
+  { key: 'anio',              example: '2022',                note: 'Año (número)' },
+  { key: 'edicion',           example: 'XSE',                 note: 'Versión/edición' },
+  { key: 'tipo_vehiculo',     example: 'Sedán',               note: 'Jeepeta | Sedán | Pick-Up | Van | Camión | Otro' },
+  { key: 'color',             example: 'Blanco',              note: 'Color exterior' },
+  { key: 'estado',            example: 'Disponible',          note: 'Disponible | Cotizado | Vendido | Próximamente' },
+  { key: 'precio',            example: '850000',              note: 'Precio de venta (número sin comas)' },
+  { key: 'moneda_precio',     example: 'DOP',                 note: 'USD o DOP' },
+  { key: 'inicial',           example: '200000',              note: 'Pago inicial sugerido (número sin comas)' },
+  { key: 'moneda_inicial',    example: 'DOP',                 note: 'USD o DOP' },
+  { key: 'millas',            example: '35000',               note: 'Kilometraje/millaje (número sin comas)' },
+  { key: 'transmision',       example: 'Automática',          note: 'Automática | Manual' },
+  { key: 'combustible',       example: 'Gasolina',            note: 'Gasolina | Diesel | Híbrido | Eléctrico' },
+  { key: 'motor',             example: '2.5L',                note: 'Cilindrada o descripción del motor' },
+  { key: 'traccion',          example: 'AWD',                 note: 'FWD | RWD | AWD | 4x4' },
+  { key: 'techo',             example: 'Panorámico',          note: 'Tipo de techo (Panorámico | Solar | Sin techo)' },
+  { key: 'material_asientos', example: 'Cuero',               note: 'Cuero | Tela | Cuero sintético | etc.' },
+  { key: 'cantidad_asientos', example: '5',                   note: 'Número de asientos (número)' },
+  { key: 'chasis_vin',        example: '1HGBH41JXMN109186',  note: 'VIN o número de chasis' },
+  { key: 'condicion_carfax',  example: 'Clean',               note: 'Clean | Salvage | Rebuilt | etc.' },
+  { key: 'llave',             example: 'Smart Key',           note: 'Smart Key | Llave física | Tarjeta' },
+  { key: 'camara',            example: '360°',                note: 'Trasera | 360° | Sin cámara' },
+  { key: 'carplay',           example: 'true',                note: 'true o false' },
+  { key: 'sensores',          example: 'true',                note: 'true o false' },
+  { key: 'baul_electrico',    example: 'true',                note: 'true o false' },
+  { key: 'vidrios_electricos',example: 'true',                note: 'true o false' },
+];
+
+const BOOL_KEYS = new Set(['carplay', 'sensores', 'baul_electrico', 'vidrios_electricos']);
+const NUM_KEYS  = new Set(['anio', 'precio', 'inicial', 'millas', 'cantidad_asientos']);
+
+function parseBool(val) {
+  if (typeof val === 'boolean') return val;
+  const s = String(val).trim().toLowerCase();
+  return s === 'true' || s === 'sí' || s === 'si' || s === '1' || s === 'yes';
+}
+
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).map(line => {
+    const values = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { values.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+    values.push(cur);
+    const row = {};
+    headers.forEach((h, i) => { row[h] = (values[i] || '').trim(); });
+    return row;
+  });
+}
+
+const ImportInventoryModal = ({ isOpen, onClose, onSave, userProfile, resolvedDealerId, showToast }) => {
+  const [tab, setTab] = useState('download');
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0, errors: [] });
+  const fileRef = React.useRef(null);
+
+  const dealerId = resolvedDealerId || userProfile?.dealerId || userProfile?.dealer_id || '';
+
+  const downloadTemplate = () => {
+    const headers = IMPORT_COLUMNS.map(c => c.key);
+    const exampleRow = IMPORT_COLUMNS.map(c => c.example);
+    // Escape values that contain commas
+    const escapeCSV = (val) => (String(val).includes(',') ? `"${val}"` : String(val));
+    const csvContent = [
+      headers.map(escapeCSV).join(','),
+      exampleRow.map(escapeCSV).join(','),
+    ].join('\n');
+    const bom = '﻿';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Plantilla Inventario CarBot.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rows = parseCSV(ev.target.result);
+      setPreview(rows.slice(0, 5));
+    };
+    reader.readAsText(f, 'utf-8');
+  };
+
+  const handleImport = async () => {
+    if (!file) return;
+    setImporting(true);
+    setProgress({ done: 0, total: 0, errors: [] });
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const rows = parseCSV(ev.target.result);
+      const errors = [];
+      setProgress({ done: 0, total: rows.length, errors: [] });
+      for (let i = 0; i < rows.length; i++) {
+        const raw = rows[i];
+        const vehicleData = {};
+        for (const col of IMPORT_COLUMNS) {
+          const val = raw[col.key];
+          if (val === undefined || val === '') continue;
+          if (BOOL_KEYS.has(col.key)) vehicleData[col.key] = parseBool(val);
+          else if (NUM_KEYS.has(col.key)) vehicleData[col.key] = Number(val) || 0;
+          else vehicleData[col.key] = val;
+        }
+        // Force dealer_id to the authenticated dealer, never trust CSV value
+        vehicleData.dealer_id = dealerId;
+        if (!vehicleData.marca && !vehicleData.modelo) {
+          errors.push(`Fila ${i + 2 + skipped}: falta marca o modelo`);
+          setProgress(p => ({ ...p, done: p.done + 1, errors: [...p.errors, `Fila ${i + 2 + skipped}: falta marca o modelo`] }));
+          continue;
+        }
+        try {
+          await onSave(vehicleData);
+        } catch (err) {
+          errors.push(`Fila ${i + 2}: ${err.message || 'error desconocido'}`);
+        }
+        setProgress(p => ({ ...p, done: p.done + 1, errors: errors.slice() }));
+      }
+      setImporting(false);
+      if (errors.length === 0) {
+        showToast(`${rows.length} vehículo(s) importado(s) con éxito`);
+        onClose();
+      } else {
+        showToast(`Importación completada con ${errors.length} error(es)`);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'var(--border-glass)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-red-600">
+              <FileSpreadsheet size={18} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-[0.15em]" style={{ color: 'var(--text-primary)' }}>Importar Inventario</h2>
+              <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-tertiary)' }}>CSV masivo de vehículos</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors hover:bg-red-50 dark:hover:bg-red-950/30" style={{ color: 'var(--text-tertiary)' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex p-2 gap-1 m-4 mb-0 rounded-2xl" style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+          {[['download', Download, 'Descargar Plantilla'], ['upload', UploadCloud, 'Subir CSV']].map(([key, Icon, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${tab === key ? 'shadow-md' : ''}`}
+              style={tab === key ? { background: 'var(--bg-elevated)', color: 'var(--accent)', boxShadow: 'var(--shadow-card)' } : { color: 'var(--text-secondary)' }}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-6">
+          {tab === 'download' && (
+            <div className="space-y-4">
+              <div className="rounded-2xl p-4 space-y-2" style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>La plantilla incluye</p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {IMPORT_COLUMNS.filter(c => c.key !== '_ejemplo').map(c => (
+                    <span key={c.key} className="px-2 py-0.5 rounded-lg text-[10px] font-semibold" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>{c.key}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl p-4 text-xs space-y-1" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <p className="font-black text-red-600 uppercase tracking-widest text-[10px]">Importante</p>
+                <p style={{ color: 'var(--text-secondary)' }}>La plantilla incluye una <span className="font-bold">fila de muestra</span> con todos los campos llenos — úsala como guía. Bórrala antes de subir o súbela tal cual, el sistema asignará el inventario a tu cuenta automáticamente.</p>
+              </div>
+              <button
+                onClick={downloadTemplate}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest text-white bg-red-600 shadow-lg shadow-red-600/30 hover:bg-red-700 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Download size={16} />
+                Descargar Plantilla CSV
+              </button>
+            </div>
+          )}
+
+          {tab === 'upload' && (
+            <div className="space-y-4">
+              <label
+                className="flex flex-col items-center justify-center gap-3 py-10 rounded-2xl cursor-pointer transition-all border-2 border-dashed hover:border-red-400"
+                style={{ borderColor: file ? 'var(--accent)' : 'var(--border-glass)', background: 'var(--bg-glass)' }}
+              >
+                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+                <UploadCloud size={32} className={file ? 'text-red-500' : ''} style={!file ? { color: 'var(--text-tertiary)' } : {}} />
+                <div className="text-center">
+                  <p className="text-sm font-bold" style={{ color: file ? 'var(--accent)' : 'var(--text-secondary)' }}>{file ? file.name : 'Selecciona el archivo CSV'}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Solo archivos .csv</p>
+                </div>
+              </label>
+
+              {preview.length > 0 && (
+                <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-glass)' }}>
+                  <p className="text-[10px] font-black uppercase tracking-widest px-4 py-2.5" style={{ background: 'var(--bg-glass)', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-glass)' }}>
+                    Vista previa — primeras {preview.length} filas
+                  </p>
+                  <div className="overflow-x-auto max-h-36">
+                    <table className="text-[10px] w-full">
+                      <thead>
+                        <tr style={{ background: 'var(--bg-tertiary)' }}>
+                          {Object.keys(preview[0]).slice(0, 8).map(h => (
+                            <th key={h} className="px-3 py-1.5 text-left font-black uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.map((row, i) => (
+                          <tr key={i} style={{ borderTop: '1px solid var(--border-glass)' }}>
+                            {Object.values(row).slice(0, 8).map((v, j) => (
+                              <td key={j} className="px-3 py-1.5 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{String(v).slice(0, 20)}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {importing && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
+                    <span>Importando...</span>
+                    <span>{progress.done} / {progress.total}</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-glass)' }}>
+                    <div
+                      className="h-full bg-red-600 rounded-full transition-all duration-300"
+                      style={{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  {progress.errors.length > 0 && (
+                    <div className="rounded-xl p-3 text-[10px] space-y-0.5 max-h-20 overflow-y-auto" style={{ background: 'rgba(239,68,68,0.08)', color: 'var(--accent)' }}>
+                      {progress.errors.map((e, i) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                onClick={handleImport}
+                disabled={!file || importing}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                style={{ background: !file || importing ? 'var(--text-tertiary)' : 'var(--accent)', boxShadow: !file || importing ? 'none' : '0 8px 24px rgba(227,28,37,0.3)' }}
+              >
+                {importing ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+                {importing ? 'Importando...' : 'Importar Vehículos'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], showToast, onGenerateContract, onGenerateQuote, onVehicleSelect, onSellQuoted, onSave, onDelete, onDeleteQuote, onRedoSale, activeTab, setActiveTab, userProfile, searchTerm, requestConfirmation, templates = [], resolvedDealerId, isLoading, readOnly, ghlContacts = [] }) => {
   const { t } = useI18n();
   const { formatVehiclePrice, formatPrice, selected: selectedCurrencies } = useCurrency();
@@ -4233,14 +4517,20 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [currentVehicle, setCurrentVehicle] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const headerMenuRef = React.useRef(null);
 
   useEffect(() => {
-    const handleGlobalClick = () => setOpenMenuId(null);
-    if (openMenuId) {
-      window.addEventListener('click', handleGlobalClick);
-    }
+    const handleGlobalClick = (e) => {
+      setOpenMenuId(null);
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) {
+        setShowHeaderMenu(false);
+      }
+    };
+    window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
-  }, [openMenuId]);
+  }, []);
 
   const handleDuplicate = async (e, vehicle) => {
     e.stopPropagation();
@@ -4434,7 +4724,31 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
         )}
 
         {!readOnly && (
-          <Button onClick={handleCreate} icon={Plus} className="w-full sm:w-auto shadow-lg shadow-red-600/20 py-3 sm:py-2.5">{t('addNewVehicle')}</Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button onClick={handleCreate} icon={Plus} className="flex-1 sm:flex-none shadow-lg shadow-red-600/20 py-3 sm:py-2.5">{t('addNewVehicle')}</Button>
+            <div className="relative" ref={headerMenuRef}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowHeaderMenu(v => !v); }}
+                className="flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:scale-105 active:scale-95"
+                style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}
+                title="Más opciones"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {showHeaderMenu && (
+                <div className="absolute right-0 top-12 z-50 rounded-2xl shadow-2xl overflow-hidden min-w-[210px]" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-glass)' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowHeaderMenu(false); setShowImportModal(true); }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-left transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    <UploadCloud size={16} className="text-red-500 flex-shrink-0" />
+                    Importar Inventario
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -4784,6 +5098,17 @@ const InventoryView = ({ inventory, setInventory, quotes = [], contracts = [], s
           templates={templates}
           showToast={showToast}
           initialData={currentVehicle}
+        />,
+        document.body
+      )}
+      {showImportModal && createPortal(
+        <ImportInventoryModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onSave={onSave}
+          userProfile={userProfile}
+          resolvedDealerId={resolvedDealerId}
+          showToast={showToast}
         />,
         document.body
       )}
@@ -6344,6 +6669,16 @@ export default function CarbotApp() {
             }
 
             setUserProfile(profileData);
+            // Enrich saved user with latest avatar so LoginView can show the real photo
+            try {
+              const raw = localStorage.getItem('carbot-last-user');
+              if (raw) {
+                const saved = JSON.parse(raw);
+                saved.avatar = profileData.avatar_url || profileData.photoURL || profileData.foto_url || '';
+                saved.name = profileData.name || profileData.nombre || saved.name;
+                localStorage.setItem('carbot-last-user', JSON.stringify(saved));
+              }
+            } catch { /* ignore */ }
             setInitializing(false);
           } else {
             // No se pudo determinar el dealer
